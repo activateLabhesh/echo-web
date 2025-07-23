@@ -1,6 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Video, Phone, Plus } from "lucide-react";
+import {socket} from "@/socket";
+
+
+const channelId="room123"; //change this to userid for dms and channelid for channels
+const senderId= "SENDER"; //this will be the display name of user 
+
 import MessageInput from "./MessageInput";
 import { fetchMessages, uploadMessage } from "@/app/api/API";
 
@@ -30,6 +37,63 @@ export default function ChatWindow({ channelId, isDM }: ChatWindowProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    console.log('Socket initialized:', socket.connected);
+  
+    if (!socket.connected) {
+      console.log('Connecting socket...');
+      socket.connect();
+    }
+  
+    socket.on('connect', () => {
+      console.log('Socket connected:', socket.id);
+    });
+  
+    socket.on('connect_error', (err) => {
+      console.error('Socket connection error:', err);
+    });
+  
+    return () => {
+      socket.off('connect');
+      socket.off('connect_error');
+    };
+  }, []);
+
+  useEffect(() => {
+    // Join the room
+    socket.emit("join_room", channelId);
+  
+    // Listen for messages
+    const handleIncomingMessage = (data: any) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: prev.length + 1,
+          name: data.senderId,
+          isSender: data.senderId === senderId,
+          message: data.content,
+          avatarUrl: data.senderId === senderId ? "/User_profil.png" : "https://avatars.dicebear.com/api/bottts/pranav.svg",
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    };
+  
+    socket.on("chat_message", handleIncomingMessage);
+  
+    return () => {
+      socket.off("chat_message", handleIncomingMessage);
+    };
+  }, []);
+  
+  const sendMessage = (text: string) => {
+    console.log("Message sent");
+    if (!text.trim()) return;
+  
+    socket.emit("chat_message", {
+      channelId,
+      senderId,
+      content: text,
+    });
   const handleSend = async (msg: string) => {
     try {
       const newMsg = await uploadMessage({
@@ -60,4 +124,6 @@ export default function ChatWindow({ channelId, isDM }: ChatWindowProps) {
       <MessageInput sendMessage={handleSend} />
     </div>
   );
+  }
 }
+

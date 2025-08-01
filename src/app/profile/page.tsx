@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getUser } from "../../api";
-import type { User } from "../../api";
+import { getUser } from "../api";
+import type { User } from "../api";
 export default function ProfilePage() {
     const numPolygons = 10;
     const maxOpacity = 0.6;

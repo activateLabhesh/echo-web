@@ -1,6 +1,4 @@
-import axios from "axios";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
+import { apiClient } from "@/utils/apiClient";
 
 // ---------- Types ----------
 export interface Server {
@@ -24,67 +22,40 @@ interface ApiResponse<T> {
   message?: string;
 }
 
-// ---------- Token Utilities ----------
-const getToken = (): string | null =>
-  typeof window !== "undefined"
-    ? localStorage.getItem("token") || localStorage.getItem("supabase_token")
-    : null;
-
-const getUserIdFromToken = (token: string | null): string | null => {
-  if (!token) return null;
-  try {
-    const payloadBase64 = token.split(".")[1];
-    const decodedPayload = JSON.parse(atob(payloadBase64));
-    return decodedPayload.sub || null;
-  } catch (error) {
-    console.error("Failed to decode token:", error);
-    return null;
-  }
-};
-
 // ---------- Axios Setup ----------
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
+// The apiClient is configured to send credentials (like cookies) with each request.
+// This removes the need for manual token handling on the client-side.
 
-apiClient.interceptors.request.use((config) => {
-  const token = getToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
 
+// The response interceptor remains to handle authentication errors globally.
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Handle auth errors, e.g., redirect to login if session expires
     if ([401, 403].includes(error.response?.status)) {
-      console.error("Authentication failed:", error.response?.data);
+      console.error("Authentication Error:", error.response?.data);
+      // Optionally, you could trigger a redirect to a login page here.
+      // window.location.href = '/login';
     }
     return Promise.reject(error);
   }
 );
 
+// ---------- Server APIs ----------
 export const createServer = async (payload: {
   name: string;
-  iconUrl?: string;
-  ownerId: string;
   icon?: File;
 }): Promise<Server> => {
   try {
     const formData = new FormData();
     formData.append("name", payload.name);
-    formData.append("ownerId", payload.ownerId);
     if (payload.icon) {
       formData.append("icon", payload.icon);
     }
 
+    // The server will identify the owner from the session cookie.
     const response = await apiClient.post<Server>(
-      "/api/newserver/create/",
+      "/newserver/create/",
       formData,
       {
         headers: {
@@ -101,17 +72,7 @@ export const createServer = async (payload: {
 
 export const fetchServers = async (): Promise<Server[]> => {
   try {
-    const token = getToken();
-    if (!token) {
-      throw new Error("No authentication token found");
-    }
-
-    const response = await apiClient.get("/api/newserver/getServers/", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
+    const response = await apiClient.get("/newserver/getServers/");
     return response.data;
   } catch (error) {
     console.error("Error fetching servers:", error);
@@ -120,9 +81,11 @@ export const fetchServers = async (): Promise<Server[]> => {
 };
 
 // ---------- Channel APIs ----------
-export const fetchChannelsByUser = async (userId: string): Promise<any> => {
+// The server can identify the user from the request cookie, so userId is not needed.
+export const fetchChannelsByServer = async (serverId: string): Promise<any> => {
   try {
-    const response = await apiClient.get(`/api/user/${userId}/getChannels`);
+    // The endpoint should be designed to fetch channels for the authenticated user for a given server.
+    const response = await apiClient.get(`/channel/${serverId}/getChannels`);
     return response.data;
   } catch (error) {
     console.error("Error fetching channels:", error);
@@ -133,13 +96,13 @@ export const fetchChannelsByUser = async (userId: string): Promise<any> => {
 // ---------- Message APIs ----------
 export const uploadMessage = async (payload: {
   message: string;
-  senderId: string;
   channelId: string;
   isDM: boolean;
 }): Promise<Message> => {
   try {
+    // The server will get the senderId from the authenticated user's session.
     const response = await apiClient.post<Message>(
-      "/api/message/upload",
+      "/message/upload",
       payload
     );
     return response.data;
@@ -159,11 +122,10 @@ export const fetchMessages = async (
       messages?: Message[];
       data?: Message[];
     }>(
-      `/api/message/fetch?channel_id=${channelId}&is_dm=${isDM}&offset=${offset}`
+      `/message/fetch?channel_id=${channelId}&is_dm=${isDM}&offset=${offset}`
     );
 
     const messages = response.data.messages || response.data.data || [];
-
     return { data: messages };
   } catch (error) {
     console.error("Error fetching messages:", error);
@@ -172,9 +134,10 @@ export const fetchMessages = async (
 };
 
 // ---------- Direct Messages ----------
-export const getUserDMs = async (userId: string): Promise<any> => {
+// The server identifies the user from the cookie, so userId is not needed.
+export const getUserDMs = async (): Promise<any> => {
   try {
-    const response = await apiClient.get(`/api/message/${userId}/getDms`);
+    const response = await apiClient.get(`/dms`);
     return response.data;
   } catch (error: any) {
     if (error?.code === "ECONNABORTED") {
@@ -184,26 +147,4 @@ export const getUserDMs = async (userId: string): Promise<any> => {
     console.error("Error fetching DMs:", error.message || error);
     throw new Error("Error fetching DMs");
   }
-};
-
-// ---------- Auth Utils ----------
-export const setAuthToken = (token: string): void => {
-  if (typeof window !== "undefined") {
-    localStorage.setItem("token", token);
-  }
-};
-
-export const removeAuthToken = (): void => {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem("token");
-    localStorage.removeItem("supabase_token");
-  }
-};
-
-export const isAuthenticated = (): boolean => {
-  return getToken() !== null;
-};
-
-export const getLoggedInUserId = (): string | null => {
-  return getUserIdFromToken(getToken());
 };

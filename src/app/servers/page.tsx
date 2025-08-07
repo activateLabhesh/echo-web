@@ -14,7 +14,7 @@ import {
 } from "@/app/api/API";
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:5000");
+const socket = io(process.env.NEXT_PUBLIC_API_URL);
 
 const TENOR_API_KEY = process.env.NEXT_PUBLIC_TENOR_API_KEY!;
 

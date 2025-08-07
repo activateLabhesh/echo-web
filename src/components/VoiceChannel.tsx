@@ -5,7 +5,7 @@ import { VideoVoiceService } from '../lib/voiceservice'; // Corrected import pat
 import { FaMicrophone, FaMicrophoneSlash, FaPhoneSlash, FaVideo, FaVideoSlash } from 'react-icons/fa';
 
 // IMPORTANT: Replace this with the actual URL of your backend server
-const SERVER_URL = 'http://localhost:5000'; 
+const SERVER_URL = process.env.NEXT_PUBLIC_API_URL; 
 
 // Define the props for the component
 interface VoiceChannelProps {
@@ -33,7 +33,7 @@ const VoiceChannel = ({ channelId, onHangUp }: { channelId: string; onHangUp: ()
     const [isCameraOn, setIsCameraOn] = useState(true);
 
     useEffect(() => {
-        const videoService = new VideoVoiceService("http://localhost:5000");
+        const videoService = new VideoVoiceService(`${process.env.NEXT_PUBLIC_API_URL}`);
         videoService.connect().then(() => {
             setService(videoService);
             setLocalStream(videoService.getLocalStream());

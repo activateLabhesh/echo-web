@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { VoiceService } from '../../lib/voiceservice';
+import { VideoVoiceService } from '../../lib/voiceservice';
 
-const voice = new VoiceService("http://localhost:5000");
+const voice = new VideoVoiceService(`${process.env.NEXT_PUBLIC_API_URL}`);
 
 export default function VoiceTest() {
   const [connected, setConnected] = useState(false);

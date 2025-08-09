@@ -1,9 +1,9 @@
 'use client';
-import { login } from "../../api";
+import { login,getToken } from "../../api";
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-
+import { supabase } from '@/lib/supabaseClient';
 export default function Login() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -18,18 +18,21 @@ export default function Login() {
     setSuccess(false);
 
     try {
-      const response = await login(identifier, password);
-      console.log(response);
-      if(response.status==200){
+      const data = await login(identifier, password);
+      console.log("Login response:", data);
+
       setSuccess(true);
       if (typeof window !== "undefined") {
-        localStorage.setItem("user", JSON.stringify(response.data.user));
+        localStorage.setItem("user", JSON.stringify(data.user));
+        if (data.token) {
+          localStorage.setItem("access_token", data.token);
+          console.log("Saved token:", data.token);
+          console.log("Current in localStorage:", localStorage.getItem("access_token"));
+          getToken(data.token);
+        }
       }
-      setMessage(response.data.message || 'Login successful!');
-
-      router.push('/servers ');
-      }
-
+      setMessage(data.message || 'Login successful!');
+      router.push('/servers');
     } catch (error: any) {
       setSuccess(false);
       setMessage(
@@ -37,9 +40,25 @@ export default function Login() {
           error?.message ||
           'Login failed. Please try again.'
       );
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("user");
+        getToken(undefined);  // clear token in axios headers
+      }
     }
   }
-
+  const handleGoogleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/servers`,
+      },
+    });
+    if (error) {
+      setMessage(error.message);
+      setSuccess(false);
+    }
+  };
   return (
       <div className="flex h-screen bg-black font-sans">
         <div className="w-1/2 h-full">
@@ -89,7 +108,6 @@ export default function Login() {
                 <label className="text-white text-sm font-light">Email or Username</label>
                 <input
                     type="text"
-                    placeholder="Email or Username"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     className="w-full px-4 py-2 mt-1 text-white bg-transparent border border-white rounded-md focus:outline-none"
@@ -151,6 +169,7 @@ export default function Login() {
             {/* Google Sign In Button */}
             <button
                 type="button"
+                onClick={handleGoogleLogin}
                 className="flex items-center justify-center w-full py-3 mb-2 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-100 transition"
             >
               <img src="/Google.svg" alt="Google" className="w-6 h-6 mr-3" />

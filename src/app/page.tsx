@@ -5,16 +5,51 @@ import SharkWithEyes from "@/components/shark";
 import AOS from "aos";
 import "aos/dist/aos.css";
 import { useRouter } from "next/navigation";
+import Modal from 'react-modal';
+Modal.setAppElement('body');
 
 export default function Home() {
   const router = useRouter();
   const [faq, setfaq] = useState<number | null>(null);
   const [showNavbar, setShowNavbar] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
-
   const [name, setname] = useState<string>()
   const [email, setemail] = useState<string>()
   const [message, setmessage] = useState<string>()
+  const [showPopup, setShowPopup] = useState(false);
+  const[targetHref, setTargetHref] = useState<string | null>(null) ;
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    // Check screen size
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    handleResize(); // initial check
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const handleLinkClick = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement)?.closest('a');
+
+      if (!target || !(target instanceof HTMLAnchorElement)) return;
+
+      const href = target.getAttribute('href');
+
+      if (href && isMobile) {
+        e.preventDefault();
+        setTargetHref(href);
+        setShowPopup(true);
+      }
+    };
+
+    document.addEventListener('click', handleLinkClick);
+    return () => document.removeEventListener('click', handleLinkClick);
+  }, [isMobile]);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const hash = window.location.hash;
@@ -47,6 +82,14 @@ export default function Home() {
   }, [lastScrollY]);
 
   useEffect(() => {
+    if (isMobile && showPopup) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [showPopup, isMobile]);
+
+  useEffect(() => {
     AOS.init({
       duration: 800,
       once: true,
@@ -68,7 +111,7 @@ export default function Home() {
 
             {/* Left Section (Text) */}
             <div className='w-full md:w-1/2 text-white text-center md:text-left lg:pl-10'>
-              <h1 className="text-[28px] sm:text-[36px] md:text-[45px] lg:text-[60px] pt-16 font-semibold leading-tight md:pl-10">
+              <h1 className="pt-72 md:pt-16 text-[28px] sm:text-[36px] md:text-[45px] lg:text-[60px] font-semibold leading-tight md:pl-10">
                 Say it once. <br />Echo it forever.
               </h1>
               <p className='mt-4 text-base sm:text-lg md:text-xl lg:text-xl md:pl-10'>
@@ -78,13 +121,16 @@ export default function Home() {
               </p>
 
               {/* Buttons */}
-              <div className='flex flex-col sm:flex-row items-center justify-center md:justify-start mt-8 gap-4 md:pl-10'>
-                <div className='card-wrapper-1 h-[60px] w-[120px] cursor-pointer'>
+              <div className='hidden md:flex flex-col sm:flex-row items-center justify-center md:justify-start mt-8 gap-4 md:pl-10'>
+
+                <div className='card-wrapper-1 h-[60px] w-[120px] cursor-pointer'
+                     onClick={() => router.push('/login')}>
                   <div className='card-content-1 flex items-center justify-center text-xs'>
                     <div className='max-w-[80%] text-center text-lg font-bold'>Login</div>
                   </div>
                 </div>
-                <div className='card-wrapper-2 h-[60px] w-[120px] cursor-pointer'>
+                <div className='card-wrapper-2 h-[60px] w-[120px] cursor-pointer'
+                     onClick={() => router.push('/signup')}>
                   <div className='card-content-2 flex items-center justify-center text-xs'>
                     <div className='max-w-[80%] text-center text-lg font-bold'>Signup</div>
                   </div>
@@ -99,7 +145,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
 
       {/* Explore Echo space */}
       <div id='about-us' className='overflow-x-hidden w-screen'>
@@ -144,12 +189,12 @@ export default function Home() {
                 Build Your Space. <br />Stay in Touch.
               </h1>
               <p className='text-white text-base md:text-[20px] mt-4'>
-                Create and customize servers <br />on web — chat effortlessly <br />with your community on <br />mobile.
+                Create and customize servers <br />on web — chat effortlessly with your community on mobile.
               </p>
             </div>
 
             {/* Image Container */}
-            <div className='relative w-[70vw] lg:w-[60%] max-w-[700px] h-[300px] md:h-[500px] lg:h-[600px]'>
+            <div className='relative w-[70vw] lg:w-[60%] max-w-[700px] h-[300px] md:h-[500px] lg:h-[600px] ml-14 md:ml-0'>
               <img
                 src="websample.svg"
                 alt="Web Sample"
@@ -400,6 +445,32 @@ export default function Home() {
                   </a>
                 </div>
               </div>
+              <Modal
+                  isOpen={showPopup}
+                  onRequestClose={() => setShowPopup(false)}
+                  contentLabel="Navigation Confirmation"
+                  className="bg-white p-6 rounded-xl shadow-xl max-w-md mx-auto mt-40 outline-none"
+                  overlayClassName="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"
+              >
+                <h2 className="text-lg font-semibold mb-4">Do you want to continue?</h2>
+                <div className="flex justify-end gap-4">
+                  <button
+                      onClick={() => {
+                        setShowPopup(false);
+                        if (targetHref) router.push(targetHref);
+                      }}
+                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  >
+                    Yes
+                  </button>
+                  <button
+                      onClick={() => setShowPopup(false)}
+                      className="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400"
+                  >
+                    No
+                  </button>
+                </div>
+              </Modal>
 
               {/* VIT Chapter Section */}
               <div className='flex justify-center md:items-center md:justify-end'>

@@ -1,6 +1,6 @@
 "use client";
 
-import DashboardCard from "../../../components/DashboardCard";
+import DashboardCard from "../../components/DashboardCard";
 
 const featuredCommunities = [
   { title: "Gaming", image: "/gaming.jpg" },

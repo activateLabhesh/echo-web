@@ -4,8 +4,24 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2dee1387-15a0-4c2f-a8be-99b4fbe97d24" name="Changes" comment="Changed bio to show default message if no bio message present.">
+    <list default="true" id="2dee1387-15a0-4c2f-a8be-99b4fbe97d24" name="Changes" comment="Google signIn integrated">
+      <change afterPath="$PROJECT_DIR$/src/app/delete-account/page.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/next.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/next.config.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/(auth)/login/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/(auth)/login/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/api.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/api.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/auth/forgot-password/page.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/auth/layout.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/auth/login/page.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/auth/reset-password/page.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/auth/signup/page.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/profile-setiings/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/profile-settings/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/profile/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/profile/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/Sidebar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/Sidebar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/navbar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/navbar.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -13,6 +29,11 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="New" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="SWAP_SIDES_IN_COMPARE_BRANCHES" value="true" />
   </component>
@@ -24,7 +45,7 @@
 }</component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/IEEECS-VIT/echo-web.git&quot;,
+    &quot;url&quot;: &quot;https://github.com/MEHELIGHOSH/echo-web.git&quot;,
     &quot;accountId&quot;: &quot;1be9c8af-373c-4069-9650-051ee6a345fe&quot;
   }
 }</component>
@@ -40,25 +61,27 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Node.js.supabaseClient.ts.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "#13 on Integration",
-    "last_opened_file_path": "C:/Users/MEHELI GHOSH/WebstormProjects/echo-web/public",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "preferences.keymap",
-    "ts.external.directory.path": "C:\\Users\\MEHELI GHOSH\\WebstormProjects\\echo-web\\node_modules\\typescript\\lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Node.js.supabaseClient.ts.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;New-branch&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/MEHELI GHOSH/WebstormProjects/EchoWeb&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.keymap&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\MEHELI GHOSH\\WebstormProjects\\EchoWeb\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\MEHELI GHOSH\WebstormProjects\EchoWeb" />
       <recent name="C:\Users\MEHELI GHOSH\WebstormProjects\echo-web\public" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
@@ -110,6 +133,16 @@
       <workItem from="1752598096132" duration="7712000" />
       <workItem from="1752670639445" duration="13301000" />
       <workItem from="1753114696411" duration="3375000" />
+      <workItem from="1754150594939" duration="668000" />
+      <workItem from="1754151281201" duration="3772000" />
+      <workItem from="1754155316204" duration="2232000" />
+      <workItem from="1754157609470" duration="16000" />
+      <workItem from="1754157634136" duration="3676000" />
+      <workItem from="1754238776409" duration="5548000" />
+      <workItem from="1754325601642" duration="3175000" />
+      <workItem from="1754381007612" duration="11000" />
+      <workItem from="1754414603064" duration="5871000" />
+      <workItem from="1754669578275" duration="17035000" />
     </task>
     <task id="LOCAL-00001" summary="I have fixed the stuff. I saw VITE on the resource material that was sent to us so i thought we needed to use it. Please reveiw it once.">
       <option name="closed" value="true" />
@@ -295,7 +328,15 @@
       <option name="project" value="LOCAL" />
       <updated>1753115142671</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="Google signIn integrated">
+      <option name="closed" value="true" />
+      <created>1754161356219</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1754161356219</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -334,6 +375,7 @@
     <MESSAGE value="Forget and reset password backend integration." />
     <MESSAGE value="Resolved merge conflicts" />
     <MESSAGE value="Changed bio to show default message if no bio message present." />
-    <option name="LAST_COMMIT_MESSAGE" value="Changed bio to show default message if no bio message present." />
+    <MESSAGE value="Google signIn integrated" />
+    <option name="LAST_COMMIT_MESSAGE" value="Google signIn integrated" />
   </component>
 </project>

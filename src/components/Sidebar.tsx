@@ -1,6 +1,6 @@
 "use client";
 import { getUser } from "../app/api";
-import type { User } from "../app/api";
+import type { profile } from "../app/api";
 import {
   LayoutDashboard,
   Users,
@@ -30,7 +30,7 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<profile | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -130,7 +130,7 @@ export default function Sidebar() {
             <div className="relative shrink-0">
               <div className="p-[2px] rounded-full bg-gradient-to-tr from-purple-500 via-pink-500 to-indigo-500">
                 <Image
-                  src="/User_profil.png"
+                  src={user?.avatar_url || "/avatar.png"}
                   alt="User"
                   width={40}
                   height={40}

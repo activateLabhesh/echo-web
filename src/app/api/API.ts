@@ -59,7 +59,7 @@ export const createServer = async (payload: {
 
     // The server will identify the owner from the session cookie.
     const response = await apiClient.post<Server>(
-      "/newserver/create/",
+      "/api/newserver/create/",
       formData,
       {
         headers: {
@@ -76,7 +76,7 @@ export const createServer = async (payload: {
 
 export const fetchServers = async (): Promise<Server[]> => {
   try {
-    const response = await apiClient.get(`${API_BASE_URL}/newserver/getServers/`);
+    const response = await apiClient.get(`${API_BASE_URL}/api/newserver/getServers/`);
     console.log("response.data")
     return response.data;
   } catch (error) {
@@ -89,7 +89,7 @@ export const fetchServers = async (): Promise<Server[]> => {
 // The server can identify the user from the request cookie, so userId is not needed.
 export const fetchChannelsByServer = async (serverId: string): Promise<any> => {
   try {
-    const response = await apiClient.get(`/channel/${serverId}/getChannels`);
+    const response = await apiClient.get(`/api/channel/${serverId}/getChannels`);
     return response.data;
   } catch (error) {
     console.error("Error fetching channels:", error);
@@ -106,7 +106,7 @@ export const uploadMessage = async (payload: {
   try {
     // The server will get the senderId from the authenticated user's session.
     const response = await apiClient.post<Message>(
-      "/message/upload",
+      "/api/message/upload",
       payload
     );
     return response.data;
@@ -126,7 +126,7 @@ export const fetchMessages = async (
       messages?: Message[];
       data?: Message[];
     }>(
-      `/message/fetch?channel_id=${channelId}&is_dm=${isDM}&offset=${offset}`
+      `/api/message/fetch?channel_id=${channelId}&is_dm=${isDM}&offset=${offset}`
     );
 
     const messages = response.data.messages || response.data.data || [];
@@ -137,19 +137,34 @@ export const fetchMessages = async (
   }
 };
 
-const userId= getUser();
 // ---------- Direct Messages ----------
-// The server identifies the user from the cookie, so userId is not needed.
+// Fetch user's direct messages with error handling
 export const getUserDMs = async (): Promise<any> => {
   try {
-    const response = await apiClient.get(`/message/${userId}/getDms`);
-    return response.data;
+    const user = await getUser();
+    if (!user || !user.id) {
+      throw new Error('User not authenticated');
+    }
+
+    console.log("Fetching DMs for user:", user.id);
+    const response = await apiClient.get(`/api/message/${user.id}/getDms`);
+    
+    return {
+      data: response.data,
+      success: true
+    };
   } catch (error: any) {
     if (error?.code === "ECONNABORTED") {
-      console.error("Request timed out");
+      console.error("❌ Request timed out");
       throw new Error("Request timed out. Please try again.");
     }
-    console.error("Error fetching DMs:", error.message || error);
-    throw new Error("Error fetching DMs");
+    
+    if (error.message === 'User not authenticated') {
+      console.error("❌ Authentication error:", error.message);
+      throw new Error("Please login to view messages");
+    }
+
+    console.error("❌ Error fetching DMs:", error.message || error);
+    throw new Error("Failed to fetch messages. Please try again later.");
   }
 };

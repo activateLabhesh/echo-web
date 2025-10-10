@@ -24,6 +24,8 @@ interface Channel {
 }
 
 const ServersPage: React.FC = () => {
+  const [showAddMenu, setShowAddMenu] = useState(false);
+
   const router = useRouter();
   const [servers, setServers] = useState<any[]>([]);
   const [selectedServerId, setSelectedServerId] = useState<string>("");
@@ -138,14 +140,13 @@ const ServersPage: React.FC = () => {
   const handleRemoteRemoved = (id: string) => {
     setRemoteMediaStreams((prev) => prev.filter((p) => p.id !== id));
   };
-  
 
   return (
     <div className="flex h-screen bg-black select-none">
       {/* Server Sidebar */}
-      <div className="w-16 p-2 flex flex-col items-center bg-black space-y-3">
+      {/* Server Sidebar */}
+      <div className="w-16 p-2 flex flex-col items-center bg-black space-y-3 relative">
         {loading ? (
-          // Sidebar skeleton while loading
           <>
             <div className="w-12 h-12 rounded-full bg-gray-800 animate-pulse" />
             <div className="w-12 h-12 rounded-full bg-gray-800 animate-pulse" />
@@ -170,6 +171,42 @@ const ServersPage: React.FC = () => {
             />
           ))
         )}
+
+        {/* ➕ Add Server Button */}
+        <div className="absolute bottom-4">
+          <div className="relative group">
+            <button
+              className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 text-green-500 hover:bg-green-600 hover:text-white transition-all text-3xl font-bold"
+              onClick={() => setShowAddMenu((prev) => !prev)}
+            >
+              +
+            </button>
+
+            {/* Popup Menu */}
+            {showAddMenu && (
+              <div className="absolute left-14 bottom-0 bg-[#1e1f22] text-white text-sm rounded-lg shadow-lg p-2 w-36 z-10">
+                <button
+                  onClick={() => {
+                    router.push("/join-server");
+                    setShowAddMenu(false);
+                  }}
+                  className="block w-full text-left px-3 py-2 rounded hover:bg-[#2f3136] transition"
+                >
+                  Join Server
+                </button>
+                <button
+                  onClick={() => {
+                    router.push("/create-server");
+                    setShowAddMenu(false);
+                  }}
+                  className="block w-full text-left px-3 py-2 rounded hover:bg-[#2f3136] transition"
+                >
+                  Create Server
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -309,15 +346,16 @@ const ServersPage: React.FC = () => {
           {/* Main Content Area */}
           <div className="flex-1 relative text-white bg-[radial-gradient(ellipse_at_bottom,rgba(37,99,235,0.15)_0%,rgba(0,0,0,1)_85%)] flex flex-col">
             {activeVoiceChannel ? (
-              <VoiceChannel
-                channelId={activeVoiceChannel}
-                userId={user.id}
-                onHangUp={() => {
-                  setActiveVoiceChannel(null);
-                }}
-              />
+              <div className="flex-1 w-full h-full">
+                <VoiceChannel
+                  channelId={activeVoiceChannel}
+                  userId={user.id}
+                  onHangUp={() => {
+                    setActiveVoiceChannel(null);
+                  }}
+                />
+              </div>
             ) : activeChannel ? (
-            
               <>
                 <h1 className="text-2xl font-bold mb-4 text-center pt-6">
                   Welcome to #{activeChannel.name}

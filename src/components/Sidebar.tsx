@@ -24,7 +24,6 @@ const navItems = [
   { label: "Messages", icon: MessageSquareText, path: "/messages" },
   { label: "Friends", icon: UserIcon, path: "/friends" },
 
-  { label: "Notifications", icon: Bell, path: "/notifications" },
 ];
 
 export default function Sidebar() {

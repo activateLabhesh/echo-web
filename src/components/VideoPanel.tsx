@@ -1,3 +1,4 @@
+// components/VideoPanel.tsx
 import { useEffect, useRef } from "react";
 
 type Remote = { id: string; stream: MediaStream };
@@ -8,7 +9,11 @@ interface Props {
   collapsed?: boolean;
 }
 
-export default function VideoPanel({ localStream, remotes = [], collapsed }: Props) {
+export default function VideoPanel({
+  localStream,
+  remotes = [],
+  collapsed,
+}: Props) {
   const localRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -19,8 +24,8 @@ export default function VideoPanel({ localStream, remotes = [], collapsed }: Pro
     }
   }, [localStream]);
 
-  // Calculate grid layout based on total participants
-  const totalParticipants = 1 + remotes.length; // 1 for local user + remotes
+  const totalParticipants = 1 + remotes.length;
+
   const getGridCols = (count: number) => {
     if (count === 1) return "grid-cols-1";
     if (count === 2) return "grid-cols-2";
@@ -41,8 +46,13 @@ export default function VideoPanel({ localStream, remotes = [], collapsed }: Pro
   }
 
   return (
-    <div className="w-full h-auto rounded-lg">
-      <div className={`grid ${getGridCols(totalParticipants)} ${getGridRows(totalParticipants)} gap-2 w-full`}>
+    // ➡️ FIX 1: Changed w-screen h-screen to w-full h-full
+    <div className="w-full h-full bg-black">
+      <div
+        className={`grid ${getGridCols(totalParticipants)} ${getGridRows(
+          totalParticipants
+        )} gap-2 w-full h-full p-2`} // Added p-2 for minor spacing
+      >
         {/* Local video */}
         <div className="relative aspect-video bg-gray-900 rounded-lg overflow-hidden border-2 border-blue-500">
           {localStream ? (
@@ -69,7 +79,7 @@ export default function VideoPanel({ localStream, remotes = [], collapsed }: Pro
         </div>
 
         {/* Remote videos */}
-        {remotes.map(r => (
+        {remotes.map((r) => (
           <RemoteVideo key={r.id} stream={r.stream} userId={r.id} />
         ))}
       </div>
@@ -77,9 +87,15 @@ export default function VideoPanel({ localStream, remotes = [], collapsed }: Pro
   );
 }
 
-function RemoteVideo({ stream, userId }: { stream: MediaStream; userId: string }) {
+function RemoteVideo({
+  stream,
+  userId,
+}: {
+  stream: MediaStream;
+  userId: string;
+}) {
   const ref = useRef<HTMLVideoElement>(null);
-  
+
   useEffect(() => {
     if (ref.current && stream && ref.current.srcObject !== stream) {
       ref.current.srcObject = stream;
@@ -89,12 +105,19 @@ function RemoteVideo({ stream, userId }: { stream: MediaStream; userId: string }
   return (
     <div className="relative aspect-video bg-gray-900 rounded-lg overflow-hidden border-2 border-gray-600">
       {stream ? (
-        <video ref={ref} autoPlay playsInline className="w-full h-full object-cover" />
+        <video
+          ref={ref}
+          autoPlay
+          playsInline
+          className="w-full h-full object-cover"
+        />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-gray-800">
           <div className="text-center text-white">
             <div className="w-12 h-12 mx-auto mb-2 bg-gray-600 rounded-full flex items-center justify-center">
-              <span className="text-lg font-bold">{userId.charAt(0).toUpperCase()}</span>
+              <span className="text-lg font-bold">
+                {userId.charAt(0).toUpperCase()}
+              </span>
             </div>
             <p className="text-xs">Camera off</p>
           </div>

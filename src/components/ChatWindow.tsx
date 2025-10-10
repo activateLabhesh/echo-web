@@ -255,31 +255,38 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
   };
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden">
+    <div className="flex flex-col flex-1 h-full w-full overflow-hidden">
       {(localStream || (remoteStreams && remoteStreams.length > 0)) && (
-        <div className="p-4 pb-0">
-          <div className="relative">
-            <VideoPanel localStream={localStream || undefined} remotes={remoteStreams} />
-            <div className="absolute bottom-3 right-3 flex gap-2">
+        <div className="p-4 pb-0 h-96 flex-shrink-0">
+          <div className="relative w-full h-full">
+            <VideoPanel
+              localStream={localStream || undefined}
+              remotes={remoteStreams}
+            />
+            <div className="absolute bottom-3 right-3 flex gap-2 z-10">
               <button
-                onClick={() => setMicOn(v => !v)}
-                className={`px-3 py-1 rounded-md text-sm ${micOn ? 'bg-green-600/80' : 'bg-red-600/80'}`}
-                title={micOn ? 'Mute mic' : 'Unmute mic'}
+                onClick={() => setMicOn((v) => !v)}
+                className={`px-3 py-1 rounded-md text-sm ${
+                  micOn ? "bg-green-600/80" : "bg-red-600/80"
+                }`}
+                title={micOn ? "Mute mic" : "Unmute mic"}
               >
-                {micOn ? 'Mic On' : 'Mic Off'}
+                {micOn ? "Mic On" : "Mic Off"}
               </button>
               <button
-                onClick={() => setCamOn(v => !v)}
-                className={`px-3 py-1 rounded-md text-sm ${camOn ? 'bg-green-600/80' : 'bg-red-600/80'}`}
-                title={camOn ? 'Turn camera off' : 'Turn camera on'}
+                onClick={() => setCamOn((v) => !v)}
+                className={`px-3 py-1 rounded-md text-sm ${
+                  camOn ? "bg-green-600/80" : "bg-red-600/80"
+                }`}
+                title={camOn ? "Turn camera off" : "Turn camera on"}
               >
-                {camOn ? 'Cam On' : 'Cam Off'}
+                {camOn ? "Cam On" : "Cam Off"}
               </button>
             </div>
           </div>
         </div>
       )}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto px-6 pb-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
         {messages.map((msg) => (
           <MessageBubble
             key={msg.id}
@@ -295,8 +302,9 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
         ))}
         <div ref={messagesEndRef} />
       </div>
-
-      <MessageInput sendMessage={handleSend} isSending={isSending} />
+      <div className="flex-shrink-0 px-6 pb-6">
+        <MessageInput sendMessage={handleSend} isSending={isSending} />
+      </div>
     </div>
   );
 

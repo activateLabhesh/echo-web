@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import {io} from 'socket.io-client';
-import { Paperclip, X } from 'lucide-react'; // Using lucide-react for icons
+import { Bell, MoreVertical, Paperclip, Search, Send, Smile, X } from 'lucide-react';
 import { getUserDMs, uploaddm } from '@/app/api/API'; 
-import {Socket} from "socket.io-client";
+import { Socket } from "socket.io-client";
+import { createAuthSocket } from '@/socket';
 import MessageBubble from './MessageBubble';
 import MessageAttachment from './MessageAttachment';
 
@@ -28,6 +28,27 @@ interface DirectMessage {
     media_url?: string | null;
 }
 
+const getInitials = (name: string = "") => {
+    return name
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((part) => part[0]?.toUpperCase() || "")
+        .join("")
+        .slice(0, 2) || "?";
+};
+
+type GroupedSection = {
+    dayLabel: string;
+    groups: Array<{
+        key: string;
+        senderId: string;
+        name: string;
+        isSender: boolean;
+        avatarUrl?: string;
+        messages: Array<DirectMessage & { timeLabel: string }>;
+    }>;
+};
+
 // 1. ChatList Component (Updated to show errors)
 
 interface ChatListProps {
@@ -39,28 +60,103 @@ interface ChatListProps {
 }
 
 const ChatList: React.FC<ChatListProps> = ({ conversations, activeDmId, onSelectDm, isLoading, error }) => {
+    const [query, setQuery] = useState("");
+
+    const filteredConversations = useMemo(() => {
+        if (!query.trim()) return conversations;
+        const lowered = query.trim().toLowerCase();
+        return conversations.filter(({ user, lastMessage }) =>
+            user.fullname.toLowerCase().includes(lowered) ||
+            lastMessage.toLowerCase().includes(lowered)
+        );
+    }, [conversations, query]);
+
     return (
-        <div className="p-4 h-full overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4 sticky top-0 bg-black py-2">Messages</h2>
-            {isLoading ? (
-                <p className="text-gray-400">Loading conversations...</p>
-            ) : error ? (
-                <p className="text-red-400">{error}</p>
-            ) : (
-                <ul>
-                    {conversations.map(({ user, lastMessage }) => (
-                        <li
-                            key={user.id}
-                            className={`p-3 rounded-lg cursor-pointer mb-2 ${activeDmId === user.id ? 'bg-blue-600' : 'hover:bg-gray-700'}`}
-                            onClick={() => onSelectDm(user.id)}
-                        >
-                            <p className="font-semibold">{user.fullname}</p>
-                            <p className="text-sm text-gray-400 truncate">{lastMessage}</p>
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
+        <aside className="hidden h-full w-80 flex-col border-r border-slate-800 bg-slate-900/70 p-4 backdrop-blur-lg lg:flex">
+            <div className="mb-5">
+                <h2 className="text-lg font-semibold text-slate-100">Direct Messages</h2>
+                <p className="mt-1 text-xs text-slate-400">
+                    Catch up with teammates and friends in real time.
+                </p>
+            </div>
+
+            <label className="group mb-4 flex items-center gap-2 rounded-full border border-slate-800/70 bg-slate-900/70 px-3 py-2 text-sm text-slate-300 focus-within:border-indigo-500/60 focus-within:text-indigo-300">
+                <Search className="h-4 w-4" />
+                <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search conversations"
+                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500"
+                />
+            </label>
+
+            <div className="chat-scroll flex-1 space-y-2 overflow-y-auto pr-1">
+                {isLoading ? (
+                    <ul className="space-y-2">
+                        {Array.from({ length: 6 }).map((_, idx) => (
+                            <li
+                                key={idx}
+                                className="animate-pulse rounded-xl border border-slate-800/60 bg-slate-900/50 p-3"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-full bg-slate-800/60" />
+                                    <div className="flex-1 space-y-2">
+                                        <div className="h-3 w-1/2 rounded-full bg-slate-800/70" />
+                                        <div className="h-3 w-3/4 rounded-full bg-slate-800/50" />
+                                    </div>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                ) : error ? (
+                    <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-200">
+                        {error}
+                    </div>
+                ) : filteredConversations.length === 0 ? (
+                    <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-4 text-center text-sm text-slate-400">
+                        No conversations found. Try another name.
+                    </div>
+                ) : (
+                    <ul className="space-y-2">
+                        {filteredConversations.map(({ user, lastMessage }) => {
+                            const isActive = activeDmId === user.id;
+                            return (
+                                <li
+                                    key={user.id}
+                                    onClick={() => onSelectDm(user.id)}
+                                    className={`group flex cursor-pointer items-center gap-3 rounded-2xl border border-transparent p-3 transition-colors hover:border-indigo-500/40 hover:bg-slate-800/40 ${
+                                        isActive ? 'border-indigo-500/50 bg-indigo-500/10 shadow-[0_0_0_1px_rgba(99,102,241,0.2)]' : ''
+                                    }`}
+                                >
+                                    <div className="h-10 w-10 overflow-hidden rounded-full border border-slate-700/60 bg-slate-800/60">
+                                        {user.avatar_url ? (
+                                            <img
+                                                src={user.avatar_url}
+                                                alt={user.fullname}
+                                                className="h-full w-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-slate-300">
+                                                {getInitials(user.fullname)}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className={`truncate text-sm font-medium ${isActive ? 'text-slate-100' : 'text-slate-200'}`}>
+                                            {user.fullname}
+                                        </p>
+                                        <p className="truncate text-xs text-slate-400 group-hover:text-slate-300">
+                                            {lastMessage || 'No messages yet.'}
+                                        </p>
+                                    </div>
+                                    {isActive && <div className="h-2 w-2 rounded-full bg-indigo-400" />}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </div>
+        </aside>
     );
 };
 
@@ -74,17 +170,68 @@ interface ChatWindowProps {
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ activeUser, messages, currentUser, onSendMessage }) => {
-    const [newMessage, setNewMessage] = useState('');
+    const [draft, setDraft] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleSend = async (newMessage: string) => {
-        if (!newMessage.trim() && !file) return;
-        onSendMessage(newMessage, file);
-        setNewMessage('');
+    const timeFormatter = useMemo(
+        () => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }),
+        []
+    );
+    const dayFormatter = useMemo(
+        () => new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+        []
+    );
+
+    const groupedMessages = useMemo<GroupedSection[]>(() => {
+        if (!messages.length) return [];
+
+        const sections: GroupedSection[] = [];
+
+        messages.forEach((message) => {
+            const timestamp = new Date(message.timestamp);
+            const dayLabel = Number.isNaN(timestamp.getTime()) ? 'Recent' : dayFormatter.format(timestamp);
+            let section = sections[sections.length - 1];
+            if (!section || section.dayLabel !== dayLabel) {
+                section = { dayLabel, groups: [] };
+                sections.push(section);
+            }
+
+            const senderId = message.sender_id;
+            const isSender = senderId === currentUser?.id;
+            const name = isSender ? 'You' : activeUser?.fullname ?? 'Member';
+            const avatarUrl = isSender
+                ? '/User_profil.png'
+                : activeUser?.avatar_url || '/avatar.png';
+
+            let group = section.groups[section.groups.length - 1];
+            if (!group || group.senderId !== senderId) {
+                group = {
+                    key: `${dayLabel}-${senderId}-${message.id}`,
+                    senderId,
+                    name,
+                    isSender,
+                    avatarUrl,
+                    messages: [],
+                };
+                section.groups.push(group);
+            }
+
+            group.messages.push({
+                ...message,
+                timeLabel: Number.isNaN(timestamp.getTime()) ? '' : timeFormatter.format(timestamp),
+            });
+        });
+
+        return sections;
+    }, [messages, currentUser?.id, activeUser?.fullname, activeUser?.avatar_url, dayFormatter, timeFormatter]);
+
+    const handleSend = (value: string) => {
+        if (!value.trim() && !file) return;
+        onSendMessage(value, file);
+        setDraft('');
         setFile(null);
-        console.log("Message sent:", { newMessage, file })
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,74 +246,164 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ activeUser, messages, currentUs
 
     if (!activeUser) {
         return (
-            <div className="flex flex-1 items-center justify-center text-white text-lg">
-                Select a DM to view the conversation.
+            <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-slate-950/80 text-slate-400">
+                <div className="rounded-full border border-slate-800/70 bg-slate-900/50 p-6">
+                    <Paperclip className="h-8 w-8 text-slate-500" />
+                </div>
+                <div className="text-center">
+                    <p className="font-medium text-slate-200">Select a conversation</p>
+                    <p className="mt-1 text-sm text-slate-400">
+                        Choose someone from the list to start chatting.
+                    </p>
+                </div>
             </div>
         );
     }
 
+    const recipientFirstName = activeUser.fullname.split(' ')[0] || activeUser.fullname;
+
     return (
-        <>
-            <div className="p-4 border-b border-gray-700">
-                <h3 className="text-lg font-semibold">Chat with {activeUser.fullname}</h3>
-            </div>
-            <div className="flex-1 p-4 overflow-y-auto">
-                {messages.map((msg) => (
-                    <MessageBubble
-                        key={msg.id}
-                        isSender={msg.sender_id === currentUser?.id}
-                        message={msg.content}
-                        timestamp={new Date(msg.timestamp).toLocaleTimeString()}
-                        name={msg.sender_id === currentUser?.id ? 'You' : activeUser.fullname}
-                    >
-                        {msg.media_url && (
-                            <MessageAttachment media_url={msg.media_url} />
+        <div className="flex h-full flex-1 flex-col bg-slate-950/80 backdrop-blur">
+            <header className="flex items-center justify-between border-b border-slate-800/80 px-6 py-5">
+                <div className="flex items-center gap-3">
+                    <div className="h-11 w-11 overflow-hidden rounded-full border border-slate-800/70 bg-slate-900/70">
+                        {activeUser.avatar_url ? (
+                            <img src={activeUser.avatar_url} alt={activeUser.fullname} className="h-full w-full object-cover" />
+                        ) : (
+                            <div className="flex h-full w-full items-center justify-center text-sm font-semibold uppercase text-slate-200">
+                                {getInitials(activeUser.fullname)}
+                            </div>
                         )}
-                    </MessageBubble>
-                ))}
+                    </div>
+                    <div>
+                        <h3 className="text-base font-semibold text-slate-100">{activeUser.fullname}</h3>
+                        <p className="text-xs text-slate-400">Direct message • {messages.length} {messages.length === 1 ? 'message' : 'messages'}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 text-slate-400">
+                    <button className="rounded-full border border-slate-800/70 p-2 transition-colors hover:border-indigo-500/50 hover:text-slate-100" aria-label="Search in conversation">
+                        <Search className="h-4 w-4" />
+                    </button>
+                    <button className="rounded-full border border-slate-800/70 p-2 transition-colors hover:border-indigo-500/50 hover:text-slate-100" aria-label="Notifications">
+                        <Bell className="h-4 w-4" />
+                    </button>
+                    <button className="rounded-full border border-slate-800/70 p-2 transition-colors hover:border-indigo-500/50 hover:text-slate-100" aria-label="More options">
+                        <MoreVertical className="h-4 w-4" />
+                    </button>
+                </div>
+            </header>
+
+            <div className="chat-scroll flex-1 space-y-8 overflow-y-auto px-6 py-8">
+                {groupedMessages.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center text-center text-slate-400">
+                        <p>No messages yet.</p>
+                        <p className="text-sm">Say hi to start the conversation!</p>
+                    </div>
+                ) : (
+                    groupedMessages.map((section) => (
+                        <div key={section.dayLabel} className="space-y-4">
+                            <div className="flex items-center gap-4 text-xs text-slate-400">
+                                <span className="flex-1 border-t border-slate-800/70" />
+                                <span className="rounded-full border border-slate-800/60 bg-slate-900/60 px-3 py-1 uppercase tracking-wide text-slate-300">
+                                    {section.dayLabel}
+                                </span>
+                                <span className="flex-1 border-t border-slate-800/70" />
+                            </div>
+                            <div className="space-y-5">
+                                        {section.groups.map((group) => (
+                                    <div key={group.key} className="space-y-2">
+                                        {group.messages.map((msg, index) => (
+                                            <MessageBubble
+                                                key={msg.id}
+                                                isSender={group.isSender}
+                                                message={msg.content}
+                                                timestamp={msg.timeLabel}
+                                                name={!group.isSender && index === 0 ? group.name : undefined}
+                                                avatarUrl={!group.isSender && index === 0 ? group.avatarUrl : undefined}
+                                            >
+                                                {msg.media_url && (
+                                                    <MessageAttachment media_url={msg.media_url} />
+                                                )}
+                                            </MessageBubble>
+                                        ))}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))
+                )}
                 <div ref={bottomRef} />
             </div>
-            <div className="p-4 border-t border-gray-700">
+
+            <footer className="border-t border-slate-800/80 bg-slate-900/70 px-6 py-5">
                 {file && (
-                    <div className="mb-2 flex items-center bg-gray-700 p-2 rounded-md">
-                        <Paperclip className="h-5 w-5 mr-2 text-gray-400" />
-                        <span className="text-sm text-white truncate flex-1">{file.name}</span>
-                        <button onClick={() => setFile(null)} className="ml-2 text-gray-400 hover:text-white" aria-label="Remove attachment">
-                            <X className="h-5 w-5" />
+                    <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-800/70 bg-slate-900/60 px-4 py-3 text-sm text-slate-200">
+                        <div className="flex items-center gap-3">
+                            <Paperclip className="h-4 w-4 text-indigo-300" />
+                            <span className="truncate max-w-[220px]">{file.name}</span>
+                            <span className="text-xs text-slate-400">{Math.round(file.size / 1024)} KB</span>
+                        </div>
+                        <button
+                            onClick={() => setFile(null)}
+                            className="rounded-full border border-slate-800/70 p-1 text-slate-400 transition-colors hover:border-rose-500/50 hover:text-rose-300"
+                            aria-label="Remove attachment"
+                        >
+                            <X className="h-4 w-4" />
                         </button>
                     </div>
                 )}
-                <div className="flex">
+
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/70 px-4 py-3">
                     <input
                         type="file"
                         ref={fileInputRef}
                         onChange={handleFileChange}
                         className="hidden"
                     />
-                    <button onClick={() => fileInputRef.current?.click()} className="bg-gray-700 p-2 rounded-l-md hover:bg-gray-600">
-                        <Paperclip className="h-6 w-6 text-white" />
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="rounded-full border border-slate-800/70 p-2 text-slate-300 transition-colors hover:border-indigo-500/50 hover:text-indigo-300"
+                        aria-label="Attach file"
+                    >
+                        <Paperclip className="h-4 w-4" />
+                    </button>
+                    <button
+                        className="rounded-full border border-slate-800/70 p-2 text-slate-300 transition-colors hover:border-indigo-500/50 hover:text-indigo-300"
+                        type="button"
+                        aria-label="Add reaction"
+                    >
+                        <Smile className="h-4 w-4" />
                     </button>
                     <input
                         type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSend(newMessage)}
-                        placeholder="Type a message..."
-                        className="flex-1 bg-gray-700 p-2 outline-none text-white"
+                        value={draft}
+                        onChange={(event) => setDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter' && !event.shiftKey) {
+                                event.preventDefault();
+                                handleSend(draft);
+                            }
+                        }}
+                        placeholder={`Message @${recipientFirstName}`}
+                        className="flex-1 bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500"
                     />
-                    <button onClick={()=>handleSend(newMessage)} className="bg-blue-600 p-2 rounded-r-md hover:bg-blue-500">
-                        Send
+                    <button
+                        onClick={() => handleSend(draft)}
+                        className="flex items-center gap-2 rounded-full bg-indigo-500/90 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-400"
+                    >
+                        <span>Send</span>
+                        <Send className="h-4 w-4" />
                     </button>
                 </div>
-            </div>
-        </>
+            </footer>
+        </div>
     );
 };
 
 // =============================================================
 // 3. Main Page Content (Parent Component with updated logic)
 // =============================================================
-export default function MessagesPageContent() {
+function MessagesPageContentInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const selectedDM = searchParams.get("dm");
@@ -186,9 +423,7 @@ useEffect(() => {
 
     // Create socket once
     if (!socketRef.current) {
-        const newSocket = io(process.env.NEXT_PUBLIC_API_URL!, {
-            auth: { userId: currentUser.id }
-        });
+        const newSocket = createAuthSocket(currentUser.id);
         socketRef.current = newSocket;
     }
 
@@ -491,24 +726,67 @@ useEffect(() => {
     const activeMessages = activeDmId ? messages.get(activeDmId) || [] : [];
 
     return (
-        <div className="flex h-screen w-full overflow-hidden">
-            <div className="w-72 bg-black text-white">
-                <ChatList 
-                    conversations={conversations} 
-                    activeDmId={activeDmId} 
-                    onSelectDm={handleSelectDm}
-                    isLoading={isLoading} 
-                    error={error}
-                />
-            </div>
-            <div className="flex flex-col flex-1 bg-[#1e1e2f]">
-                <ChatWindow 
-                    activeUser={activeUser}
-                    messages={activeMessages} 
-                    currentUser={currentUser}
-                    onSendMessage={handleSendMessage}
-                />
+        <div className="flex h-screen min-h-0 w-full bg-slate-950 text-slate-100">
+            <ChatList 
+                conversations={conversations} 
+                activeDmId={activeDmId} 
+                onSelectDm={handleSelectDm}
+                isLoading={isLoading} 
+                error={error}
+            />
+            <div className="flex flex-1 flex-col">
+                <div className="border-b border-slate-800/70 bg-slate-900/60 px-4 py-3 lg:hidden">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-base font-semibold text-slate-100">Direct Messages</h2>
+                            <p className="text-xs text-slate-400">Tap a friend to open the chat.</p>
+                        </div>
+                    </div>
+                    <div className="mt-4 flex gap-3 overflow-x-auto">
+                        {conversations.map(({ user }) => {
+                            const isActive = activeDmId === user.id;
+                            return (
+                                <button
+                                    key={user.id}
+                                    onClick={() => handleSelectDm(user.id)}
+                                    className={`flex min-w-[64px] flex-col items-center gap-2 rounded-2xl border px-3 py-2 text-xs transition-colors ${
+                                        isActive
+                                            ? 'border-indigo-400/70 bg-indigo-500/10 text-indigo-100'
+                                            : 'border-slate-800/70 bg-slate-900/60 text-slate-300'
+                                    }`}
+                                >
+                                    <div className="h-10 w-10 overflow-hidden rounded-full border border-slate-800/70 bg-slate-800/60">
+                                        {user.avatar_url ? (
+                                            <img src={user.avatar_url} alt={user.fullname} className="h-full w-full object-cover" />
+                                        ) : (
+                                            <div className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-slate-200">
+                                                {getInitials(user.fullname)}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <span className="truncate text-center text-[11px] leading-tight">{user.fullname.split(' ')[0]}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+                <div className="flex flex-1 overflow-hidden">
+                    <ChatWindow 
+                        activeUser={activeUser}
+                        messages={activeMessages} 
+                        currentUser={currentUser}
+                        onSendMessage={handleSendMessage}
+                    />
+                </div>
             </div>
         </div>
+    );
+}
+
+export default function MessagesPageContent() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center text-white">Loading messages…</div>}>
+            <MessagesPageContentInner />
+        </Suspense>
     );
 }

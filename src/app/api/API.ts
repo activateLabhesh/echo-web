@@ -150,6 +150,7 @@ export const uploaddm = async (payload: {
     
     // Use exact field names as specified by backend
     formData.append("receiver_id", payload.receiver_id);
+    formData.append("sender_id",payload.sender_id);
     formData.append("content", payload.message || "");
     if (payload.mediaurl) formData.append("file", payload.mediaurl);
 

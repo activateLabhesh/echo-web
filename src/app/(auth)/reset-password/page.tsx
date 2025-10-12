@@ -1,10 +1,11 @@
 'use client';
+import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { resetPassword } from '../../api';
 import Link from 'next/link';
 
-export default function ResetPassword() {
+function ResetPasswordContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const token = searchParams.get('token');
@@ -123,5 +124,13 @@ export default function ResetPassword() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function ResetPassword() {
+    return (
+        <Suspense fallback={<div className="flex h-screen items-center justify-center text-white">Loading…</div>}>
+            <ResetPasswordContent />
+        </Suspense>
     );
 }

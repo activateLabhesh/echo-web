@@ -6,6 +6,8 @@ import { FaHashtag, FaCog, FaVolumeUp } from "react-icons/fa";
 import VoiceChannel from "@/components/VoiceChannel";
 import { fetchServers, fetchChannelsByServer } from "@/app/api/API";
 import Chatwindow from "@/components/ChatWindow";
+import { useSearchParams } from "next/navigation";
+
 
 const serverIcons: string[] = [
   "/hackbattle.png",
@@ -24,6 +26,9 @@ interface Channel {
 }
 
 const ServersPage: React.FC = () => {
+  const searchParams = useSearchParams();
+  const refresh = searchParams.get("refresh");
+
   const [showAddMenu, setShowAddMenu] = useState(false);
 
   const router = useRouter();
@@ -119,6 +124,29 @@ const ServersPage: React.FC = () => {
     loadChannels();
   }, [selectedServerId]);
 
+  useEffect(() => {
+    const loadServers = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchServers();
+        console.log(data);
+        setServers(data);
+        if (data.length > 0) {
+          setSelectedServerId(data[0].id);
+          setSelectedServerName(data[0].name);
+        } else {
+          setNoServer(true);
+        }
+      } catch (err) {
+        console.error("Error fetching servers", err);
+        setError("Failed to load servers.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadServers();
+  }, [refresh]); 
+
   // Derived channel lists
   const textChannels = channels.filter((c) => c.type === "text");
   const voiceChannels = channels.filter((c) => c.type === "voice");
@@ -144,7 +172,7 @@ const ServersPage: React.FC = () => {
   return (
     <div className="flex h-screen bg-black select-none">
       {/* Server Sidebar */}
-      {/* Server Sidebar */}
+
       <div className="w-16 p-2 flex flex-col items-center bg-black space-y-3 relative">
         {loading ? (
           <>
@@ -159,7 +187,7 @@ const ServersPage: React.FC = () => {
           servers.map((server, idx) => (
             <img
               key={server.id}
-              src={server.iconUrl || serverIcons[idx % serverIcons.length]}
+              src={server.icon_url || serverIcons[idx % serverIcons.length]}
               alt={server.name}
               className={`w-12 h-12 rounded-full hover:scale-105 transition-transform cursor-pointer ${
                 selectedServerId === server.id ? "ring-2 ring-white" : ""

@@ -59,11 +59,9 @@ export const createServer = async (payload: {
   try {
     const formData = new FormData();
     formData.append("name", payload.name);
-    if (payload.icon) {
+    if (payload.icon) {  
       formData.append("icon", payload.icon);
     }
-
-    // The server will identify the owner from the session cookie.
     const response = await apiClient.post<Server>(
       "/api/newserver/create/",
       formData,
@@ -222,16 +220,16 @@ export const getUserDMs = async (): Promise<any> => {
     };
   } catch (error: any) {
     if (error?.code === "ECONNABORTED") {
-      console.error("❌ Request timed out");
+      console.error(" Request timed out");
       throw new Error("Request timed out. Please try again.");
     }
     
     if (error.message === 'User not authenticated') {
-      console.error("❌ Authentication error:", error.message);
+      console.error(" Authentication error:", error.message);
       throw new Error("Please login to view messages");
     }
 
-    console.error("❌ Error fetching DMs:", error.message || error);
+    console.error("Error fetching DMs:", error.message || error);
     throw new Error("Failed to fetch messages. Please try again later.");
   }
 };

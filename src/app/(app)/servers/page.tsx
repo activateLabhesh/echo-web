@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { FaHashtag, FaCog, FaVolumeUp } from "react-icons/fa";
 import VoiceChannel from "@/components/VoiceChannel";
@@ -25,7 +25,7 @@ interface Channel {
   is_private: boolean;
 }
 
-const ServersPage: React.FC = () => {
+const ServersPageContent: React.FC = () => {
   const searchParams = useSearchParams();
   const refresh = searchParams.get("refresh");
 
@@ -409,6 +409,21 @@ const ServersPage: React.FC = () => {
         </>
       )}
     </div>
+  );
+};
+
+const ServersPage: React.FC = () => {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen bg-black items-center justify-center">
+        <div className="text-white text-center">
+          <div className="mx-auto mb-4 w-10 h-10 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
+          <p className="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    }>
+      <ServersPageContent />
+    </Suspense>
   );
 };
 

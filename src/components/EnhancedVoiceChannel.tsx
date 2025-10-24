@@ -240,8 +240,10 @@ const EnhancedVoiceChannel: React.FC<EnhancedVoiceChannelProps> = ({
           
           // Try to initialize with graceful degradation
           try {
-            await manager.initialize(true, true); // Try both audio and video first
-            setDebugStatus('Media permissions granted');
+            await manager.initialize(true, true); // Get permissions for both audio and video
+            // But turn video OFF by default - let user explicitly turn it ON
+            manager.toggleVideo(false);
+            setDebugStatus('Media permissions granted, video OFF by default');
           } catch (fullError: any) {
             debugWarn("Full permissions failed, trying graceful degradation:", fullError);
             setDebugStatus('Trying audio-only fallback...');

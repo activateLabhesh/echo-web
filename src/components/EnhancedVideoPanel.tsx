@@ -63,9 +63,7 @@ const ParticipantVideo: React.FC<{
   // Setup video stream
   useEffect(() => {
     if (videoRef.current && participant.stream) {
-      if (videoRef.current.srcObject !== participant.stream) {
-        videoRef.current.srcObject = participant.stream;
-      }
+      videoRef.current.srcObject = participant.stream;
     }
   }, [participant.stream]);
 
@@ -95,8 +93,15 @@ const ParticipantVideo: React.FC<{
     handleVolumeChange(newMuted ? 0 : volume);
   };
 
-  const hasVideo = participant.stream && participant.mediaState.video;
+  const hasVideo = participant.mediaState.video;
   const hasScreenShare = participant.screenStream && participant.mediaState.screenSharing;
+  const hasVideoStream = participant.stream && participant.stream.getVideoTracks().length > 0;
+  const hasActiveVideoTrack = hasVideoStream && participant.stream?.getVideoTracks().some(track => track.enabled);
+
+  // Determine what will be rendered
+  const shouldShowVideo = hasVideo && hasActiveVideoTrack && !hasScreenShare;
+  const shouldShowScreenShare = hasScreenShare;
+  const shouldShowAvatar = !shouldShowVideo && !shouldShowScreenShare;
 
   return (
     <div 
@@ -109,7 +114,7 @@ const ParticipantVideo: React.FC<{
       onMouseLeave={() => setShowControls(false)}
     >
       {/* Screen Share (Priority) */}
-      {hasScreenShare ? (
+      {shouldShowScreenShare ? (
         <div className="relative w-full h-full">
           <video
             ref={screenRef}
@@ -126,7 +131,7 @@ const ParticipantVideo: React.FC<{
           </div>
 
           {/* Picture-in-Picture Video */}
-          {hasVideo && (
+          {hasVideo && hasActiveVideoTrack && (
             <div className="absolute bottom-4 right-4 w-32 h-24 bg-gray-800 rounded border border-gray-600 overflow-hidden">
               <video
                 ref={videoRef}
@@ -138,7 +143,7 @@ const ParticipantVideo: React.FC<{
             </div>
           )}
         </div>
-      ) : hasVideo ? (
+      ) : shouldShowVideo ? (
         /* Regular Video */
         <video
           ref={videoRef}
@@ -176,6 +181,11 @@ const ParticipantVideo: React.FC<{
             <FaMicrophone size={12} className="text-white" />
           </div>
         )}
+        {participant.mediaState.video && (
+            <div className="bg-gray-600 rounded-full p-1">
+            <FaVideo size={12} className="text-white" />
+          </div>
+        )}
         {!participant.mediaState.video && !hasScreenShare && (
           <div className="bg-gray-600 rounded-full p-1">
             <FaVideoSlash size={12} className="text-white" />
@@ -186,8 +196,8 @@ const ParticipantVideo: React.FC<{
       {/* Username */}
       <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 rounded px-2 py-1">
         <span className="text-xs text-white">
-          {participant.username || `User ${participant.userId}`}
-          {isLocal && ' (You)'}
+          {participant.username}
+          {isLocal && `(You)`}
         </span>
       </div>
 

@@ -95,6 +95,10 @@ export class VoiceVideoManager {
   private currentRecordingId: string | null = null;
   private networkStats: NetworkStats | null = null;
   
+  // ICE candidate queues
+  private iceCandidateQueues: Map<string, RTCIceCandidate[]> = new Map();
+  private screenIceCandidateQueues: Map<string, RTCIceCandidate[]> = new Map();
+  
   // Callbacks
   private onStreamCallback: ((stream: MediaStream, peerId: string, type: 'video' | 'screen') => void) | null = null;
   private onUserLeftCallback: ((peerId: string) => void) | null = null;
@@ -182,6 +186,7 @@ export class VoiceVideoManager {
       await this.updateDeviceInfo();
       
       // Update initial media state based on what we actually got
+      console.log('🎥 AUTO-INIT: Setting initial video state to:', videoPermission, 'in initialize()');
       this.mediaState.video = videoPermission;
       this.mediaState.activeStreams.audio = audioPermission;
       this.mediaState.activeStreams.video = videoPermission;
@@ -335,6 +340,10 @@ export class VoiceVideoManager {
         try {
           const pc = await this.createPeerConnection(from, false, 'video');
           await pc.connection.setRemoteDescription(sdp);
+          
+          // Process any queued ICE candidates
+          await this.processQueuedIceCandidates(from, 'video');
+          
           const answer = await pc.connection.createAnswer();
           await pc.connection.setLocalDescription(answer);
           this.socket.emit('webrtc-answer', { to: from, sdp: answer, channelId });
@@ -352,6 +361,10 @@ export class VoiceVideoManager {
         if (peer) {
           try {
             await peer.connection.setRemoteDescription(sdp);
+            
+            // Process any queued ICE candidates
+            await this.processQueuedIceCandidates(from, 'video');
+            
             console.log('✅ [VoiceVideoManager] WebRTC answer processed for:', from);
           } catch (error) {
             console.error('❌ [VoiceVideoManager] Error processing WebRTC answer:', error);
@@ -365,17 +378,7 @@ export class VoiceVideoManager {
     this.socket.on('webrtc-ice-candidate', async ({ from, candidate, channelId }) => {
       console.log('🧊 [VoiceVideoManager] Received ICE candidate from:', from, 'channel:', channelId);
       if (channelId === this.currentChannelId) {
-        const peer = this.peers.get(from);
-        if (peer) {
-          try {
-            await peer.connection.addIceCandidate(candidate);
-            console.log('✅ [VoiceVideoManager] ICE candidate added for:', from);
-          } catch (error) {
-            console.error('❌ [VoiceVideoManager] Error adding ICE candidate:', error);
-          }
-        } else {
-          console.warn('⚠️ [VoiceVideoManager] No peer found for ICE candidate from:', from);
-        }
+        await this.handleIceCandidate(from, candidate, 'video');
       }
     });
 
@@ -384,6 +387,10 @@ export class VoiceVideoManager {
       if (channelId === this.currentChannelId) {
         const pc = await this.createPeerConnection(from, false, 'screen');
         await pc.connection.setRemoteDescription(sdp);
+        
+        // Process any queued ICE candidates
+        await this.processQueuedIceCandidates(from, 'screen');
+        
         const answer = await pc.connection.createAnswer();
         await pc.connection.setLocalDescription(answer);
         this.socket.emit('screen-share-answer', { to: from, sdp: answer, channelId });
@@ -395,16 +402,16 @@ export class VoiceVideoManager {
         const peer = this.screenPeers.get(from);
         if (peer) {
           await peer.connection.setRemoteDescription(sdp);
+          
+          // Process any queued ICE candidates
+          await this.processQueuedIceCandidates(from, 'screen');
         }
       }
     });
 
     this.socket.on('screen-share-ice-candidate', async ({ from, candidate, channelId }) => {
       if (channelId === this.currentChannelId) {
-        const peer = this.screenPeers.get(from);
-        if (peer) {
-          await peer.connection.addIceCandidate(candidate);
-        }
+        await this.handleIceCandidate(from, candidate, 'screen');
       }
     });
 
@@ -439,6 +446,59 @@ export class VoiceVideoManager {
       console.warn('⚠️ VoiceVideoManager: Socket disconnected');
       this.cleanupConnections();
     });
+  }
+
+  // === ICE CANDIDATE MANAGEMENT ===
+  private async handleIceCandidate(from: string, candidate: RTCIceCandidate, type: 'video' | 'screen'): Promise<void> {
+    const peers = type === 'video' ? this.peers : this.screenPeers;
+    const queues = type === 'video' ? this.iceCandidateQueues : this.screenIceCandidateQueues;
+    
+    const peer = peers.get(from);
+    
+    if (peer) {
+      // Check if remote description is set
+      if (peer.connection.remoteDescription) {
+        try {
+          await peer.connection.addIceCandidate(candidate);
+          console.log(`✅ [VoiceVideoManager] ${type} ICE candidate added for:`, from);
+        } catch (error) {
+          console.error(`❌ [VoiceVideoManager] Error adding ${type} ICE candidate:`, error);
+        }
+      } else {
+        // Queue the candidate until remote description is set
+        console.log(`🔄 [VoiceVideoManager] Queueing ${type} ICE candidate for:`, from);
+        if (!queues.has(from)) {
+          queues.set(from, []);
+        }
+        queues.get(from)!.push(candidate);
+      }
+    } else {
+      console.warn(`⚠️ [VoiceVideoManager] No ${type} peer found for ICE candidate from:`, from);
+    }
+  }
+
+  private async processQueuedIceCandidates(peerId: string, type: 'video' | 'screen'): Promise<void> {
+    const queues = type === 'video' ? this.iceCandidateQueues : this.screenIceCandidateQueues;
+    const peers = type === 'video' ? this.peers : this.screenPeers;
+    
+    const queuedCandidates = queues.get(peerId);
+    const peer = peers.get(peerId);
+    
+    if (queuedCandidates && queuedCandidates.length > 0 && peer) {
+      console.log(`🚀 [VoiceVideoManager] Processing ${queuedCandidates.length} queued ${type} ICE candidates for:`, peerId);
+      
+      for (const candidate of queuedCandidates) {
+        try {
+          await peer.connection.addIceCandidate(candidate);
+          console.log(`✅ [VoiceVideoManager] Queued ${type} ICE candidate added for:`, peerId);
+        } catch (error) {
+          console.error(`❌ [VoiceVideoManager] Error adding queued ${type} ICE candidate:`, error);
+        }
+      }
+      
+      // Clear the queue
+      queues.delete(peerId);
+    }
   }
 
   // === PEER CONNECTION MANAGEMENT ===
@@ -529,6 +589,10 @@ export class VoiceVideoManager {
     if (peer) {
       peer.connection.close();
       this.peers.delete(peerId);
+      
+      // Clean up ICE candidate queue
+      this.iceCandidateQueues.delete(peerId);
+      
       this.onUserLeftCallback?.(peerId);
     }
   }
@@ -538,6 +602,9 @@ export class VoiceVideoManager {
     if (peer) {
       peer.connection.close();
       this.screenPeers.delete(peerId);
+      
+      // Clean up screen ICE candidate queue
+      this.screenIceCandidateQueues.delete(peerId);
     }
   }
 
@@ -546,13 +613,20 @@ export class VoiceVideoManager {
     this.screenPeers.forEach(peer => peer.connection.close());
     this.peers.clear();
     this.screenPeers.clear();
+    
+    // Clear ICE candidate queues
+    this.iceCandidateQueues.clear();
+    this.screenIceCandidateQueues.clear();
   }
 
   // === MEDIA STATE MANAGEMENT ===
   public updateMediaState(updates: Partial<MediaState>): void {
+    console.log('🎥 STEP 5: updateMediaState called with:', updates);
     this.mediaState = { ...this.mediaState, ...updates };
+    console.log('🎥 STEP 6: New media state:', this.mediaState);
     
     if (this.currentChannelId) {
+      console.log('🎥 STEP 7: Emitting media_state_update to channel:', this.currentChannelId);
       this.socket.emit('media_state_update', {
         channelId: this.currentChannelId,
         ...updates
@@ -606,11 +680,25 @@ export class VoiceVideoManager {
     });
   }
 
-  public toggleVideo(enabled: boolean): void {
-    this.localStream?.getVideoTracks().forEach(track => track.enabled = enabled);
+  public toggleVideo(bool: boolean): void {
+    console.log('🎥 STEP 2: toggleVideo called, setting video to:', bool);
+    console.log('🎥 STEP 3: Video tracks found:', this.localStream?.getVideoTracks().length || 0);
+    
+    if (bool && this.localStream?.getVideoTracks().length === 0) {
+      console.log('🎥 ERROR: Trying to enable video but no video tracks exist!');
+      console.log('🎥 Need to create new video stream...');
+      // TODO: Re-create video stream
+      return;
+    }
+    
+    this.localStream?.getVideoTracks().forEach((track, index) => {
+      console.log(`🎥 STEP 4.${index + 1}: Track "${track.label}" - enabled: ${track.enabled} -> ${bool}`);
+      track.enabled = bool;
+    });
+    console.log('🎥 STEP 4: Video tracks enabled/disabled, calling updateMediaState');
     this.updateMediaState({ 
-      video: enabled,
-      activeStreams: { ...this.mediaState.activeStreams, video: enabled }
+      video: bool,
+      activeStreams: { ...this.mediaState.activeStreams, video: bool }
     });
   }
 

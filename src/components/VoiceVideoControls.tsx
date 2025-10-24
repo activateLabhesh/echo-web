@@ -124,9 +124,18 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
   };
 
   const handleToggleVideo = () => {
+    console.log('🎮 STEP 0: Camera button clicked, current video state:', mediaState.video);
     if (!manager) return;
-    const newVideo = !mediaState.video;
-    manager.toggleVideo(newVideo);
+    if(mediaState.video == true){
+      console.log('🎮 STEP 1: Turning video OFF');
+      return manager.toggleVideo(false);  
+    }
+    else{
+      console.log('🎮 STEP 1: Turning video ON');
+      return manager.toggleVideo(true);
+    }
+
+    
   };
 
   const handleToggleScreenShare = async () => {
@@ -253,7 +262,7 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
               ? 'bg-red-600 hover:bg-red-700 text-white'
               : 'bg-gray-700 hover:bg-gray-600 text-white'
           } ${!isConnected ? 'opacity-50 cursor-not-allowed' : ''}`}
-          title={mediaState.video ? 'Turn off camera' : 'Turn on camera'}
+          title={mediaState.video==false ? 'Turn off camera' : 'Turn on camera'}
         >
           {mediaState.video ? <FaVideo size={20} /> : <FaVideoSlash size={20} />}
         </button>

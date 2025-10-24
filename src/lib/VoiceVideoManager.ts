@@ -14,6 +14,10 @@ interface MediaState {
     video: boolean;
     screen: boolean;
   };
+  availablePermissions: {
+    audio: boolean;
+    video: boolean;
+  };
 }
 
 interface DeviceInfo {
@@ -74,6 +78,10 @@ export class VoiceVideoManager {
       audio: true,
       video: false,
       screen: false
+    },
+    availablePermissions: {
+      audio: false,
+      video: false
     }
   };
   
@@ -110,24 +118,93 @@ export class VoiceVideoManager {
     try {
       console.log("🎤 Requesting media permissions...", { video, audio });
       
-      // Get user media
-      this.localStream = await navigator.mediaDevices.getUserMedia({ video, audio });
+      let finalStream: MediaStream | null = null;
+      let audioPermission = false;
+      let videoPermission = false;
+      
+      // Try to get both audio and video first
+      try {
+        finalStream = await navigator.mediaDevices.getUserMedia({ video, audio });
+        audioPermission = audio && finalStream.getAudioTracks().length > 0;
+        videoPermission = video && finalStream.getVideoTracks().length > 0;
+        console.log("✅ Got both audio and video permissions:", { audioPermission, videoPermission });
+      } catch (error: any) {
+        console.warn("⚠️ Failed to get both permissions, trying separately:", error.name);
+        
+        // Try audio only
+        if (audio) {
+          try {
+            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            audioPermission = true;
+            finalStream = audioStream;
+            console.log("✅ Got audio permission");
+          } catch (audioError: any) {
+            console.warn("⚠️ Failed to get audio permission:", audioError.name);
+          }
+        }
+        
+        // Try video only
+        if (video) {
+          try {
+            const videoStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+            videoPermission = true;
+            
+            if (finalStream) {
+              // Combine audio and video streams
+              const combinedStream = new MediaStream();
+              finalStream.getAudioTracks().forEach(track => combinedStream.addTrack(track));
+              videoStream.getVideoTracks().forEach(track => combinedStream.addTrack(track));
+              
+              // Stop old streams
+              finalStream.getTracks().forEach(track => track.stop());
+              videoStream.getTracks().forEach(track => track.stop());
+              
+              finalStream = combinedStream;
+            } else {
+              finalStream = videoStream;
+            }
+            console.log("✅ Got video permission");
+          } catch (videoError: any) {
+            console.warn("⚠️ Failed to get video permission:", videoError.name);
+          }
+        }
+        
+        // If we couldn't get any permissions, throw the original error
+        if (!audioPermission && !videoPermission) {
+          throw error;
+        }
+      }
+      
+      this.localStream = finalStream;
       console.log("✅ Media stream obtained:", this.localStream);
       
       // Initialize device info
       await this.updateDeviceInfo();
       
-      // Update initial media state
-      this.mediaState.video = video;
-      this.mediaState.activeStreams.audio = audio;
-      this.mediaState.activeStreams.video = video;
+      // Update initial media state based on what we actually got
+      this.mediaState.video = videoPermission;
+      this.mediaState.activeStreams.audio = audioPermission;
+      this.mediaState.activeStreams.video = videoPermission;
+      this.mediaState.availablePermissions.audio = audioPermission;
+      this.mediaState.availablePermissions.video = videoPermission;
       
-      console.log("✅ VoiceVideoManager initialized successfully");
+      console.log("✅ VoiceVideoManager initialized successfully with permissions:", {
+        audio: audioPermission,
+        video: videoPermission
+      });
     } catch (error: any) {
       console.error("❌ Error initializing VoiceVideoManager:", error);
       console.error("❌ Error details:", error?.name, error?.message);
       throw error;
     }
+  }
+
+  async initializeAudioOnly(): Promise<void> {
+    return this.initialize(false, true);
+  }
+
+  async initializeVideoOnly(): Promise<void> {
+    return this.initialize(true, false);
   }
 
   // === SOCKET EVENT SETUP ===
@@ -804,6 +881,14 @@ export class VoiceVideoManager {
 
   public getMediaState(): MediaState {
     return { ...this.mediaState };
+  }
+
+  public getAvailablePermissions(): { audio: boolean; video: boolean } {
+    return { ...this.mediaState.availablePermissions };
+  }
+
+  public hasAnyPermissions(): boolean {
+    return this.mediaState.availablePermissions.audio || this.mediaState.availablePermissions.video;
   }
 
   public getDeviceInfo(): DeviceInfo {

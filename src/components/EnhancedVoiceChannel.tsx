@@ -28,6 +28,10 @@ interface MediaState {
   screenSharing: boolean;
   recording: boolean;
   mediaQuality: 'low' | 'medium' | 'high' | 'auto';
+  availablePermissions?: {
+    audio: boolean;
+    video: boolean;
+  };
 }
 
 interface EnhancedVoiceChannelProps {
@@ -63,12 +67,16 @@ const EnhancedVoiceChannel: React.FC<EnhancedVoiceChannelProps> = ({
     video: false,
     screenSharing: false,
     recording: false,
-    mediaQuality: 'auto'
+    mediaQuality: 'auto',
+    availablePermissions: {
+      audio: false,
+      video: false
+    }
   });
 
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
-  const [hasPermissions, setHasPermissions] = useState(false);
+  const [hasAnyPermissions, setHasAnyPermissions] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
@@ -126,7 +134,8 @@ const EnhancedVoiceChannel: React.FC<EnhancedVoiceChannelProps> = ({
           
           if (isMounted) {
             setLocalStream(manager.getLocalStream());
-            setHasPermissions(true);
+            setHasAnyPermissions(manager.hasAnyPermissions());
+            setLocalMediaState(manager.getMediaState());
             setIsInitializing(false);
           }
           isManagerInitialized.current = true;
@@ -135,16 +144,33 @@ const EnhancedVoiceChannel: React.FC<EnhancedVoiceChannelProps> = ({
           if (isMounted) {
             setIsInitializing(false);
             
-            if (error?.name === 'NotAllowedError') {
-              setPermissionError('Camera and microphone access denied. Please allow permissions and try again.');
-            } else if (error?.name === 'NotFoundError') {
-              setPermissionError('No camera or microphone found. Please connect a device and try again.');
-            } else if (error?.name === 'NotReadableError') {
-              setPermissionError('Camera or microphone is already in use by another application.');
-            } else if (error?.name === 'OverconstrainedError') {
-              setPermissionError('Camera/microphone constraints could not be satisfied. Try refreshing the page.');
+            // Check if manager has any permissions despite the error
+            if (manager && manager.hasAnyPermissions()) {
+              setHasAnyPermissions(true);
+              setLocalStream(manager.getLocalStream());
+              setLocalMediaState(manager.getMediaState());
+              
+              const permissions = manager.getAvailablePermissions();
+              if (!permissions.audio && !permissions.video) {
+                setPermissionError('No audio or video permissions available. Please allow access and try again.');
+              } else if (!permissions.audio) {
+                setPermissionError('Video-only mode: Microphone access denied. You can still use video features.');
+              } else if (!permissions.video) {
+                setPermissionError('Audio-only mode: Camera access denied. You can still use voice features.');
+              }
             } else {
-              setPermissionError(`Media access error: ${error?.message || 'Unknown error'}`);
+              // No permissions at all
+              if (error?.name === 'NotAllowedError') {
+                setPermissionError('Camera and microphone access denied. Please allow permissions and try again.');
+              } else if (error?.name === 'NotFoundError') {
+                setPermissionError('No camera or microphone found. Please connect a device and try again.');
+              } else if (error?.name === 'NotReadableError') {
+                setPermissionError('Camera or microphone is already in use by another application.');
+              } else if (error?.name === 'OverconstrainedError') {
+                setPermissionError('Camera/microphone constraints could not be satisfied. Try refreshing the page.');
+              } else {
+                setPermissionError(`Media access error: ${error?.message || 'Unknown error'}`);
+              }
             }
           }
           return;
@@ -353,18 +379,74 @@ const EnhancedVoiceChannel: React.FC<EnhancedVoiceChannelProps> = ({
       setPermissionError(null);
       await manager.initialize(true, true);
       setLocalStream(manager.getLocalStream());
-      setHasPermissions(true);
+      setHasAnyPermissions(manager.hasAnyPermissions());
+      setLocalMediaState(manager.getMediaState());
       setIsInitializing(false);
       isManagerInitialized.current = true;
     } catch (error: any) {
       console.error("Failed to retry permissions:", error);
       setIsInitializing(false);
-      setPermissionError(`Media access error: ${error.message || 'Unknown error'}`);
+      
+      // Check if we got partial permissions
+      if (manager && manager.hasAnyPermissions()) {
+        setHasAnyPermissions(true);
+        setLocalStream(manager.getLocalStream());
+        setLocalMediaState(manager.getMediaState());
+        
+        const permissions = manager.getAvailablePermissions();
+        if (!permissions.audio) {
+          setPermissionError('Video-only mode: Microphone access denied. You can still use video features.');
+        } else if (!permissions.video) {
+          setPermissionError('Audio-only mode: Camera access denied. You can still use voice features.');
+        }
+      } else {
+        setPermissionError(`Media access error: ${error.message || 'Unknown error'}`);
+      }
+    }
+  };
+
+  const handleRetryAudioOnly = async () => {
+    const manager = managerRef.current;
+    if (!manager) return;
+
+    try {
+      setIsInitializing(true);
+      setPermissionError(null);
+      await manager.initializeAudioOnly();
+      setLocalStream(manager.getLocalStream());
+      setHasAnyPermissions(manager.hasAnyPermissions());
+      setLocalMediaState(manager.getMediaState());
+      setIsInitializing(false);
+      isManagerInitialized.current = true;
+    } catch (error: any) {
+      console.error("Failed to get audio permission:", error);
+      setIsInitializing(false);
+      setPermissionError(`Audio access error: ${error.message || 'Unknown error'}`);
+    }
+  };
+
+  const handleRetryVideoOnly = async () => {
+    const manager = managerRef.current;
+    if (!manager) return;
+
+    try {
+      setIsInitializing(true);
+      setPermissionError(null);
+      await manager.initializeVideoOnly();
+      setLocalStream(manager.getLocalStream());
+      setHasAnyPermissions(manager.hasAnyPermissions());
+      setLocalMediaState(manager.getMediaState());
+      setIsInitializing(false);
+      isManagerInitialized.current = true;
+    } catch (error: any) {
+      console.error("Failed to get video permission:", error);
+      setIsInitializing(false);
+      setPermissionError(`Video access error: ${error.message || 'Unknown error'}`);
     }
   };
 
   // Render states
-  if (permissionError) {
+  if (permissionError && !hasAnyPermissions) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-900 text-white">
         <div className="text-center p-8">
@@ -374,14 +456,36 @@ const EnhancedVoiceChannel: React.FC<EnhancedVoiceChannelProps> = ({
             </svg>
           </div>
           <h3 className="text-xl font-semibold mb-2">Media Access Required</h3>
-          <p className="text-gray-400 mb-4 max-w-md">{permissionError}</p>
-          <button
-            onClick={handleRetryPermissions}
-            disabled={isInitializing}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 px-6 py-2 rounded-lg font-medium transition-colors"
-          >
-            {isInitializing ? 'Requesting Access...' : 'Grant Permissions'}
-          </button>
+          <p className="text-gray-400 mb-6 max-w-md">{permissionError}</p>
+          
+          <div className="space-y-3">
+            <button
+              onClick={handleRetryPermissions}
+              disabled={isInitializing}
+              className="block w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              {isInitializing ? 'Requesting Access...' : 'Grant All Permissions'}
+            </button>
+            
+            <div className="text-sm text-gray-400 mb-2">Or try specific permissions:</div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={handleRetryAudioOnly}
+                disabled={isInitializing}
+                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-800 px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                Audio Only
+              </button>
+              <button
+                onClick={handleRetryVideoOnly}
+                disabled={isInitializing}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                Video Only
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -433,6 +537,29 @@ const EnhancedVoiceChannel: React.FC<EnhancedVoiceChannelProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-gray-900">
+      {/* Partial permissions warning */}
+      {permissionError && hasAnyPermissions && (
+        <div className="bg-yellow-900/50 border-l-4 border-yellow-400 p-4 text-yellow-100">
+          <div className="flex items-center">
+            <div className="text-yellow-400 mr-3">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm">{permissionError}</p>
+            </div>
+            <button
+              onClick={handleRetryPermissions}
+              disabled={isInitializing}
+              className="ml-4 bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-800 px-3 py-1 rounded text-sm font-medium transition-colors"
+            >
+              {isInitializing ? 'Retrying...' : 'Retry Permissions'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Video Panel */}
       <div className="flex-1">
         <EnhancedVideoPanel

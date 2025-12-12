@@ -307,7 +307,9 @@ const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
             </button>
             {/* Buttons in One Row */}
             <div className="flex flex-row flex-nowrap gap-6 mt-10 overflow-x-auto">
-              <button className="bg-yellow-400 text-black px-6 py-2 rounded-md font-semibold hover:brightness-110 whitespace-nowrap">
+              <button className="bg-yellow-400 text-black px-6 py-2 rounded-md font-semibold hover:brightness-110 whitespace-nowrap"
+                      onClick={() => router.push("/change-password")}
+              >
                 Change Password
               </button>
               <button

@@ -1,9 +1,9 @@
 // src/components/VoiceChannel.tsx
+// Voice channel component using Amazon Chime SDK
 
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
-import { createAuthSocket } from '@/socket';
 import { VoiceVideoManager } from '@/lib/VoiceVideoManager';
 import { FaMicrophone, FaMicrophoneSlash, FaPhoneSlash, FaVideo, FaVideoSlash, FaRedo } from 'react-icons/fa';
 
@@ -19,8 +19,8 @@ interface VoiceChannelProps {
 }
 
 interface VoiceMember {
-    socketId: string;
-    userId: string;
+    odattendeeId: string;
+    oduserId: string;
     username?: string;
     muted: boolean;
     speaking: boolean;
@@ -38,49 +38,59 @@ const VideoPlayer = ({
     isMuted = false, 
     isLocal = false, 
     username = 'Unknown', 
-    voiceState 
+    voiceState,
+    manager,
+    tileId
 }: { 
-    stream: MediaStream | null, 
+    stream?: MediaStream | null, 
     isMuted?: boolean, 
     isLocal?: boolean, 
     username?: string,
-    voiceState?: VoiceState 
+    voiceState?: VoiceState,
+    manager?: VoiceVideoManager | null,
+    tileId?: number | null
 }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
-    const [hasVideo, setHasVideo] = useState(true);
+    const [hasVideo, setHasVideo] = useState(false);
     
     useEffect(() => {
-        if (videoRef.current && stream) {
-            console.log('🎥 VideoPlayer: Setting stream for', username);
+        // Bind video element to Chime tile if available
+        if (videoRef.current && manager && tileId !== undefined && tileId !== null) {
+            manager.bindVideoElement(tileId, videoRef.current);
+            setHasVideo(true);
+            
+            return () => {
+                if (manager && tileId !== undefined && tileId !== null) {
+                    manager.unbindVideoElement(tileId);
+                }
+            };
+        }
+    }, [manager, tileId]);
+
+    // Fallback to direct stream assignment if no tile
+    useEffect(() => {
+        if (videoRef.current && stream && !tileId) {
             videoRef.current.srcObject = stream;
-            // Check if stream has video tracks
             const videoTracks = stream.getVideoTracks();
             const hasVideoTracks = videoTracks.length > 0 && videoTracks.some(track => track.enabled);
-            console.log('🎥 VideoPlayer: Video tracks:', videoTracks.length, 'enabled:', hasVideoTracks);
             setHasVideo(hasVideoTracks);
-        } else {
-            console.log('🎥 VideoPlayer: No stream or video ref for', username, { stream: !!stream, ref: !!videoRef.current });
         }
-    }, [stream, username]);
+    }, [stream, tileId]);
     
     useEffect(() => {
         if (voiceState) {
-            console.log('🎥 VideoPlayer: Voice state update for', username, 'video:', voiceState.video);
             setHasVideo(voiceState.video);
         }
-    }, [voiceState, username]);
-    
-    // Debug logging
-    console.log('🎥 VideoPlayer render:', username, { hasVideo, stream: !!stream, showing: hasVideo && stream });
+    }, [voiceState]);
     
     return (
         <div className="bg-gray-800 rounded-lg overflow-hidden relative aspect-video">
-            {hasVideo && stream ? (
+            {(hasVideo || tileId) ? (
                 <video 
                     ref={videoRef} 
                     autoPlay 
                     playsInline 
-                    muted={isMuted} 
+                    muted={isMuted || isLocal} 
                     className={`w-full h-full object-cover ${isLocal ? 'transform -scale-x-100' : ''}`} 
                 />
             ) : (
@@ -127,7 +137,7 @@ const VoiceChannel = ({ channelId, userId, onHangUp, headless = false, onLocalSt
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
     const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
     const [isMuted, setIsMuted] = useState(false);
-    const [isCameraOn, setIsCameraOn] = useState(true);
+    const [isCameraOn, setIsCameraOn] = useState(false); // Camera off by default
     const [voiceMembers, setVoiceMembers] = useState<VoiceMember[]>([]);
     const [voiceStates, setVoiceStates] = useState<Map<string, VoiceState>>(new Map());
     const [currentUser, setCurrentUser] = useState<any>(null);
@@ -138,87 +148,17 @@ const VoiceChannel = ({ channelId, userId, onHangUp, headless = false, onLocalSt
     const [isVoiceChannelConnected, setIsVoiceChannelConnected] = useState(false);
     const [connectionError, setConnectionError] = useState<string | null>(null);
 
-    const socketRef = useRef<ReturnType<typeof createAuthSocket> | null>(null);
     const managerRef = useRef<VoiceVideoManager | null>(null);
     const isManagerInitialized = useRef(false);
 
-    // This effect creates the single socket and manager instance once.
+    // Initialize manager
     useEffect(() => {
         let isMounted = true;
-        let connectionTimeout: NodeJS.Timeout;
-        let statusCheckInterval: NodeJS.Timeout;
         
-        if (!socketRef.current) {
-            console.log('🔌 Creating socket for user:', userId);
-            const socket = createAuthSocket(userId);
-            const manager = new VoiceVideoManager(userId, socket);
-            socketRef.current = socket;
+        if (!managerRef.current) {
+            console.log('Creating VoiceVideoManager (Chime) for user:', userId);
+            const manager = new VoiceVideoManager(userId);
             managerRef.current = manager;
-        
-            socket.on('connect', () => {
-                if (isMounted) {
-                    console.log('✅ Socket connected:', socket.id);
-                    setIsConnected(true);
-                    setConnectionError(null);
-                    if (connectionTimeout) clearTimeout(connectionTimeout);
-                }
-            });
-            
-            // Set initial connection status
-            setTimeout(() => {
-                if (socket.connected) {
-                    setIsConnected(true);
-                    setConnectionError(null);
-                }
-            }, 100);
-            
-            connectionTimeout = setTimeout(() => {
-                if (!socket.connected && isMounted) {
-                    console.warn('⚠️ Connection timeout, retrying...');
-                    socket.connect();
-                }
-            }, 5000);
-            
-            // Periodic status check
-            statusCheckInterval = setInterval(() => {
-                if (isMounted && socket.connected) {
-                    setIsConnected(prev => prev ? prev : true);
-                    setConnectionError(null);
-                } else if (isMounted && !socket.connected) {
-                    setIsConnected(prev => prev ? false : prev);
-                }
-            }, 1000);
-            
-            socket.on('disconnect', (reason: string) => {
-                if (isMounted) {
-                    setIsConnected(false);
-                    console.warn('⚠️ Disconnected:', reason);
-                    
-                    if (reason === 'io server disconnect' || reason === 'transport close') {
-                        setTimeout(() => {
-                            if (!socket.connected && isMounted) {
-                                socket.connect();
-                            }
-                        }, 2000);
-                    }
-                }
-            });
-            
-            socket.on('connect_error', (error: any) => {
-                if (isMounted) {
-                    setIsConnected(false);
-                    const errorMsg = `Connection failed: ${error.message || 'Unknown error'}`;
-                    setConnectionError(errorMsg);
-                    console.error('❌ Connection error:', error);
-                    if (connectionTimeout) clearTimeout(connectionTimeout);
-                }
-            });
-        } else {
-            const socket = socketRef.current;
-            if (socket.connected && !isConnected) {
-                setIsConnected(true);
-                setConnectionError(null);
-            }
         }
 
         const manager = managerRef.current;
@@ -235,15 +175,10 @@ const VoiceChannel = ({ channelId, userId, onHangUp, headless = false, onLocalSt
                     
                     if (isMounted) {
                         const stream = manager.getLocalStream();
-                        console.log('📹 VoiceChannel: Got local stream:', !!stream);
-                        if (stream) {
-                            console.log('📹 VoiceChannel: Stream tracks:', stream.getTracks().length);
-                            console.log('📹 VoiceChannel: Video tracks:', stream.getVideoTracks().length);
-                            console.log('📹 VoiceChannel: Audio tracks:', stream.getAudioTracks().length);
-                        }
                         setLocalStream(stream);
-                        setHasPermissions(true);
+                        setHasPermissions(manager.hasAnyPermissions());
                         setIsInitializing(false);
+                        setIsConnected(true);
                     }
                     isManagerInitialized.current = true;
                 } catch (error: any) {
@@ -251,7 +186,7 @@ const VoiceChannel = ({ channelId, userId, onHangUp, headless = false, onLocalSt
                     if (isMounted) {
                         setIsInitializing(false);
                         
-                        if (error.name === 'NotAllowedError') {
+                        if (error.name === 'NotAllowedError' || error.message?.includes('permission')) {
                             setPermissionError('Camera and microphone access denied. Please allow permissions and try again.');
                         } else if (error.name === 'NotFoundError') {
                             setPermissionError('No camera or microphone found. Please connect a device and try again.');
@@ -265,12 +200,14 @@ const VoiceChannel = ({ channelId, userId, onHangUp, headless = false, onLocalSt
                 }
             }
             
-            manager.onStream((stream: MediaStream, peerId: string, type: 'video' | 'screen') => {
+            // Set up event listeners
+            manager.onStream((stream: MediaStream, peerId: string) => {
                 if (isMounted) {
                     setRemoteStreams(prev => new Map(prev).set(peerId, stream));
                     onRemoteStreamAdded?.(peerId, stream);
                 }
             });
+
             manager.onUserLeft((peerId: string) => {
                 if (isMounted) {
                     setRemoteStreams(prev => {
@@ -278,15 +215,21 @@ const VoiceChannel = ({ channelId, userId, onHangUp, headless = false, onLocalSt
                         newStreams.delete(peerId);
                         return newStreams;
                     });
+                    setVoiceStates(prev => {
+                        const newStates = new Map(prev);
+                        newStates.delete(peerId);
+                        return newStates;
+                    });
                     onRemoteStreamRemoved?.(peerId);
                 }
             });
+
             manager.onVoiceRoster((members: any[]) => {
                 if (isMounted) {
                     const voiceMembers: VoiceMember[] = members.map(member => ({
-                        socketId: member.socketId || member.id,
-                        userId: member.userId || member.user_id,
-                        username: member.username || member.name || `User ${member.userId}`,
+                        odattendeeId: member.odattendeeId || member.attendeeId || member.id,
+                        oduserId: member.oduserId || member.userId || member.user_id,
+                        username: member.odName || member.username || member.name || `User ${(member.oduserId || member.userId || '').slice(0, 8)}`,
                         muted: member.muted || false,
                         speaking: member.speaking || false,
                         video: member.video || false
@@ -298,21 +241,23 @@ const VoiceChannel = ({ channelId, userId, onHangUp, headless = false, onLocalSt
                     setIsVoiceChannelConnected(true);
                 }
             });
-            manager.onUserJoined((socketId: string, userId: string) => {
-                console.log("User joined voice channel:", { socketId, userId });
-                // Add new member to voice states
+
+            manager.onUserJoined((odattendeeId: string, oduserId: string) => {
+                console.log("User joined voice channel:", { odattendeeId, oduserId });
                 if (isMounted) {
-                    setVoiceStates(prev => new Map(prev).set(socketId, {
+                    setVoiceStates(prev => new Map(prev).set(odattendeeId, {
                         muted: false,
                         speaking: false,
-                        video: true
+                        video: false
                     }));
                 }
             });
-            manager.onMediaState((socketId: string, userId: string, state: any) => {
-                console.log("Media state update:", { socketId, userId, state });
+
+            // onMediaState now has 2 params: (attendeeId, state)
+            manager.onMediaState((attendeeId: string, state: any) => {
+                console.log("Media state update:", { attendeeId, state });
                 if (isMounted) {
-                    setVoiceStates(prev => new Map(prev).set(socketId, {
+                    setVoiceStates(prev => new Map(prev).set(attendeeId, {
                         muted: state.muted || false,
                         speaking: state.speaking || false,
                         video: state.video || false
@@ -320,13 +265,21 @@ const VoiceChannel = ({ channelId, userId, onHangUp, headless = false, onLocalSt
                     
                     // Update voice members with new state
                     setVoiceMembers(prev => prev.map(member => 
-                        member.socketId === socketId 
+                        member.odattendeeId === attendeeId 
                             ? { ...member, ...state }
                             : member
                     ));
                 }
             });
+
+            manager.onError((error: any) => {
+                console.error("Voice channel error:", error);
+                if (isMounted) {
+                    setConnectionError(error.message || 'An error occurred');
+                }
+            });
         };
+
         setupManagerAndListeners();
         
         // Get current user info
@@ -339,32 +292,17 @@ const VoiceChannel = ({ channelId, userId, onHangUp, headless = false, onLocalSt
         
         return () => {
             isMounted = false;
-            if (connectionTimeout) clearTimeout(connectionTimeout);
-            if (statusCheckInterval) clearInterval(statusCheckInterval);
             if (managerRef.current) {
                 managerRef.current.disconnect();
             }
-            if (socketRef.current) {
-                // Remove all listeners to prevent memory leaks
-                socketRef.current.removeAllListeners();
-                if (socketRef.current.connected) {
-                    socketRef.current.disconnect();
-                }
-            }
         };
-    }, []);
+    }, [userId]);
 
-    // This effect handles joining/leaving channels based on channelId changes
+    // Handle channel changes - join the voice channel
     useEffect(() => {
         const manager = managerRef.current;
-        const socket = socketRef.current;
         
         if (!manager || !isManagerInitialized.current) {
-            return;
-        }
-        
-        if (!socket?.connected) {
-            console.log('⏳ Waiting for socket connection...');
             return;
         }
         
@@ -374,19 +312,15 @@ const VoiceChannel = ({ channelId, userId, onHangUp, headless = false, onLocalSt
 
         const joinChannel = async () => {
             try {
-                console.log('🎙️ Joining voice channel:', channelId);
+                console.log('Joining voice channel:', channelId);
                 setIsVoiceChannelConnected(false);
-                manager.leaveVoiceChannel();
                 await manager.joinVoiceChannel(channelId);
                 
                 setLocalStream(manager.getLocalStream());
                 onLocalStreamChange?.(manager.getLocalStream());
-                
-                setTimeout(() => {
-                    setIsVoiceChannelConnected(true);
-                }, 2000);
-            } catch (error) {
-                console.error('❌ Failed to join voice channel:', error);
+                setIsVoiceChannelConnected(true);
+            } catch (error: any) {
+                console.error('Failed to join voice channel:', error);
                 setPermissionError('Failed to connect to voice channel. Please check your connection and try again.');
             }
         };
@@ -394,58 +328,24 @@ const VoiceChannel = ({ channelId, userId, onHangUp, headless = false, onLocalSt
         joinChannel();
 
         return () => {
-            console.log('👋 Leaving voice channel:', channelId);
+            console.log('Leaving voice channel:', channelId);
             manager.leaveVoiceChannel();
             setIsVoiceChannelConnected(false);
         };
-    }, [channelId, onLocalStreamChange, isConnected, hasPermissions]);
+    }, [channelId, onLocalStreamChange, hasPermissions]);
 
 
     const handleToggleMute = () => {
         const newMutedState = !isMuted;
         managerRef.current?.toggleAudio(!newMutedState);
         setIsMuted(newMutedState);
-        
-        // Update local voice state
-        setVoiceStates(prev => {
-            const newStates = new Map(prev);
-            const currentSocketId = socketRef.current?.id;
-            if (currentSocketId) {
-                newStates.set(currentSocketId, {
-                    muted: newMutedState,
-                    speaking: false,
-                    video: isCameraOn
-                });
-            }
-            return newStates;
-        });
     };
 
-    const handleToggleCamera = () => {
+    const handleToggleCamera = async () => {
         const newCameraState = !isCameraOn;
-        managerRef.current?.toggleVideo(newCameraState);
+        await managerRef.current?.toggleVideo(newCameraState);
         setIsCameraOn(newCameraState);
-        
-        // Update local voice state
-        setVoiceStates(prev => {
-            const newStates = new Map(prev);
-            const currentSocketId = socketRef.current?.id;
-            if (currentSocketId) {
-                newStates.set(currentSocketId, {
-                    muted: isMuted,
-                    speaking: false,
-                    video: newCameraState
-                });
-            }
-            return newStates;
-        });
     };
-
-    useEffect(() => {
-        if (managerRef.current) {
-            managerRef.current.toggleVideo(isCameraOn);
-        }
-    }, [isCameraOn]);
     
     const retryMediaAccess = async () => {
         if (managerRef.current) {
@@ -458,13 +358,13 @@ const VoiceChannel = ({ channelId, userId, onHangUp, headless = false, onLocalSt
                 
                 await manager.initialize(true, true);
                 setLocalStream(manager.getLocalStream());
-                setHasPermissions(true);
+                setHasPermissions(manager.hasAnyPermissions());
                 setIsInitializing(false);
                 isManagerInitialized.current = true;
             } catch (error: any) {
                 setIsInitializing(false);
                 
-                if (error.name === 'NotAllowedError') {
+                if (error.name === 'NotAllowedError' || error.message?.includes('permission')) {
                     setPermissionError('Camera and microphone access denied. Please allow permissions and try again.');
                 } else if (error.name === 'NotFoundError') {
                     setPermissionError('No camera or microphone found. Please connect a device and try again.');
@@ -486,9 +386,9 @@ To enable camera and microphone:
 3. Refresh the page and try again
 
 Or go to:
-- Chrome: Settings → Privacy and Security → Site Settings → Camera/Microphone
-- Firefox: Settings → Privacy & Security → Permissions
-- Safari: Preferences → Websites → Camera/Microphone
+- Chrome: Settings -> Privacy and Security -> Site Settings -> Camera/Microphone
+- Firefox: Settings -> Privacy & Security -> Permissions
+- Safari: Preferences -> Websites -> Camera/Microphone
 
 Find this site (${window.location.origin}) and set permissions to "Allow"`;
         
@@ -548,7 +448,7 @@ Find this site (${window.location.origin}) and set permissions to "Allow"`;
 
     const getCurrentUserVoiceState = (): VoiceState => ({
         muted: isMuted,
-        speaking: false, // We could implement speaking detection later
+        speaking: false,
         video: isCameraOn
     });
     
@@ -578,33 +478,36 @@ Find this site (${window.location.origin}) and set permissions to "Allow"`;
                     isLocal={true}
                     username={getCurrentUsername()}
                     voiceState={getCurrentUserVoiceState()}
+                    manager={managerRef.current}
+                    tileId={managerRef.current?.getLocalVideoTileId()}
                 />
                 
                 {/* Remote Streams */}
-                {Array.from(remoteStreams.entries()).map(([socketId, stream]) => {
-                    const member = voiceMembers.find(m => m.socketId === socketId);
-                    const voiceState = voiceStates.get(socketId);
+                {Array.from(remoteStreams.entries()).map(([odattendeeId, stream]) => {
+                    const member = voiceMembers.find(m => m.odattendeeId === odattendeeId);
+                    const voiceState = voiceStates.get(odattendeeId);
                     return (
                         <VideoPlayer 
-                            key={socketId} 
+                            key={odattendeeId} 
                             stream={stream}
-                            username={member?.username || `User ${socketId.slice(0, 8)}`}
+                            username={member?.username || `User ${odattendeeId.slice(0, 8)}`}
                             voiceState={voiceState}
+                            manager={managerRef.current}
                         />
                     );
                 })}
                 
                 {/* Members without video streams (audio-only) */}
                 {voiceMembers
-                    .filter(member => !remoteStreams.has(member.socketId) && member.socketId !== socketRef.current?.id)
+                    .filter(member => !remoteStreams.has(member.odattendeeId))
                     .map(member => {
-                        const voiceState = voiceStates.get(member.socketId);
+                        const voiceState = voiceStates.get(member.odattendeeId);
                         return (
                             <VideoPlayer 
-                                key={member.socketId}
-                                stream={null}
+                                key={member.odattendeeId}
                                 username={member.username}
-                                voiceState={voiceState || { muted: true, speaking: false, video: false }}
+                                voiceState={voiceState || { muted: member.muted, speaking: member.speaking, video: member.video }}
+                                manager={managerRef.current}
                             />
                         );
                     })}
@@ -661,39 +564,6 @@ Find this site (${window.location.origin}) and set permissions to "Allow"`;
                         <FaRedo size={20} className="text-white" />
                     </button>
                 )}
-                
-                {/* Connection status indicator */}
-                {hasPermissions && !isConnected && (
-                    <button 
-                        onClick={async () => {
-                            try {
-                                if (socketRef.current) {
-                                    console.log('🔄 Manual reconnection attempt...');
-                                    setConnectionError(null);
-                                    
-                                    // Disconnect first if partially connected
-                                    if (socketRef.current.connected) {
-                                        socketRef.current.disconnect();
-                                    }
-                                    
-                                    // Wait a moment then reconnect
-                                    setTimeout(() => {
-                                        if (socketRef.current) {
-                                            socketRef.current.connect();
-                                        }
-                                    }, 500);
-                                }
-                            } catch (error) {
-                                console.error('Manual reconnection failed:', error);
-                                setConnectionError(`Reconnection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                            }
-                        }}
-                        className="p-3 rounded-full bg-red-600 hover:bg-red-500 transition"
-                        title="Connection lost - Click to reconnect"
-                    >
-                        <FaRedo size={20} className="text-white" />
-                    </button>
-                )}
             </div>
             
             {/* Voice Members List */}
@@ -704,20 +574,20 @@ Find this site (${window.location.origin}) and set permissions to "Allow"`;
                     </h4>
                     <div className="flex flex-wrap gap-1">
                         {voiceMembers.map(member => {
-                            const voiceState = voiceStates.get(member.socketId);
+                            const voiceState = voiceStates.get(member.odattendeeId);
                             return (
                                 <div 
-                                    key={member.socketId}
+                                    key={member.odattendeeId}
                                     className="flex items-center space-x-1 bg-gray-700 rounded px-2 py-1"
                                 >
                                     <span className="text-xs text-white">{member.username}</span>
-                                    {voiceState?.muted && (
+                                    {(voiceState?.muted ?? member.muted) && (
                                         <FaMicrophoneSlash size={10} className="text-red-400" />
                                     )}
-                                    {voiceState?.speaking && !voiceState?.muted && (
+                                    {(voiceState?.speaking ?? member.speaking) && !(voiceState?.muted ?? member.muted) && (
                                         <FaMicrophone size={10} className="text-green-400" />
                                     )}
-                                    {!voiceState?.video && (
+                                    {!(voiceState?.video ?? member.video) && (
                                         <FaVideoSlash size={10} className="text-gray-400" />
                                     )}
                                 </div>

@@ -17,13 +17,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
+import { useNotifications } from '../hooks/useNotifications';
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Servers", icon: Users, path: "/servers" },
   { label: "Messages", icon: MessageSquareText, path: "/messages" },
   { label: "Friends", icon: UserIcon, path: "/friends" },
-
+  { label: "Notifications", icon: Bell, path: "/notifications" },
 ];
 
 export default function Sidebar() {
@@ -31,6 +32,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [user, setUser] = useState<profile | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { unreadCount } = useNotifications();
 
   useEffect(() => {
     const stored = localStorage.getItem("sidebarCollapsed");
@@ -60,9 +62,8 @@ export default function Sidebar() {
 
   return (
     <aside
-    
       className={clsx(
-        "relative h-screen flex flex-col justify-between overflow-hidden transition-all duration-300 ease-in-out select-none",
+        "relative h-screen flex flex-col justify-between overflow-hidden transition-all duration-300 ease-in-out select-none shrink-0",
         collapsed ? "w-20" : "w-64"
       )}
     >
@@ -110,7 +111,15 @@ export default function Sidebar() {
                         : "text-gray-300 hover:bg-white/10 hover:text-white"
                     )}
                   >
-                    <item.icon className="w-5 h-5" />
+                    <div className="relative">
+                      <item.icon className="w-5 h-5" />
+                      {/* Show unread count badge for notifications */}
+                      {item.label === "Notifications" && unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                    </div>
                     
                     {!collapsed && <span>{item.label}</span>}
                   </Link>

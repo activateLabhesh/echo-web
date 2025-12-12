@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Sidebar from "./components/Sidebar";
 import Overview from "./components/ServerSettings/Overview";
@@ -38,14 +38,22 @@ export default function ServerSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const searchParams = useSearchParams();
-  const serverIdFromUrl = searchParams.get("serverId");
-  const serverIdFromStorage =
-    typeof window !== "undefined"
-      ? localStorage.getItem("currentServerId")
-      : null;
-  const serverId = serverIdFromUrl || serverIdFromStorage || "";
+  // Resolve serverId on the client inside useEffect to avoid using
+  // next/navigation's useSearchParams during prerender which can cause
+  // build-time errors. This reads URLSearchParams from window.location
+  // and falls back to localStorage.
+  const [serverId, setServerId] = useState<string>("");
 
+  // compute the serverId once on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const serverIdFromUrl = params.get("serverId");
+    const serverIdFromStorage = localStorage.getItem("currentServerId");
+    const resolved = serverIdFromUrl || serverIdFromStorage || "";
+    setServerId(resolved);
+  }, []);
+
+  // load server details when serverId is resolved
   useEffect(() => {
     const loadServerDetails = async () => {
       if (!serverId || serverId.trim() === "") {

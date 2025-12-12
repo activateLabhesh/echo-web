@@ -1,4 +1,5 @@
 // src/components/VoiceVideoControls.tsx
+// Voice/Video controls component for Amazon Chime SDK
 
 "use client";
 
@@ -14,7 +15,6 @@ import {
   FaCog,
   FaPhoneSlash,
   FaSignal,
-  FaVolumeUp,
   FaChevronDown,
   FaChevronUp
 } from 'react-icons/fa';
@@ -32,8 +32,10 @@ interface MediaState {
 interface DeviceInfo {
   audioInputs: MediaDeviceInfo[];
   videoInputs: MediaDeviceInfo[];
+  audioOutputs?: MediaDeviceInfo[];
   activeAudioDevice?: string;
   activeVideoDevice?: string;
+  activeAudioOutputDevice?: string;
 }
 
 interface NetworkStats {
@@ -68,8 +70,10 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo>({
     audioInputs: [],
     videoInputs: [],
+    audioOutputs: [],
     activeAudioDevice: undefined,
-    activeVideoDevice: undefined
+    activeVideoDevice: undefined,
+    activeAudioOutputDevice: undefined
   });
 
   const [networkStats, setNetworkStats] = useState<NetworkStats | null>(null);
@@ -77,25 +81,34 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
   const [showDeviceSelector, setShowDeviceSelector] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [hasVideoPerm, setHasVideoPerm] = useState(false);
+  const [hasAudioPerm, setHasAudioPerm] = useState(false);
 
   // Update states when manager changes
   useEffect(() => {
     if (!manager) return;
-
-    // Get initial states
-    setMediaState(manager.getMediaState());
-    setDeviceInfo(manager.getDeviceInfo());
-    setNetworkStats(manager.getNetworkStats());
-
-    // Update device info
-    manager.updateDeviceInfo();
-
-    const interval = setInterval(() => {
+    
+    // Initial permissions check
+    const perms = manager.getAvailablePermissions?.();
+    if (perms) {
+      setHasAudioPerm(!!perms.audio);
+      setHasVideoPerm(!!perms.video);
+    }
+    
+    const id = setInterval(() => {
       setMediaState(manager.getMediaState());
       setNetworkStats(manager.getNetworkStats());
+      setDeviceInfo(manager.getDeviceInfo());
+      
+      // Update permissions
+      const currentPerms = manager.getAvailablePermissions?.();
+      if (currentPerms) {
+        setHasAudioPerm(!!currentPerms.audio);
+        setHasVideoPerm(!!currentPerms.video);
+      }
     }, 1000);
-
-    return () => clearInterval(interval);
+    
+    return () => clearInterval(id);
   }, [manager]);
 
   // Recording timer
@@ -119,27 +132,56 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
 
   const handleToggleAudio = () => {
     if (!manager) return;
-    const newMuted = !mediaState.muted;
-    manager.toggleAudio(!newMuted);
+    try {
+      const newMuted = !mediaState.muted;
+      manager.toggleAudio(!newMuted);
+    } catch (e) {
+      console.error('Toggle audio failed:', e);
+    }
   };
 
-  const handleToggleVideo = () => {
+  const toggleDeviceSelector = async () => {
+    const next = !showDeviceSelector;
+    setShowDeviceSelector(next);
+    if (next && manager) {
+      await manager.updateDeviceInfo();
+      setDeviceInfo(manager.getDeviceInfo());
+    }
+  };
+
+  const handleToggleVideo = async () => {
     if (!manager) return;
-    const newVideo = !mediaState.video;
-    manager.toggleVideo(newVideo);
+    try {
+      if (mediaState.video) {
+        await manager.toggleVideo(false);
+      } else {
+        if (!hasVideoPerm) {
+          console.warn('No camera permission');
+          return;
+        }
+        await manager.toggleVideo(true);
+      }
+    } catch (e) {
+      console.error('Toggle video failed:', e);
+    }
   };
 
   const handleToggleScreenShare = async () => {
     if (!manager) return;
-    
     try {
       if (mediaState.screenSharing) {
         manager.stopScreenShare();
       } else {
         await manager.startScreenShare();
       }
-    } catch (error) {
-      console.error('Screen share toggle failed:', error);
+    } catch (e: any) {
+      // Only show error for non-cancellation errors
+      // NotAllowedError (user cancelled) is handled silently in VoiceVideoManager
+      console.error('Screen share toggle failed:', e);
+      if (e?.name !== 'NotAllowedError' && !e?.message?.includes('Permission denied')) {
+        // Only alert for genuine errors, not user cancellation
+        alert('Screen sharing failed. Please try again.');
+      }
     }
   };
 
@@ -158,14 +200,16 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
     }
   };
 
-  const handleDeviceChange = async (deviceId: string, type: 'audio' | 'video') => {
+  const handleDeviceChange = async (deviceId: string, type: 'audio' | 'video' | 'speaker') => {
     if (!manager) return;
 
     try {
       if (type === 'audio') {
         await manager.switchMicrophone(deviceId);
-      } else {
+      } else if (type === 'video') {
         await manager.switchCamera(deviceId);
+      } else if (type === 'speaker') {
+        await manager.switchSpeaker(deviceId);
       }
       // Refresh device info
       await manager.updateDeviceInfo();
@@ -233,12 +277,12 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
         {/* Microphone */}
         <button
           onClick={handleToggleAudio}
-          disabled={!isConnected}
+          disabled={!isConnected || !hasAudioPerm}
           className={`p-3 rounded-full transition-all duration-200 ${
             mediaState.muted
               ? 'bg-red-600 hover:bg-red-700 text-white'
               : 'bg-gray-700 hover:bg-gray-600 text-white'
-          } ${!isConnected ? 'opacity-50 cursor-not-allowed' : ''}`}
+          } ${(!isConnected || !hasAudioPerm) ? 'opacity-50 cursor-not-allowed' : ''}`}
           title={mediaState.muted ? 'Unmute' : 'Mute'}
         >
           {mediaState.muted ? <FaMicrophoneSlash size={20} /> : <FaMicrophone size={20} />}
@@ -247,12 +291,12 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
         {/* Video */}
         <button
           onClick={handleToggleVideo}
-          disabled={!isConnected}
+          disabled={!isConnected || !hasVideoPerm}
           className={`p-3 rounded-full transition-all duration-200 ${
             !mediaState.video
               ? 'bg-red-600 hover:bg-red-700 text-white'
               : 'bg-gray-700 hover:bg-gray-600 text-white'
-          } ${!isConnected ? 'opacity-50 cursor-not-allowed' : ''}`}
+          } ${(!isConnected || !hasVideoPerm) ? 'opacity-50 cursor-not-allowed' : ''}`}
           title={mediaState.video ? 'Turn off camera' : 'Turn on camera'}
         >
           {mediaState.video ? <FaVideo size={20} /> : <FaVideoSlash size={20} />}
@@ -323,7 +367,7 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
           {/* Device Selection */}
           <div>
             <button
-              onClick={() => setShowDeviceSelector(!showDeviceSelector)}
+              onClick={toggleDeviceSelector}
               className="flex items-center justify-between w-full text-left text-sm text-gray-300 hover:text-white transition-colors"
             >
               <span>Device Settings</span>
@@ -341,9 +385,9 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
                     className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white"
                   >
                     <option value="">Default</option>
-                    {deviceInfo.audioInputs.map((device) => (
-                      <option key={device.deviceId} value={device.deviceId}>
-                        {device.label || `Microphone ${device.deviceId.substring(0, 8)}`}
+                    {deviceInfo.audioInputs.map((d, i) => (
+                      <option key={d.deviceId} value={d.deviceId}>
+                        {d.label || `Microphone ${i+1}`}
                       </option>
                     ))}
                   </select>
@@ -358,13 +402,32 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
                     className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white"
                   >
                     <option value="">Default</option>
-                    {deviceInfo.videoInputs.map((device) => (
+                    {deviceInfo.videoInputs.map((device, i) => (
                       <option key={device.deviceId} value={device.deviceId}>
-                        {device.label || `Camera ${device.deviceId.substring(0, 8)}`}
+                        {device.label || `Camera ${i+1}`}
                       </option>
                     ))}
                   </select>
                 </div>
+
+                {/* Speaker Selection (Chime supports this) */}
+                {deviceInfo.audioOutputs && deviceInfo.audioOutputs.length > 0 && (
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Speaker</label>
+                    <select
+                      value={deviceInfo.activeAudioOutputDevice || ''}
+                      onChange={(e) => handleDeviceChange(e.target.value, 'speaker')}
+                      className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white"
+                    >
+                      <option value="">Default</option>
+                      {deviceInfo.audioOutputs.map((device, i) => (
+                        <option key={device.deviceId} value={device.deviceId}>
+                          {device.label || `Speaker ${i+1}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -407,6 +470,11 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
               </div>
             </div>
           )}
+
+          {/* Chime SDK Info */}
+          <div className="text-xs text-gray-500 text-center pt-2 border-t border-gray-700">
+            Powered by Amazon Chime SDK
+          </div>
         </div>
       )}
     </div>

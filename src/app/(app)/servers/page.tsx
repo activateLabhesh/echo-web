@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { FaHashtag, FaCog, FaVolumeUp } from "react-icons/fa";
-import VoiceChannel from "@/components/VoiceChannel";
+import VoiceChannel from "@/components/EnhancedVoiceChannel";
 import { fetchServers, fetchChannelsByServer } from "@/app/api/API";
 import Chatwindow from "@/components/ChatWindow";
 import { useSearchParams } from "next/navigation";
@@ -388,6 +388,8 @@ const ServersPageContent: React.FC = () => {
                   onHangUp={() => {
                     setActiveVoiceChannel(null);
                   }}
+                  debug={process.env.NODE_ENV === 'development'}
+                  currentUser={{ username: user.username }}
                 />
               </div>
             ) : activeChannel ? (
@@ -402,6 +404,7 @@ const ServersPageContent: React.FC = () => {
                     currentUserId={user.id}
                     localStream={localMediaStream}
                     remoteStreams={remoteMediaStreams}
+                    serverId={selectedServerId}
                   />
                 </div>
               </>

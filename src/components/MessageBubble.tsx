@@ -8,6 +8,7 @@ interface Props {
   timestamp: string;
   onProfileClick?: () => void;
   children?: React.ReactNode; // Allow children to be passed
+  messageRenderer?: (content: string) => React.ReactNode; // Custom message renderer
 }
 
 const MessageBubble: React.FC<Props> = ({
@@ -18,6 +19,7 @@ const MessageBubble: React.FC<Props> = ({
   timestamp,
   onProfileClick,
   children,
+  messageRenderer,
 }) => {
   const bubbleStyles = isSender
     ? "bg-gradient-to-br from-indigo-500/90 via-sky-500/80 to-cyan-400/70 text-white shadow-[0_12px_30px_rgba(14,165,233,0.25)]"
@@ -56,18 +58,20 @@ const MessageBubble: React.FC<Props> = ({
         {name && !isSender && (
           <span
             className="text-xs font-medium uppercase tracking-wide text-slate-400 px-1 cursor-pointer hover:text-slate-200 transition"
-            onClick={onProfileClick} // 👈 Added
+            onClick={onProfileClick}
           >
             {name}
           </span>
         )}
-        <div
-          className={`message-bubble px-4 py-3 ${bubbleStyles} ${
-            isSender ? "rounded-2xl rounded-br-md" : "rounded-2xl rounded-bl-md"
-          }`}
-        >
+        <div className={`message-bubble px-4 py-3 ${bubbleStyles} ${
+          isSender 
+            ? "rounded-2xl rounded-br-md" 
+            : "rounded-2xl rounded-bl-md"
+        }`}>
           {message && (
-            <p className="text-sm leading-relaxed break-words">{message}</p>
+            <div className="text-sm leading-relaxed break-words">
+              {messageRenderer ? messageRenderer(message) : <p>{message}</p>}
+            </div>
           )}
           {children && <div className={message ? "mt-3" : ""}>{children}</div>}
         </div>

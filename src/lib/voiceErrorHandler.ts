@@ -1,4 +1,12 @@
 // src/lib/voiceErrorHandler.ts
+// Error handling for Amazon Chime SDK voice/video operations
+//
+// HOW IT WORKS:
+// =============
+// 1. Maps error codes to user-friendly messages and actions
+// 2. Handles both Chime SDK errors and native browser errors
+// 3. Provides retry logic based on error severity
+// 4. Categorizes errors by type for better UX
 
 export interface VoiceError {
   code: string;
@@ -10,6 +18,109 @@ export interface VoiceError {
 
 export class VoiceErrorHandler {
   private static errorMap: Record<string, VoiceError> = {
+    // ==================== CHIME SDK ERRORS ====================
+    
+    // Initialization Errors
+    'INIT_FAILED': {
+      code: 'INIT_FAILED',
+      message: 'Failed to initialize voice/video. Please refresh and try again.',
+      severity: 'high',
+      action: 'refresh_page',
+      retryable: true
+    },
+    
+    // Meeting/Session Errors
+    'JOIN_FAILED': {
+      code: 'JOIN_FAILED',
+      message: 'Failed to join voice channel. Please try again.',
+      severity: 'high',
+      action: 'retry_connection',
+      retryable: true
+    },
+    
+    'MEETING_NOT_FOUND': {
+      code: 'MEETING_NOT_FOUND',
+      message: 'Voice channel not found or has ended.',
+      severity: 'high',
+      action: 'refresh_page',
+      retryable: false
+    },
+    
+    'MEETING_ENDED': {
+      code: 'MEETING_ENDED',
+      message: 'The voice channel has ended.',
+      severity: 'medium',
+      action: 'none',
+      retryable: false
+    },
+    
+    'ATTENDEE_NOT_FOUND': {
+      code: 'ATTENDEE_NOT_FOUND',
+      message: 'Failed to join as participant. Please try again.',
+      severity: 'high',
+      action: 'retry_connection',
+      retryable: true
+    },
+    
+    // Chime Session Status Codes (from MeetingSessionStatusCode)
+    'AUDIO_CALL_ENDED': {
+      code: 'AUDIO_CALL_ENDED',
+      message: 'Voice session has ended.',
+      severity: 'medium',
+      action: 'none',
+      retryable: false
+    },
+    
+    'AUDIO_DISCONNECTED_POOR_CONNECTION': {
+      code: 'AUDIO_DISCONNECTED_POOR_CONNECTION',
+      message: 'Disconnected due to poor network connection.',
+      severity: 'high',
+      action: 'check_network',
+      retryable: true
+    },
+    
+    'VIDEO_CALL_AT_CAPACITY': {
+      code: 'VIDEO_CALL_AT_CAPACITY',
+      message: 'Voice channel is at capacity. Please try again later.',
+      severity: 'medium',
+      action: 'wait_and_retry',
+      retryable: true
+    },
+    
+    'SIGNALING_BAD_REQUEST': {
+      code: 'SIGNALING_BAD_REQUEST',
+      message: 'Invalid request. Please refresh and try again.',
+      severity: 'high',
+      action: 'refresh_page',
+      retryable: false
+    },
+    
+    'SIGNALING_INTERNAL_SERVER_ERROR': {
+      code: 'SIGNALING_INTERNAL_SERVER_ERROR',
+      message: 'Server error. Please try again later.',
+      severity: 'high',
+      action: 'retry_later',
+      retryable: true
+    },
+    
+    'ICE_GATHERING_TIMED_OUT': {
+      code: 'ICE_GATHERING_TIMED_OUT',
+      message: 'Connection timed out. Check your network/firewall.',
+      severity: 'high',
+      action: 'check_network',
+      retryable: true
+    },
+    
+    'CONNECTION_HEALTH_RECONNECT': {
+      code: 'CONNECTION_HEALTH_RECONNECT',
+      message: 'Reconnecting to voice channel...',
+      severity: 'low',
+      action: 'none',
+      retryable: true
+    },
+    
+    // ==================== LEGACY/GENERIC ERRORS ====================
+    
     // Authentication Errors
     'VOICE_AUTH_FAILED': {
       code: 'VOICE_AUTH_FAILED',
@@ -19,7 +130,7 @@ export class VoiceErrorHandler {
       retryable: false
     },
 
-    // WebRTC Errors
+    // WebRTC Errors (handled by Chime SDK internally, but kept for reference)
     'VOICE_WEBRTC_SIGNALING_FAILED': {
       code: 'VOICE_WEBRTC_SIGNALING_FAILED',
       message: 'Connection failed. Retrying...',

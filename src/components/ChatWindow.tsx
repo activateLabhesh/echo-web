@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Socket } from "socket.io-client";
 import MessageInput from "./MessageInput"; // This import is now correct
+import MessageInputWithMentions from "./MessageInputWithMentions"; // Import new mention-enabled input
+import MessageContentWithMentions from "./MessageContentWithMentions"; // Import mention content renderer
 import MessageAttachment from "./MessageAttachment"; // Import the new component
 import { fetchMessages, uploadMessage, getUserAvatar } from "@/app/api/API";
 import { getUser } from "@/app/api";
@@ -29,9 +31,10 @@ interface ChatWindowProps {
   currentUserId: string;
   localStream?: MediaStream | null;
   remoteStreams?: { id: string; stream: MediaStream }[];
+  serverId?: string; // Add serverId for mentions
 }
 
-export default function ChatWindow({ channelId, currentUserId, localStream = null, remoteStreams = [] }: ChatWindowProps) {
+export default function ChatWindow({ channelId, currentUserId, localStream = null, remoteStreams = [], serverId }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -175,7 +178,7 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('❌ Socket disconnected:', reason);
+      console.log('Socket disconnected:', reason);
     });
 
     const pingInterval = setInterval(() => {
@@ -275,7 +278,7 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
 
     // Show upload progress for files
     if (file) {
-      console.log(`📤 Uploading file: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
+      console.log(`Uploading file: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
     }
 
     const optimisticMessage: Message = {
@@ -366,6 +369,12 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
               minute: "2-digit",
             })}
             onProfileClick={() => openProfile(msg)}
+            messageRenderer={(content: string) => (
+              <MessageContentWithMentions 
+                content={content}
+                currentUserId={currentUserId}
+              />
+            )}
           >
             {msg.mediaUrl && <MessageAttachment media_url={msg.mediaUrl} />}
           </MessageBubble>
@@ -373,7 +382,15 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
         <div ref={messagesEndRef} />
       </div>
       <div className="flex-shrink-0 px-6 pb-6">
-        <MessageInput sendMessage={handleSend} isSending={isSending} />
+        {serverId ? (
+          <MessageInputWithMentions 
+            sendMessage={handleSend} 
+            isSending={isSending}
+            serverId={serverId}
+          />
+        ) : (
+          <MessageInput sendMessage={handleSend} isSending={isSending} />
+        )}
       </div>
       <UserProfileModal
         isOpen={isProfileOpen}

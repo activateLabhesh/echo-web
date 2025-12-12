@@ -30,7 +30,6 @@ export default function Members({ serverId }: MembersProps) {
   const [showRolePopupFor, setShowRolePopupFor] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('Members component mounted with serverId:', serverId);
     loadMembers();
   }, [serverId]);
 
@@ -47,22 +46,15 @@ export default function Members({ serverId }: MembersProps) {
   }, [searchQuery]);
 
   const loadMembers = async () => {
-    console.log('Loading members for server ID:', serverId);
     try {
       const serverMembers = await getServerMembers(serverId);
-      console.log('Raw server members response:', serverMembers);
-      console.log('Response type:', typeof serverMembers);
-      console.log('Is array:', Array.isArray(serverMembers));
-      console.log('Length:', serverMembers?.length);
       
       if (!serverMembers || !Array.isArray(serverMembers)) {
-        console.error('Invalid response format:', serverMembers);
         setMembers([]);
         return;
       }
       
       const formattedMembers: Member[] = serverMembers.map((member: ServerMember) => {
-        console.log('Processing member:', member);
         return {
           id: member.user_id,
           username: `@${member.users.username}`,
@@ -73,19 +65,9 @@ export default function Members({ serverId }: MembersProps) {
         };
       });
       
-      console.log('Formatted members:', formattedMembers);
       setMembers(formattedMembers);
     } catch (error) {
       console.error('Failed to load members:', error);
-      // Log the full error details
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-      }
-      if (error && typeof error === 'object' && 'response' in error) {
-        console.error('API response error:', (error as any).response?.data);
-        console.error('API response status:', (error as any).response?.status);
-      }
     } finally {
       setLoading(false);
     }

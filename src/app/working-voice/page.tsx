@@ -3,7 +3,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { createAuthSocket } from '@/socket';
 import { VoiceVideoManager } from '@/lib/VoiceVideoManager';
 import { FaMicrophone, FaMicrophoneSlash, FaVideo, FaVideoSlash, FaPhoneSlash } from 'react-icons/fa';
 
@@ -15,43 +14,28 @@ const WorkingVoicePage = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [channelId, setChannelId] = useState<string>('');
+  const [userId, setUserId] = useState<string>('');
   
-  const socketRef = useRef<any>(null);
   const managerRef = useRef<VoiceVideoManager | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
 
   // Use a fixed channel ID so all tabs join the same channel
   useEffect(() => {
     setChannelId('working-demo-fixed-channel');
+    setUserId('user-' + Math.random().toString(36).substr(2, 9));
   }, []);
 
   const startCall = async () => {
     try {
-      console.log("🚀 Starting call...");
+      console.log("Starting call with Chime SDK...");
       
-      // Create socket
-      const userId = 'user-' + Math.random().toString(36).substr(2, 9);
-      const socket = createAuthSocket(userId);
-      socketRef.current = socket;
-      
-      // Wait for socket connection
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Socket timeout')), 10000);
-        socket.on('connect', () => {
-          clearTimeout(timeout);
-          setIsConnected(true);
-          resolve(socket);
-        });
-        socket.on('connect_error', reject);
-      });
-      
-      // Create manager
-      const manager = new VoiceVideoManager(userId, socket);
+      // Create manager (no socket needed for Chime)
+      const manager = new VoiceVideoManager(userId);
       managerRef.current = manager;
       
       // Set up event listeners
       manager.onStream((stream, peerId, type) => {
-        console.log("📺 Received stream from", peerId, type);
+        console.log("Received stream from", peerId, type);
         setParticipants(prev => {
           const existing = prev.findIndex(p => p.id === peerId);
           if (existing >= 0) {
@@ -64,17 +48,17 @@ const WorkingVoicePage = () => {
         });
       });
       
-      manager.onUserJoined((socketId, userId) => {
-        console.log("👋 User joined channel:", socketId, userId);
+      manager.onUserJoined((attendeeId, externalUserId) => {
+        console.log("User joined channel:", attendeeId, externalUserId);
       });
       
       manager.onUserLeft((peerId) => {
-        console.log("👋 User left:", peerId);
+        console.log("User left:", peerId);
         setParticipants(prev => prev.filter(p => p.id !== peerId));
       });
       
       manager.onVoiceRoster((members) => {
-        console.log("👥 Voice roster updated:", members);
+        console.log("Voice roster updated:", members);
       });
       
       // Initialize media
@@ -86,15 +70,17 @@ const WorkingVoicePage = () => {
         localVideoRef.current.srcObject = stream;
       }
       
-      // Join channel
+      // Join channel (calls backend /api/chime/join)
       await manager.joinVoiceChannel(channelId);
       
+      setIsConnected(true);
       setIsInCall(true);
-      console.log("✅ Call started successfully!");
+      console.log("Call started successfully via Chime!");
       
-    } catch (error: any) {
-      console.error("❌ Failed to start call:", error);
-      alert(`Failed to start call: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Failed to start call:", error);
+      alert(`Failed to start call: ${errorMessage}\n\nMake sure your backend implements POST /api/chime/join`);
     }
   };
   
@@ -102,15 +88,11 @@ const WorkingVoicePage = () => {
     if (managerRef.current) {
       managerRef.current.disconnect();
     }
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-    }
     
     setIsInCall(false);
     setIsConnected(false);
     setLocalStream(null);
     setParticipants([]);
-    socketRef.current = null;
     managerRef.current = null;
   };
   
@@ -134,7 +116,7 @@ const WorkingVoicePage = () => {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-4xl font-bold mb-8">Working Voice Demo</h1>
+          <h1 className="text-4xl font-bold mb-8">Working Voice Demo (Chime SDK)</h1>
           <div className="mb-6 p-4 bg-gray-800 rounded-lg">
             <p className="text-gray-300 mb-2">
               Channel ID: <code className="bg-gray-700 px-2 py-1 rounded">
@@ -145,11 +127,19 @@ const WorkingVoicePage = () => {
           </div>
           <button
             onClick={startCall}
-            disabled={!channelId}
+            disabled={!channelId || !userId}
             className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed px-8 py-4 rounded-lg text-xl font-semibold transition-colors"
           >
-            🚀 Start Call
+            Start Call
           </button>
+          
+          <div className="mt-8 bg-gray-800 rounded-lg p-4 text-left max-w-md mx-auto">
+            <h3 className="font-semibold mb-2">Backend Requirements:</h3>
+            <p className="text-gray-400 text-sm">
+              Your backend must implement <code className="bg-gray-700 px-1 rounded">POST /api/chime/join</code> 
+              that returns Chime meeting and attendee credentials.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -235,7 +225,7 @@ const WorkingVoicePage = () => {
           {/* Connection Status */}
           <div className="text-sm">
             Status: <span className={isConnected ? 'text-green-400' : 'text-red-400'}>
-              {isConnected ? 'Connected' : 'Disconnected'}
+              {isConnected ? 'Connected (Chime)' : 'Disconnected'}
             </span>
           </div>
           

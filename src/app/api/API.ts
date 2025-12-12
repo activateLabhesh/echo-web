@@ -1,7 +1,12 @@
 import { apiClient } from "@/utils/apiClient";
 import { getUser } from "../api";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+// Warn if API URL is not configured
+if (!API_BASE_URL && typeof window !== 'undefined') {
+  console.warn('[API] NEXT_PUBLIC_API_URL is not set! Using apiClient baseURL instead.');
+}
 
 // ---------- Types ----------
 export interface Server {
@@ -115,21 +120,13 @@ export const uploadMessage = async (payload: {
     formData.append("content", payload.content || "");
     if (payload.file) formData.append("file", payload.file);
 
-    const response = await fetch(`${API_BASE_URL}/api/message/upload`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'include' // As specified by backend
+    const response = await apiClient.post('/api/message/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     });
 
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      const errorMessage = err.error || err.msg || 'Upload failed';
-      console.error('Upload error:', errorMessage);
-      throw new Error(errorMessage);
-    }
-
-    const result = await response.json();
-    return result;
+    return response.data;
   } catch (error) {
     console.error("Error uploading message:", error);
     throw error;
@@ -147,25 +144,17 @@ export const uploaddm = async (payload: {
     
     // Use exact field names as specified by backend
     formData.append("receiver_id", payload.receiver_id);
-    formData.append("sender_id",payload.sender_id);
+    formData.append("sender_id", payload.sender_id);
     formData.append("content", payload.message || "");
     if (payload.mediaurl) formData.append("file", payload.mediaurl);
 
-    const response = await fetch(`${API_BASE_URL}/api/message/upload_dm`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'include' // As specified by backend
+    const response = await apiClient.post('/api/message/upload_dm', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     });
 
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      const errorMessage = err.error || err.msg || 'DM upload failed';
-      console.error('DM Upload error:', errorMessage);
-      throw new Error(errorMessage);
-    }
-
-    const result = await response.json();
-    return result;
+    return response.data;
   } catch (error) {
     console.error("Error uploading DM:", error);
     throw error;
@@ -393,6 +382,107 @@ export const getServerMembers = async (serverId: string): Promise<any> => {
   } catch (error: any) {
     console.error("Error getting server members:", error.response?.data || error.message || error);
     const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || "Failed to get server members.";
+    throw new Error(errorMessage);
+  }
+};
+
+// ---------- Chime Voice/Video APIs ----------
+
+export interface ChimeMeetingResponse {
+  meeting: {
+    MeetingId: string;
+    MediaPlacement: {
+      AudioHostUrl: string;
+      AudioFallbackUrl: string;
+      SignalingUrl: string;
+      TurnControlUrl: string;
+      ScreenDataUrl: string;
+      ScreenViewingUrl: string;
+      ScreenSharingUrl: string;
+    };
+    ExternalMeetingId?: string;
+  };
+  attendee: {
+    AttendeeId: string;
+    ExternalUserId: string;
+    JoinToken: string;
+  };
+}
+
+/**
+ * Join or create a Chime meeting for a voice channel
+ * The backend handles creating the meeting if it doesn't exist
+ */
+export const joinChimeMeeting = async (channelId: string, userId: string): Promise<ChimeMeetingResponse> => {
+  try {
+    const response = await apiClient.post<ChimeMeetingResponse>('/api/chime/join', {
+      channelId,
+      userId
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error("Error joining Chime meeting:", error.response?.data || error.message || error);
+    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || "Failed to join voice channel.";
+    throw new Error(errorMessage);
+  }
+};
+
+/**
+ * Leave a Chime meeting
+ */
+export const leaveChimeMeeting = async (channelId: string, attendeeId: string): Promise<void> => {
+  try {
+    await apiClient.post('/api/chime/leave', {
+      channelId,
+      attendeeId
+    });
+  } catch (error: any) {
+    console.error("Error leaving Chime meeting:", error.response?.data || error.message || error);
+    // Don't throw on leave - it's okay if this fails
+  }
+};
+
+/**
+ * Get active attendees in a Chime meeting
+ */
+export const getChimeMeetingAttendees = async (channelId: string): Promise<any[]> => {
+  try {
+    const response = await apiClient.get(`/api/chime/attendees/${channelId}`);
+    return response.data.attendees || [];
+  } catch (error: any) {
+    console.error("Error getting Chime attendees:", error.response?.data || error.message || error);
+    return [];
+  }
+};
+
+/**
+ * Start recording for a Chime meeting (server-side media capture)
+ */
+export const startChimeRecording = async (channelId: string): Promise<{ recordingId: string }> => {
+  try {
+    const response = await apiClient.post('/api/chime/recording/start', {
+      channelId
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error("Error starting Chime recording:", error.response?.data || error.message || error);
+    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || "Failed to start recording.";
+    throw new Error(errorMessage);
+  }
+};
+
+/**
+ * Stop recording for a Chime meeting
+ */
+export const stopChimeRecording = async (channelId: string, recordingId: string): Promise<void> => {
+  try {
+    await apiClient.post('/api/chime/recording/stop', {
+      channelId,
+      recordingId
+    });
+  } catch (error: any) {
+    console.error("Error stopping Chime recording:", error.response?.data || error.message || error);
+    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || "Failed to stop recording.";
     throw new Error(errorMessage);
   }
 };

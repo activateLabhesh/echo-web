@@ -1,42 +1,77 @@
 'use client';
 import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { resetPassword } from '../../api';
+import { supabase } from '../../../lib/supabaseClient';
 import Link from 'next/link';
 
 function ResetPasswordContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const token = searchParams.get('token');
 
     const [password, setPassword] = useState('');
     const [confirm, setConfirm] = useState('');
     const [submitted, setSubmitted] = useState(false);
     const [message, setMessage] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [session, setSession] = useState<any>(null);
+
+    useEffect(() => {
+        // Check for Supabase session (user came from reset email)
+        const checkSession = async () => {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            
+            if (error || !session) {
+                setMessage('Invalid or expired reset link. Please request a new password reset.');
+                setLoading(false);
+                return;
+            }
+            
+            setSession(session);
+            setLoading(false);
+        };
+
+        checkSession();
+    }, []);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         setMessage('');
         setSubmitted(false);
 
-        if (!token) {
-            setMessage('Reset token is missing or invalid.');
+        if (!session) {
+            setMessage('No valid session found. Please request a new reset link.');
             return;
         }
+
         if (password !== confirm) {
             setMessage('Passwords do not match.');
             return;
         }
 
+        if (password.length < 6) {
+            setMessage('Password must be at least 6 characters long.');
+            return;
+        }
+
         try {
-            await resetPassword(password, token);
+            // Send session token to backend for password update
+            await resetPassword(password, session.access_token);
             setSubmitted(true);
             setMessage('Password updated! Redirecting to login...');
             setTimeout(() => router.push('/login'), 2000);
         } catch (err: any) {
             setMessage(err?.response?.data?.message || 'Reset failed. Try again.');
         }
+    }
+
+    if (loading) {
+        return (
+            <div className="flex h-screen bg-black font-sans items-center justify-center">
+                <div className="text-white">Loading...</div>
+            </div>
+        );
     }
 
     return (

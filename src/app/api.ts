@@ -59,11 +59,11 @@ export const forgotPassword = async (email: string) => {
     return response.data;
 };
 
-export const resetPassword = async (newPassword: string, token: string) => {
+export const resetPassword = async (newPassword: string, accessToken: string) => {
     const response = await api.post(
         "/api/auth/reset-password",
         { new_password: newPassword },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     return response.data;
 };

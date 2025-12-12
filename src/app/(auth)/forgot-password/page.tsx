@@ -73,7 +73,14 @@ export default function ForgotPassword() {
                         </button>
                     </form>
 
-                    {/* Placeholder message after submit */}
+                    {/* Error message */}
+                    {error && (
+                        <div className="mt-4 text-red-500 text-center text-sm">
+                            {error}
+                        </div>
+                    )}
+
+                    {/* Success message */}
                     {submitted && (
                         <div className="mt-4 text-green-500 text-center text-sm">
                             If an account exists, a password reset link will be sent to your email.

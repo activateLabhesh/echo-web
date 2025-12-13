@@ -54,6 +54,15 @@ export const login = async (identifier: string, password: string) => {
     return response.data;
 };
 
+export const handleOAuthLogin = async (accessToken: string) => {
+    const response = await api.post(
+        "/api/auth/oauth-user",
+        {},
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    return response.data;
+};
+
 export const forgotPassword = async (email: string) => {
     const response = await api.post("/api/auth/forgot-password", { email });
     return response.data;

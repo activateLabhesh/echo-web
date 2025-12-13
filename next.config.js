@@ -4,7 +4,11 @@ const nextConfig = {
   swcMinify: true,
   output: 'standalone',
   images: {
-    domains: ['remwzcalhvoaubuhuzan.supabase.co'],
+    domains: [
+      'remwzcalhvoaubuhuzan.supabase.co',
+      'lh3.googleusercontent.com',  // Google profile pictures
+      'googleusercontent.com',       // Google images
+    ],
   },
 };
 

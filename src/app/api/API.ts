@@ -94,9 +94,10 @@ export const fetchServers = async (): Promise<Server[]> => {
 
 // ---------- Channel APIs ----------
 // The server can identify the user from the request cookie, so userId is not needed.
+// Uses channels-with-access to filter private channels based on user's roles
 export const fetchChannelsByServer = async (serverId: string): Promise<any> => {
   try {
-    const response = await apiClient.get(`/api/channel/${serverId}/getChannels`);
+    const response = await apiClient.get(`/api/channel/${serverId}/channels-with-access`);
     return response.data;
   } catch (error) {
     console.error("Error fetching channels:", error);

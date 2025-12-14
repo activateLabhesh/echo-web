@@ -5,9 +5,12 @@ interface OverviewProps {
   serverId: string;
   serverDetails: ServerDetails;
   onServerUpdate: (details: ServerDetails) => void;
+  isOwner?: boolean;
+  isAdmin?: boolean;
 }
 
-export default function Overview({ serverId, serverDetails, onServerUpdate }: OverviewProps) {
+export default function Overview({ serverId, serverDetails, onServerUpdate, isOwner = false, isAdmin = false }: OverviewProps) {
+  const canEdit = isOwner || isAdmin;
   const [serverName, setServerName] = useState<string>(serverDetails.name);
   const [serverIcon, setServerIcon] = useState<string>(serverDetails.icon_url || "/server-default.png");
   const [iconFile, setIconFile] = useState<File | null>(null);
@@ -21,7 +24,11 @@ export default function Overview({ serverId, serverDetails, onServerUpdate }: Ov
     setServerIcon(serverDetails.icon_url || "/server-default.png");
   }, [serverDetails]);
 
-  const handleIconClick = () => fileInputRef.current?.click();
+  const handleIconClick = () => {
+    if (canEdit) {
+      fileInputRef.current?.click();
+    }
+  };
   
   const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -84,10 +91,11 @@ export default function Overview({ serverId, serverDetails, onServerUpdate }: Ov
         <label className="block font-semibold mb-2 text-[#b5bac1]">Server Name</label>
         <div className="flex items-center gap-2">
           <input
-            className="w-full bg-black text-white border-2 border-[#72767d] rounded px-4 py-3 focus:border-[#b5bac1] focus:outline-none transition-all duration-200 transform hover:-translate-y-1 focus:-translate-y-1"
+            className={`w-full bg-black text-white border-2 border-[#72767d] rounded px-4 py-3 focus:border-[#b5bac1] focus:outline-none transition-all duration-200 ${canEdit ? 'transform hover:-translate-y-1 focus:-translate-y-1' : 'cursor-not-allowed opacity-70'}`}
             value={serverName}
-            onChange={(e) => setServerName(e.target.value)}
+            onChange={(e) => canEdit && setServerName(e.target.value)}
             placeholder="Server Name"
+            readOnly={!canEdit}
           />
         </div>
       </div>
@@ -97,7 +105,7 @@ export default function Overview({ serverId, serverDetails, onServerUpdate }: Ov
         <div className="flex items-center gap-4">
           <div className="relative">
             <img
-              className="w-16 h-16 rounded-full border-2 border-[#72767d] cursor-pointer object-cover transition-all duration-200 hover:shadow-2xl hover:-translate-y-1 hover:scale-105"
+              className={`w-16 h-16 rounded-full border-2 border-[#72767d] object-cover transition-all duration-200 ${canEdit ? 'cursor-pointer hover:shadow-2xl hover:-translate-y-1 hover:scale-105' : ''}`}
               src={serverIcon}
               alt="Server Icon"
               onClick={handleIconClick}
@@ -109,18 +117,20 @@ export default function Overview({ serverId, serverDetails, onServerUpdate }: Ov
               className="hidden"
               onChange={handleIconChange}
             />
-            <div
-              className="absolute bottom-0 right-0 bg-[#72767d] rounded-full p-1 cursor-pointer hover:bg-[#b5bac1] transition"
-              onClick={handleIconClick}
-              title="Change Icon"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                  fill="#23272a"
-                />
-              </svg>
-            </div>
+            {canEdit && (
+              <div
+                className="absolute bottom-0 right-0 bg-[#72767d] rounded-full p-1 cursor-pointer hover:bg-[#b5bac1] transition"
+                onClick={handleIconClick}
+                title="Change Icon"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                    fill="#23272a"
+                  />
+                </svg>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -137,26 +147,28 @@ export default function Overview({ serverId, serverDetails, onServerUpdate }: Ov
         </div>
       )}
       
-      <div className="flex justify-end">
-        <button
-          onClick={handleSaveChanges}
-          disabled={!hasChanges || isLoading}
-          className={`font-bold rounded px-6 py-2 shadow transition-all duration-200 focus:outline-none ${
-            hasChanges && !isLoading
-              ? "bg-gradient-to-r from-[#ffb347] to-[#ffcc33] text-[#23272a] hover:from-[#ffcc33] hover:to-[#ffb347] hover:-translate-y-1 hover:scale-105"
-              : "bg-gray-600 text-gray-400 cursor-not-allowed"
-          }`}
-          style={{
-            backgroundSize: "200% 200%",
-            backgroundPosition: "left center",
-            transition: "background-position 0.5s, transform 0.2s"
-          }}
-          onMouseEnter={e => hasChanges && !isLoading && (e.currentTarget.style.backgroundPosition = "right center")}
-          onMouseLeave={e => hasChanges && !isLoading && (e.currentTarget.style.backgroundPosition = "left center")}
-        >
-          {isLoading ? "Saving..." : "Save Changes"}
-        </button>
-      </div>
+      {canEdit && (
+        <div className="flex justify-end">
+          <button
+            onClick={handleSaveChanges}
+            disabled={!hasChanges || isLoading}
+            className={`font-bold rounded px-6 py-2 shadow transition-all duration-200 focus:outline-none ${
+              hasChanges && !isLoading
+                ? "bg-gradient-to-r from-[#ffb347] to-[#ffcc33] text-[#23272a] hover:from-[#ffcc33] hover:to-[#ffb347] hover:-translate-y-1 hover:scale-105"
+                : "bg-gray-600 text-gray-400 cursor-not-allowed"
+            }`}
+            style={{
+              backgroundSize: "200% 200%",
+              backgroundPosition: "left center",
+              transition: "background-position 0.5s, transform 0.2s"
+            }}
+            onMouseEnter={e => hasChanges && !isLoading && (e.currentTarget.style.backgroundPosition = "right center")}
+            onMouseLeave={e => hasChanges && !isLoading && (e.currentTarget.style.backgroundPosition = "left center")}
+          >
+            {isLoading ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

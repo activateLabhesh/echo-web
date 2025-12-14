@@ -1,26 +1,22 @@
 import { useState, useEffect } from "react";
-import { getServerMembers, kickMember, banMember, addUserToServer, searchUsers, ServerMember, SearchUser } from "../../../api";
+import { getServerMembers, kickMember, banMember, addUserToServer, searchUsers, ServerMember, SearchUser, getAllRoles, assignRoleToUser, removeRoleFromUser, Role } from "../../../api";
 
 interface Member {
   id: string;
   username: string;
   fullname: string;
-  roles: string[];
+  roles: { id: string; name: string; color: string; role_type: string }[];
   joinDate: string;
   avatar: string;
 }
 
 interface MembersProps {
   serverId: string;
+  isOwner?: boolean;
+  isAdmin?: boolean;
 }
 
-const availableRoles = [
-  { id: 1, name: "Admin", color: "#ed4245" },
-  { id: 2, name: "Moderator", color: "#5865f2" },
-  { id: 3, name: "Member", color: "#43b581" },
-];
-
-export default function Members({ serverId }: MembersProps) {
+export default function Members({ serverId, isOwner = false, isAdmin = false }: MembersProps) {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
@@ -28,9 +24,12 @@ export default function Members({ serverId }: MembersProps) {
   const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showRolePopupFor, setShowRolePopupFor] = useState<string | null>(null);
+  const [serverRoles, setServerRoles] = useState<Role[]>([]);
+  const [roleActionLoading, setRoleActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     loadMembers();
+    loadServerRoles();
   }, [serverId]);
 
   useEffect(() => {
@@ -44,6 +43,15 @@ export default function Members({ serverId }: MembersProps) {
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  const loadServerRoles = async () => {
+    try {
+      const roles = await getAllRoles(serverId);
+      setServerRoles(roles);
+    } catch (error) {
+      console.error('Failed to load server roles:', error);
+    }
+  };
 
   const loadMembers = async () => {
     try {
@@ -59,7 +67,12 @@ export default function Members({ serverId }: MembersProps) {
           id: member.user_id,
           username: `@${member.users.username}`,
           fullname: member.users.fullname,
-          roles: member.user_roles?.map(ur => ur.roles.name) || [],
+          roles: member.user_roles?.map((ur: any) => ({
+            id: ur.roles?.id || ur.role_id,
+            name: ur.roles?.name || 'Unknown',
+            color: ur.roles?.color || '#5865f2',
+            role_type: ur.roles?.role_type || 'custom'
+          })) || [],
           joinDate: new Date(member.joined_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
           avatar: member.users.avatar_url || "/avatar.png",
         };
@@ -70,6 +83,32 @@ export default function Members({ serverId }: MembersProps) {
       console.error('Failed to load members:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAssignRole = async (memberId: string, roleId: string) => {
+    setRoleActionLoading(roleId);
+    try {
+      await assignRoleToUser(serverId, memberId, roleId);
+      await loadMembers(); // Refresh member list
+    } catch (error: any) {
+      console.error('Failed to assign role:', error);
+      alert(error?.response?.data?.error || 'Failed to assign role');
+    } finally {
+      setRoleActionLoading(null);
+    }
+  };
+
+  const handleRemoveRole = async (memberId: string, roleId: string) => {
+    setRoleActionLoading(roleId);
+    try {
+      await removeRoleFromUser(serverId, memberId, roleId);
+      await loadMembers(); // Refresh member list
+    } catch (error: any) {
+      console.error('Failed to remove role:', error);
+      alert(error?.response?.data?.error || 'Failed to remove role');
+    } finally {
+      setRoleActionLoading(null);
     }
   };
 
@@ -147,12 +186,14 @@ export default function Members({ serverId }: MembersProps) {
           >
             Refresh
           </button>
-          <button
-            onClick={() => setShowAddMember(!showAddMember)}
-            className="bg-gradient-to-r from-[#ffb347] to-[#ffcc33] text-[#23272a] font-bold rounded px-4 py-2 shadow transition-all duration-200 hover:from-[#ffcc33] hover:to-[#ffb347] hover:-translate-y-1 hover:scale-105"
-          >
-            {showAddMember ? "Cancel" : "Add Member"}
-          </button>
+          {(isOwner || isAdmin) && (
+            <button
+              onClick={() => setShowAddMember(!showAddMember)}
+              className="bg-gradient-to-r from-[#ffb347] to-[#ffcc33] text-[#23272a] font-bold rounded px-4 py-2 shadow transition-all duration-200 hover:from-[#ffcc33] hover:to-[#ffb347] hover:-translate-y-1 hover:scale-105"
+            >
+              {showAddMember ? "Cancel" : "Add Member"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -224,42 +265,46 @@ export default function Members({ serverId }: MembersProps) {
                 <div className="font-semibold">{member.username}</div>
                 <div className="text-sm text-[#b5bac1]">{member.fullname}</div>
                 <div className="text-xs text-[#72767d]">Joined {member.joinDate}</div>
-                <div className="flex gap-1 mt-1">
-                  {member.roles.map((role) => {
-                    const roleConfig = availableRoles.find(r => r.name === role);
-                    return (
-                      <span
-                        key={role}
-                        className="text-xs px-2 py-1 rounded"
-                        style={{ backgroundColor: roleConfig?.color || "#43b581" }}
-                      >
-                        {role}
-                      </span>
-                    );
-                  })}
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {member.roles.map((role) => (
+                    <span
+                      key={role.id}
+                      className="text-xs px-2 py-1 rounded text-white"
+                      style={{ backgroundColor: role.color || "#5865f2" }}
+                    >
+                      {role.name}
+                      {role.role_type === 'owner' && ' 👑'}
+                      {role.role_type === 'admin' && ' ⭐'}
+                    </span>
+                  ))}
+                  {member.roles.length === 0 && (
+                    <span className="text-xs text-[#72767d]">No roles</span>
+                  )}
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowRolePopupFor(showRolePopupFor === member.id ? null : member.id)}
-                className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-              >
-                Manage Roles
-              </button>
-              <button
-                onClick={() => handleKickMember(member.id, member.username)}
-                className="bg-orange-600 text-white px-3 py-1 rounded text-sm hover:bg-orange-700"
-              >
-                Kick
-              </button>
-              <button
-                onClick={() => handleBanMember(member.id, member.username)}
-                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
-              >
-                Ban
-              </button>
-            </div>
+            {(isOwner || isAdmin) && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowRolePopupFor(showRolePopupFor === member.id ? null : member.id)}
+                  className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                >
+                  Manage Roles
+                </button>
+                <button
+                  onClick={() => handleKickMember(member.id, member.username)}
+                  className="bg-orange-600 text-white px-3 py-1 rounded text-sm hover:bg-orange-700"
+                >
+                  Kick
+                </button>
+                <button
+                  onClick={() => handleBanMember(member.id, member.username)}
+                  className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                >
+                  Ban
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -267,22 +312,87 @@ export default function Members({ serverId }: MembersProps) {
 
       {showRolePopupFor && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-[#2f3136] p-6 rounded-lg max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">Manage Roles</h3>
-            <div className="space-y-2 mb-4">
-              {availableRoles.map((role) => (
-                <button
-                  key={role.id}
-                  className="block w-full text-left p-2 rounded hover:bg-[#72767d]"
-                  style={{ color: role.color }}
-                >
-                  {role.name}
-                </button>
-              ))}
+          <div className="bg-[#2f3136] p-6 rounded-lg max-w-md w-full max-h-[80vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-2">Manage Roles</h3>
+            <p className="text-sm text-[#b5bac1] mb-4">
+              for {members.find(m => m.id === showRolePopupFor)?.username}
+            </p>
+            
+            {/* Current roles */}
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-[#b5bac1] mb-2">Current Roles</h4>
+              <div className="flex flex-wrap gap-2">
+                {members.find(m => m.id === showRolePopupFor)?.roles.map((role) => (
+                  <div
+                    key={role.id}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-sm"
+                    style={{ backgroundColor: role.color || '#5865f2' }}
+                  >
+                    <span>{role.name}</span>
+                    {role.role_type !== 'owner' && (
+                      <button
+                        onClick={() => handleRemoveRole(showRolePopupFor!, role.id)}
+                        disabled={roleActionLoading === role.id}
+                        className="ml-1 hover:text-red-300"
+                      >
+                        {roleActionLoading === role.id ? '...' : '×'}
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {members.find(m => m.id === showRolePopupFor)?.roles.length === 0 && (
+                  <span className="text-sm text-[#72767d]">No roles assigned</span>
+                )}
+              </div>
             </div>
+
+            {/* Available roles to assign */}
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-[#b5bac1] mb-2">Available Roles</h4>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {serverRoles
+                  .filter(role => {
+                    // Filter out roles the member already has
+                    const memberRoles = members.find(m => m.id === showRolePopupFor)?.roles || [];
+                    return !memberRoles.some(mr => mr.id === role.id);
+                  })
+                  .filter(role => {
+                    // Only owner can assign owner/admin roles
+                    if (role.role_type === 'owner' || role.role_type === 'admin') {
+                      return isOwner;
+                    }
+                    return true;
+                  })
+                  .map((role) => (
+                    <button
+                      key={role.id}
+                      onClick={() => handleAssignRole(showRolePopupFor!, role.id)}
+                      disabled={roleActionLoading === role.id}
+                      className="flex items-center justify-between w-full text-left p-2 rounded hover:bg-[#40444b] transition"
+                    >
+                      <span style={{ color: role.color || '#fff' }}>
+                        {role.name}
+                        {role.role_type === 'admin' && ' (Admin)'}
+                        {role.is_self_assignable && ' (Self-assignable)'}
+                      </span>
+                      <span className="text-xs text-[#b5bac1]">
+                        {roleActionLoading === role.id ? 'Adding...' : '+ Add'}
+                      </span>
+                    </button>
+                  ))
+                }
+                {serverRoles.filter(role => {
+                  const memberRoles = members.find(m => m.id === showRolePopupFor)?.roles || [];
+                  return !memberRoles.some(mr => mr.id === role.id);
+                }).length === 0 && (
+                  <span className="text-sm text-[#72767d]">No more roles available</span>
+                )}
+              </div>
+            </div>
+
             <button
               onClick={() => setShowRolePopupFor(null)}
-              className="bg-[#72767d] text-white px-4 py-2 rounded hover:bg-[#b5bac1]"
+              className="w-full bg-[#72767d] text-white px-4 py-2 rounded hover:bg-[#5d6269]"
             >
               Close
             </button>

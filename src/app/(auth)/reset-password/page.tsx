@@ -18,8 +18,37 @@ function ResetPasswordContent() {
     const [session, setSession] = useState<any>(null);
 
     useEffect(() => {
-        // Check for Supabase session (user came from reset email)
-        const checkSession = async () => {
+        // Extract tokens from URL hash and set session
+        const handleTokenFromHash = async () => {
+            // Check if we have hash parameters (from Supabase email link)
+            if (typeof window !== 'undefined' && window.location.hash) {
+                const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                const access_token = hashParams.get('access_token');
+                const refresh_token = hashParams.get('refresh_token');
+                const type = hashParams.get('type');
+
+                if (access_token && type === 'recovery') {
+                    // Set the session in Supabase client using tokens from hash
+                    const { data, error } = await supabase.auth.setSession({
+                        access_token,
+                        refresh_token: refresh_token || '',
+                    });
+
+                    if (error) {
+                        setMessage('Invalid or expired reset link. Please request a new one.');
+                        setLoading(false);
+                        return;
+                    }
+
+                    if (data.session) {
+                        setSession(data.session);
+                        setLoading(false);
+                        return;
+                    }
+                }
+            }
+
+            // Fallback: Check if there's an existing session
             const { data: { session }, error } = await supabase.auth.getSession();
             
             if (error || !session) {
@@ -32,7 +61,7 @@ function ResetPasswordContent() {
             setLoading(false);
         };
 
-        checkSession();
+        handleTokenFromHash();
     }, []);
 
     async function handleSubmit(e: React.FormEvent) {
@@ -60,6 +89,10 @@ function ResetPasswordContent() {
             await resetPassword(password, session.access_token);
             setSubmitted(true);
             setMessage('Password updated! Redirecting to login...');
+            
+            // Sign out to clear the recovery session
+            await supabase.auth.signOut();
+            
             setTimeout(() => router.push('/login'), 2000);
         } catch (err: any) {
             setMessage(err?.response?.data?.message || 'Reset failed. Try again.');

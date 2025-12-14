@@ -1,12 +1,90 @@
 // api.ts
-import axios from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+// Flag to prevent multiple simultaneous refresh attempts
+let isRefreshing = false;
+// Queue of requests waiting for token refresh
+let failedQueue: Array<{
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+}> = [];
+
+const processQueue = (error: Error | null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve();
+    }
+  });
+  failedQueue = [];
+};
 
 export const api = axios.create({
     baseURL: API_BASE_URL,
     withCredentials: true,
 });
+
+// Response interceptor for automatic token refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+    // Only handle 401 errors in browser environment
+    if (typeof window === "undefined" || error.response?.status !== 401) {
+      return Promise.reject(error);
+    }
+
+    // Don't retry if this is already a retry attempt or if it's the refresh endpoint itself
+    if (originalRequest._retry || originalRequest.url?.includes('/api/auth/refresh')) {
+      // Refresh failed or already retried, redirect to login
+      localStorage.removeItem("token");
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
+      return Promise.reject(error);
+    }
+
+    // If already refreshing, queue this request
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      })
+        .then(() => api(originalRequest))
+        .catch((err) => Promise.reject(err));
+    }
+
+    originalRequest._retry = true;
+    isRefreshing = true;
+
+    try {
+      // Attempt to refresh the token
+      await api.post('/api/auth/refresh');
+      
+      // Token refreshed successfully, process queued requests
+      processQueue(null);
+      
+      // Retry the original request
+      return api(originalRequest);
+    } catch (refreshError) {
+      // Refresh failed, process queue with error
+      processQueue(refreshError as Error);
+      
+      // Clear local storage and redirect to login
+      localStorage.removeItem("token");
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
+      
+      return Promise.reject(refreshError);
+    } finally {
+      isRefreshing = false;
+    }
+  }
+);
 
 export function getToken(token?: string) {
     if (token) {
@@ -15,6 +93,21 @@ export function getToken(token?: string) {
         delete api.defaults.headers.common["Authorization"];
     }
 }
+
+// Manual token refresh function (interceptor handles this automatically, but this can be used proactively)
+export const refreshToken = async (): Promise<{ accessToken: string; refreshToken: string; expiresIn: number } | null> => {
+    try {
+        const response = await api.post('/api/auth/refresh');
+        return {
+            accessToken: response.data.accessToken,
+            refreshToken: response.data.refreshToken,
+            expiresIn: response.data.expiresIn,
+        };
+    } catch (error) {
+        console.error('Token refresh failed:', error);
+        return null;
+    }
+};
 
 if (typeof window !== "undefined") {
     const storedToken = localStorage.getItem("access_token");

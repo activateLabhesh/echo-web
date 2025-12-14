@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Smile, Send, Paperclip, X } from "lucide-react";
 import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
+import { apiClient } from "@/utils/apiClient";
 
 interface MentionableUser {
   id: string;
@@ -66,28 +67,19 @@ export default function MessageInputWithMentions({
     try {
       // If query is empty or very short, show all users in the server
       const searchQuery = query.length >= 1 ? query : '';
-      const url = `/api/mentions/search/${serverId}?q=${encodeURIComponent(searchQuery)}`;
-      // console.log('Fetching mentions from:', url);
       
-      const response = await fetch(url, {
-        credentials: 'include'
+      // Call backend directly using apiClient (handles auth cookies properly)
+      const response = await apiClient.get(`/api/mentions/search/${serverId}`, {
+        params: { q: searchQuery }
       });
       
-      // console.log('Response status:', response.status);
+      const data = response.data;
+      setMentionableUsers(data.users || []);
       
-      if (response.ok) {
-        const data = await response.json();
-        // console.log('Response data:', data);
-        
-        setMentionableUsers(data.users || []);
-        
-        // console.log('Set mentionable users:', data.users?.length || 0, data.users);
-      } else {
-        const errorText = await response.text();
-        console.error('Search API failed:', response.status, errorText);
-      }
-    } catch (error) {
-      console.error('Failed to search mentionable:', error);
+      // console.log('Set mentionable users:', data.users?.length || 0, data.users);
+    } catch (error: any) {
+      console.error('Failed to search mentionable:', error?.response?.status, error?.message);
+      setMentionableUsers([]);
     } finally {
       setSearchingMentions(false);
     }

@@ -261,9 +261,12 @@ const ParticipantVideo = memo(function ParticipantVideo({
   const hasScreenTileId = participant.screenTileId !== undefined && participant.screenTileId !== null;
   
   const shouldShowScreenShare = hasScreenShareStream || hasScreenShareState;
-  // Show video if video state is ON - we need to render the <video> element
-  // so that Chime can bind the tile to it. Don't wait for tile ID.
-  const shouldShowVideo = hasVideoState && !shouldShowScreenShare;
+  // Show video element if:
+  // 1. Video state is ON (camera enabled), OR
+  // 2. We have a valid tileId (Chime needs the element to bind to even before state updates)
+  // This fixes black screen issue when minimizing/maximizing calls - the video element
+  // must exist for Chime SDK to bind the tile to it.
+  const shouldShowVideo = (hasVideoState || hasTileId) && !shouldShowScreenShare;
 
   // Debug logging
   console.log(`[ParticipantVideo ${participant.username}] Render state:`, {

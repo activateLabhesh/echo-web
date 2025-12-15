@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Bell, CheckCheck, Check } from 'lucide-react';
 import { getUser } from '../../api';
 import { useNotifications } from '../../../hooks/useNotifications';
+import { apiClient } from '@/utils/apiClient';
 
 interface Notification {
   id: string;
@@ -45,14 +46,8 @@ export default function NotificationsPage() {
       const user = await getUser();
       if (!user?.id) return;
 
-      const response = await fetch(`/api/mentions?userId=${user.id}`, {
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data);
-      }
+      const response = await apiClient.get(`/api/mentions?userId=${user.id}`);
+      setNotifications(response.data);
     } catch (error) {
       console.error('Failed to load notifications:', error);
     } finally {

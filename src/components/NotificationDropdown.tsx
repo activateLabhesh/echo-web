@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Check, CheckCheck, Bell } from 'lucide-react';
 import { getUser } from '../app/api';
 import { useNotifications } from '../hooks/useNotifications';
+import { apiClient } from '@/utils/apiClient';
 
 interface Notification {
   id: string;
@@ -61,14 +62,8 @@ export default function NotificationDropdown({
       const user = await getUser();
       if (!user?.id) return;
 
-      const response = await fetch(`/api/mentions?userId=${user.id}`, {
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data);
-      }
+      const response = await apiClient.get(`/api/mentions?userId=${user.id}`);
+      setNotifications(response.data);
     } catch (error) {
       console.error('Failed to load notifications:', error);
     } finally {
@@ -78,24 +73,17 @@ export default function NotificationDropdown({
 
   const markAsRead = async (notificationId: string) => {
     try {
-      const response = await fetch(`/api/mentions/${notificationId}/read`, {
-        method: 'PATCH',
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        // Update local state immediately for better UX
-        setNotifications(prev =>
-          prev.map(n =>
-            n.id === notificationId ? { ...n, is_read: true } : n
-          )
-        );
-        
-        // Also call the hook function to update global state
-        await hookMarkAsRead(notificationId);
-      } else {
-        console.error('Failed to mark notification as read:', await response.text());
-      }
+      await apiClient.patch(`/api/mentions/${notificationId}/read`);
+      
+      // Update local state immediately for better UX
+      setNotifications(prev =>
+        prev.map(n =>
+          n.id === notificationId ? { ...n, is_read: true } : n
+        )
+      );
+      
+      // Also call the hook function to update global state
+      await hookMarkAsRead(notificationId);
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
     }
@@ -103,27 +91,20 @@ export default function NotificationDropdown({
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch('/api/mentions/mark-all-read', {
-        method: 'PATCH',
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        // Update local state immediately for better UX
-        setNotifications(prev =>
-          prev.map(n => ({ ...n, is_read: true }))
-        );
-        
-        // Also call the hook function to update global state
-        await hookMarkAllAsRead();
-        
-        // Reload notifications from backend to ensure sync
-        setTimeout(() => {
-          loadNotifications();
-        }, 100);
-      } else {
-        console.error('Failed to mark all as read:', await response.text());
-      }
+      await apiClient.patch('/api/mentions/mark-all-read');
+      
+      // Update local state immediately for better UX
+      setNotifications(prev =>
+        prev.map(n => ({ ...n, is_read: true }))
+      );
+      
+      // Also call the hook function to update global state
+      await hookMarkAllAsRead();
+      
+      // Reload notifications from backend to ensure sync
+      setTimeout(() => {
+        loadNotifications();
+      }, 100);
     } catch (error) {
       console.error('Failed to mark all as read:', error);
     }

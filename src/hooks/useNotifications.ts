@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Socket } from 'socket.io-client';
 import { getUser } from '../app/api';
 import { createAuthSocket } from '@/socket';
+import { apiClient } from '@/utils/apiClient';
 
 interface MentionNotification {
   id: string;
@@ -87,16 +88,15 @@ export function useNotifications() {
         const user = await getUser();
         if (!user?.id) return;
 
-        const response = await fetch(`/api/mentions?userId=${user.id}&unreadOnly=true`, {
-          credentials: 'include'
-        });
-
-        if (response.ok) {
-          const data = await response.json();
+        // Use apiClient to make authenticated request directly to backend
+        const response = await apiClient.get(`/api/mentions?userId=${user.id}&unreadOnly=true`);
+        
+        if (response.data) {
+          const data = response.data;
           setUnreadCount(Array.isArray(data) ? data.length : 0);
         }
       } catch (error) {
-        console.error('Failed to fetch initial unread count:', error);
+        // Silently ignore errors - notifications will load when user is authenticated
       }
     };
 
@@ -105,20 +105,18 @@ export function useNotifications() {
 
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
-      const response = await fetch(`/api/mentions/${notificationId}/read`, {
-        method: 'PATCH',
-        credentials: 'include'
-      });
-
-      if (response.ok && socket) {
+      // Use apiClient for authenticated request
+      await apiClient.patch(`/api/mentions/${notificationId}/read`);
+      
+      if (socket) {
         socket.emit('mention_read', notificationId);
-        setNotifications(prev =>
-          prev.map(n => 
-            n.id === notificationId ? { ...n, isRead: true } : n
-          )
-        );
-        setUnreadCount(prev => Math.max(0, prev - 1));
       }
+      setNotifications(prev =>
+        prev.map(n => 
+          n.id === notificationId ? { ...n, isRead: true } : n
+        )
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
     }
@@ -126,30 +124,21 @@ export function useNotifications() {
 
   const markAllAsRead = useCallback(async () => {
     try {
-      // Use the bulk mark-all-read endpoint
-      const response = await fetch('/api/mentions/mark-all-read', {
-        method: 'PATCH',
-        credentials: 'include'
-      });
+      // Use apiClient for authenticated request
+      const response = await apiClient.patch('/api/mentions/mark-all-read');
+      const result = response.data;
+      
+      // Update local state
+      setNotifications(prev =>
+        prev.map(n => ({ ...n, isRead: true }))
+      );
+      setUnreadCount(0);
 
-      if (response.ok) {
-        const result = await response.json();
-        // console.log('Mark all as read result:', result);
-        
-        // Update local state
-        setNotifications(prev =>
-          prev.map(n => ({ ...n, isRead: true }))
-        );
-        setUnreadCount(0);
-
-        // Emit socket events for each marked notification
-        if (socket && result.markedIds) {
-          result.markedIds.forEach((id: string) => {
-            socket.emit('mention_read', id);
-          });
-        }
-      } else {
-        console.error('Failed to mark all as read:', await response.text());
+      // Emit socket events for each marked notification
+      if (socket && result.markedIds) {
+        result.markedIds.forEach((id: string) => {
+          socket.emit('mention_read', id);
+        });
       }
     } catch (error) {
       console.error('Failed to mark all as read:', error);

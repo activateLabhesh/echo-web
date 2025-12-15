@@ -2,17 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Socket } from "socket.io-client";
-import MessageInput from "./MessageInput"; // This import is now correct
-import MessageInputWithMentions from "./MessageInputWithMentions"; // Import new mention-enabled input
-import MessageContentWithMentions from "./MessageContentWithMentions"; // Import mention content renderer
-import MessageAttachment from "./MessageAttachment"; // Import the new component
+import MessageInput from "./MessageInput";
+import MessageInputWithMentions from "./MessageInputWithMentions";
+import MessageContentWithMentions from "./MessageContentWithMentions";
+import MessageAttachment from "./MessageAttachment";
 import { fetchMessages, uploadMessage, getUserAvatar } from "@/app/api/API";
 import { getUser } from "@/app/api";
 import { createAuthSocket } from "@/socket";
 import VideoPanel from "./VideoPanel";
 import MessageBubble from "./MessageBubble";
 import UserProfileModal from "./UserProfileModal";
-
 
 interface Message {
   id: string | number;
@@ -22,7 +21,7 @@ interface Message {
   avatarUrl?: string;
   username?: string;
   file?: string;
-  mediaUrl?: string; // Add support for media_url from backend
+  mediaUrl?: string;
 }
 
 interface ChatWindowProps {
@@ -31,12 +30,11 @@ interface ChatWindowProps {
   currentUserId: string;
   localStream?: MediaStream | null;
   remoteStreams?: { id: string; stream: MediaStream }[];
-  serverId?: string; // Add serverId for mentions
+  serverId?: string;
 }
 
 export default function ChatWindow({ channelId, currentUserId, localStream = null, remoteStreams = [], serverId }: ChatWindowProps) {
   const [loadingMessages, setLoadingMessages] = useState(true);
-
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -45,20 +43,30 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
   const [micOn, setMicOn] = useState<boolean>(true);
   const [camOn, setCamOn] = useState<boolean>(true);
   const [isSending, setIsSending] = useState(false);
+  const [currentUserAvatar, setCurrentUserAvatar] = useState<string>("/User_profil.png");
+
+  // Load current user's avatar on mount
+  useEffect(() => {
+    const loadCurrentUserAvatar = async () => {
+      try {
+        const user = await getUser();
+        if (user?.avatar_url) {
+          setCurrentUserAvatar(user.avatar_url);
+          avatarCacheRef.current[currentUserId] = user.avatar_url;
+        }
+      } catch (error) {
+        console.error("Failed to load current user's avatar:", error);
+      }
+    };
+    
+    loadCurrentUserAvatar();
+  }, [currentUserId]);
 
   // Function to get user avatar with caching
   const getAvatarUrl = async (userId: string): Promise<string> => {
     if (userId === currentUserId) {
-      // Get current user's avatar from their profile
-      try {
-        const user = await getUser();
-        if (user?.avatar_url) {
-          return user.avatar_url;
-        }
-      } catch (error) {
-        console.error("Failed to get current user's avatar:", error);
-      }
-      return "/User_profil.png"; // Fallback for current user
+      // Return cached current user avatar
+      return currentUserAvatar;
     }
     
     // Check cache first for other users
@@ -77,6 +85,7 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
       return fallbackAvatar;
     }
   };
+
   const [selectedUser, setSelectedUser] = useState<{
     id: string;
     username: string;
@@ -96,7 +105,6 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
     });
     setIsProfileOpen(true);
   };
-
 
   useEffect(() => {
     const newSocket = createAuthSocket(currentUserId);
@@ -148,8 +156,7 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
     } finally {
       setLoadingMessages(false);
     }
-  }, [channelId, currentUserId]);
-
+  }, [channelId, currentUserId, currentUserAvatar]);
 
   useEffect(() => {
     if (channelId) loadMessages();
@@ -202,7 +209,7 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
     const receivedMessageIds = new Set<string | number>();
 
     const handleIncomingMessage = async (saved: any) => {
-      console.log('[Socket new_message] Received:', saved); // Debug log
+      console.log('[Socket new_message] Received:', saved);
       
       const messageId = saved?.id || saved?.messageId || Date.now();
       if (saved?.channel_id && saved.channel_id !== channelId) return;
@@ -211,7 +218,6 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
         return;
       }
 
-      // Log media_url specifically
       if (saved?.media_url) {
         console.log('[Socket new_message] Message has media_url:', saved.media_url);
       }
@@ -234,7 +240,7 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
         timestamp: saved?.timestamp || new Date().toISOString(),
         avatarUrl,
         username: resolvedUsername,
-        mediaUrl: saved?.media_url || saved?.mediaUrl // Handle backend's snake_case media_url
+        mediaUrl: saved?.media_url || saved?.mediaUrl
       };
 
       if (senderId && resolvedUsername && resolvedUsername !== 'Unknown') {
@@ -271,7 +277,7 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
       socket.off("new_message");
       socket.off("reconnect");
     };
-  }, [socket, currentUserId, loadMessages, channelId]);
+  }, [socket, currentUserId, loadMessages, channelId, currentUserAvatar]);
 
   const handleSend = async (text: string, file: File | null) => {
     if (text.trim() === "" && !file) return;
@@ -283,12 +289,13 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
       console.log(`Uploading file: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
     }
 
+    // Use current user's actual avatar for optimistic message
     const optimisticMessage: Message = {
       id: `temp-${Date.now()}`,
       content: file ? `${text} 📎 Uploading ${file.name}...` : text,
       senderId: currentUserId,
       timestamp: new Date().toISOString(),
-      avatarUrl: "/User_profil.png",
+      avatarUrl: currentUserAvatar, // Use the cached current user avatar
       username: "You"
     };
     setMessages(prev => [...prev, optimisticMessage]);
@@ -301,7 +308,7 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
         file: file || undefined,
       });
       
-      console.log('[Upload Message] Response:', response); // Debug log
+      console.log('[Upload Message] Response:', response);
       if (response.media_url) {
         console.log('[Upload Message] Response has media_url:', response.media_url);
       }
@@ -309,14 +316,11 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
     } catch (err: any) {
       console.error('💔 Failed to upload message:', err);
       
-      // Handle specific error types based on backend specification
       let errorMessage = 'Upload failed';
       if (err.message) {
         errorMessage = err.message;
       }
       
-      // Show user-friendly error message
-      // You can integrate with your toast/notification system here
       alert(`Upload failed: ${errorMessage}`);
       
       // Remove optimistic message on failure
@@ -417,5 +421,4 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
       />
     </div>
   );
-
 }

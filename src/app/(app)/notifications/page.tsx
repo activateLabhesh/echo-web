@@ -4,6 +4,7 @@ import { Bell, CheckCheck, Check } from 'lucide-react';
 import { getUser } from '../../api';
 import { useNotifications } from '../../../hooks/useNotifications';
 import { apiClient } from '@/utils/apiClient';
+import Loader from '@/components/Loader';
 
 interface Notification {
   id: string;
@@ -33,7 +34,7 @@ interface Notification {
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [filter, setFilter] = useState<"all" | "unread">("all");
   const { markAsRead, markAllAsRead } = useNotifications();
 
   useEffect(() => {
@@ -60,24 +61,20 @@ export default function NotificationsPage() {
   const handleMarkAsRead = async (notificationId: string) => {
     try {
       await markAsRead(notificationId);
-      setNotifications(prev =>
-        prev.map(n =>
-          n.id === notificationId ? { ...n, is_read: true } : n
-        )
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
       );
     } catch (error) {
-      console.error('Failed to mark notification as read:', error);
+      console.error("Failed to mark notification as read:", error);
     }
   };
 
   const handleMarkAllAsRead = async () => {
     try {
       await markAllAsRead();
-      setNotifications(prev =>
-        prev.map(n => ({ ...n, is_read: true }))
-      );
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     } catch (error) {
-      console.error('Failed to mark all notifications as read:', error);
+      console.error("Failed to mark all notifications as read:", error);
     }
   };
 
@@ -87,36 +84,31 @@ export default function NotificationsPage() {
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
 
-    if (diffMins < 1) return 'Just now';
+    if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
-    
+
     const diffHours = Math.floor(diffMins / 60);
     if (diffHours < 24) return `${diffHours}h ago`;
-    
+
     const diffDays = Math.floor(diffHours / 24);
     return `${diffDays}d ago`;
   };
 
   const truncateContent = (content: string, maxLength: number = 100) => {
     if (content.length <= maxLength) return content;
-    return content.substring(0, maxLength) + '...';
+    return content.substring(0, maxLength) + "...";
   };
 
-  const filteredNotifications = filter === 'unread' 
-    ? notifications.filter(n => !n.is_read)
-    : notifications;
+  const filteredNotifications =
+    filter === "unread"
+      ? notifications.filter((n) => !n.is_read)
+      : notifications;
 
-  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
+  
   if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          Loading notifications...
-        </div>
-      </div>
-    );
+    return <Loader fullscreen text="Loading notifications…" size="md" />;
   }
 
   return (
@@ -127,9 +119,13 @@ export default function NotificationsPage() {
           <div className="flex items-center gap-4">
             <Bell size={32} className="text-white" />
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white">Notifications</h1>
+              <h1 className="text-2xl md:text-3xl font-bold text-white">
+                Notifications
+              </h1>
               <p className="text-gray-400 text-sm">
-                {unreadCount > 0 ? `${unreadCount} unread notifications` : 'All caught up!'}
+                {unreadCount > 0
+                  ? `${unreadCount} unread notifications`
+                  : "All caught up!"}
               </p>
             </div>
           </div>
@@ -138,28 +134,28 @@ export default function NotificationsPage() {
             {/* Filter Toggle */}
             <div className="flex bg-[#2f3136] rounded-lg p-1">
               <button
-                onClick={() => setFilter('all')}
+                onClick={() => setFilter("all")}
                 className={`px-2 md:px-3 py-1 rounded text-xs md:text-sm transition-colors ${
-                  filter === 'all' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'text-gray-400 hover:text-white'
+                  filter === "all"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-400 hover:text-white"
                 }`}
               >
                 All ({notifications.length})
               </button>
               <button
-                onClick={() => setFilter('unread')}
+                onClick={() => setFilter("unread")}
                 className={`px-2 md:px-3 py-1 rounded text-xs md:text-sm transition-colors ${
-                  filter === 'unread' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'text-gray-400 hover:text-white'
+                  filter === "unread"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-400 hover:text-white"
                 }`}
               >
                 Unread ({unreadCount})
               </button>
             </div>
 
-            {/* Mark All Read Button */}
+            {/* Mark All Read */}
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllAsRead}
@@ -170,7 +166,7 @@ export default function NotificationsPage() {
               </button>
             )}
 
-            {/* Refresh Button */}
+            {/* Refresh */}
             <button
               onClick={loadNotifications}
               className="bg-[#4f545c] hover:bg-[#5f656c] text-white px-3 md:px-4 py-2 rounded-lg transition-colors text-xs md:text-sm"
@@ -187,11 +183,13 @@ export default function NotificationsPage() {
             <div>
               <Bell size={64} className="text-gray-600 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-400 mb-2">
-                {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
+                {filter === "unread"
+                  ? "No unread notifications"
+                  : "No notifications yet"}
               </h3>
               <p className="text-gray-500 px-4">
-                {filter === 'unread' 
-                  ? 'All your notifications have been read!' 
+                {filter === "unread"
+                  ? "All your notifications have been read!"
                   : "You'll see mentions and other notifications here when they arrive."}
               </p>
             </div>
@@ -202,30 +200,33 @@ export default function NotificationsPage() {
               <div
                 key={notification.id}
                 className={`p-4 rounded-lg border transition-all hover:shadow-lg ${
-                  notification.is_read 
-                    ? 'bg-[#2f3136] border-[#4f545c]' 
-                    : 'bg-blue-600/10 border-blue-500/30 border-l-4 border-l-blue-500'
+                  notification.is_read
+                    ? "bg-[#2f3136] border-[#4f545c]"
+                    : "bg-blue-600/10 border-blue-500/30 border-l-4 border-l-blue-500"
                 }`}
               >
                 <div className="flex items-start gap-4">
-                  {/* User Avatar */}
                   <img
-                    src={notification.message?.users?.avatar_url || '/avatar.png'}
+                    src={
+                      notification.message?.users?.avatar_url || "/avatar.png"
+                    }
                     alt="User"
-                    className="w-12 h-12 rounded-full flex-shrink-0"
+                    className="w-12 h-12 rounded-full"
                   />
 
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-4 mb-2">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-white font-semibold">
-                            {notification.message?.users?.username || 'Unknown User'}
+                            {notification.message?.users?.username ||
+                              "Unknown User"}
                           </span>
-                          <span className="text-gray-400 text-sm">mentioned you in</span>
+                          <span className="text-gray-400 text-sm">
+                            mentioned you in
+                          </span>
                           <span className="text-blue-400 font-medium text-sm">
-                            #{notification.message?.channels?.name || 'unknown'}
+                            #{notification.message?.channels?.name || "unknown"}
                           </span>
                           {notification.message?.channels?.servers?.name && (
                             <>
@@ -236,35 +237,35 @@ export default function NotificationsPage() {
                             </>
                           )}
                         </div>
-                        
+
                         <p className="text-gray-300 mb-2">
-                          "{truncateContent(notification.message?.content || '')}"
+                          "
+                          {truncateContent(notification.message?.content || "")}
+                          "
                         </p>
-                        
+
                         <span className="text-gray-500 text-sm">
                           {formatTime(notification.created_at)}
                         </span>
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {!notification.is_read && (
-                          <button
-                            onClick={() => handleMarkAsRead(notification.id)}
-                            className="text-gray-400 hover:text-white p-2 rounded hover:bg-[#4f545c] transition-colors"
-                            title="Mark as read"
-                          >
-                            <Check size={16} />
-                          </button>
-                        )}
-                      </div>
+                      {!notification.is_read && (
+                        <button
+                          onClick={() => handleMarkAsRead(notification.id)}
+                          className="text-gray-400 hover:text-white p-2 rounded hover:bg-[#4f545c]"
+                          title="Mark as read"
+                        >
+                          <Check size={16} />
+                        </button>
+                      )}
                     </div>
 
-                    {/* Unread Indicator */}
                     {!notification.is_read && (
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <span className="text-blue-400 text-sm font-medium">Unread</span>
+                        <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                        <span className="text-blue-400 text-sm font-medium">
+                          Unread
+                        </span>
                       </div>
                     )}
                   </div>

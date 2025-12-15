@@ -8,7 +8,7 @@ import { Socket } from "socket.io-client";
 import { createAuthSocket } from '@/socket';
 import MessageBubble from './MessageBubble';
 import MessageAttachment from './MessageAttachment';
-
+import Loader from "@/components/Loader";
 
 interface User {
     id: string;

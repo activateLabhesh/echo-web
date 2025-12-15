@@ -21,6 +21,7 @@ import Chatwindow from "@/components/ChatWindow";
 import { useSearchParams } from "next/navigation";
 import { useVoiceCall } from "@/contexts/VoiceCallContext";
 import { supabase } from '@/lib/supabaseClient';
+import Loader from "@/components/Loader";
 
 const serverIcons: string[] = [
   "/hackbattle.png",
@@ -507,12 +508,8 @@ const showVoiceUI =
 
       {/* Main Content */}
       {loading ? (
-        // Loading state for main content
-        <div className="flex-1 flex items-center justify-center text-white text-center px-4">
-          <div>
-            <div className="mx-auto mb-4 w-10 h-10 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
-            <p className="text-gray-400">Loading servers…</p>
-          </div>
+        <div className="flex-1">
+          <Loader text="Loading servers…" />
         </div>
       ) : error ? (
         // Error state
@@ -557,68 +554,65 @@ const showVoiceUI =
         </div>
       ) : (
         <>
-         
-         
           {/* Channel List */}
-          {!isChannelSidebarCollapsed && ( 
-          <div className="w-72  h-auto overflow-y-auto text-white px-2 py-4 space-y-4 border-r border-gray-800 bg-black scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-            <div className="flex items-center justify-between px-2 mb-2">
-              <h2 className="text-xl font-bold">{selectedServerName}</h2>
-              <button
-                className="p-2 rounded-full hover:bg-[#23272a] transition"
-                title="Server Settings"
-                onClick={() => {
-                  if (selectedServerId) {
-                    localStorage.setItem("currentServerId", selectedServerId);
-                    router.push(
-                      `/server-settings?serverId=${selectedServerId}`
-                    );
-                  } else {
-                    alert("Please select a server first");
-                  }
-                }}
-              >
-                <FaCog className="w-5 h-5 text-[#b5bac1] hover:text-white" />
-              </button>
-            </div>
-
-            <div className="px-2">
-              <h3 className="text-xs font-bold uppercase text-gray-400 mb-2">
-                Text Channels
-              </h3>
-              {textChannels.map((channel) => (
-                <div
-                  key={channel.id}
-                  className={`flex items-center justify-between p-2 text-sm rounded-md cursor-pointer transition-all ${
-                    activeChannel?.id === channel.id && viewMode === "chat"
-                      ? "bg-[#2f3136] text-white"
-                      : "text-gray-400 hover:bg-[#2f3136] hover:text-white"
-                  }`}
+          {!isChannelSidebarCollapsed && (
+            <div className="w-72  h-auto overflow-y-auto text-white px-2 py-4 space-y-4 border-r border-gray-800 bg-black scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+              <div className="flex items-center justify-between px-2 mb-2">
+                <h2 className="text-xl font-bold">{selectedServerName}</h2>
+                <button
+                  className="p-2 rounded-full hover:bg-[#23272a] transition"
+                  title="Server Settings"
                   onClick={() => {
-                    setActiveChannel(channel);
-                    setViewMode("chat"); 
+                    if (selectedServerId) {
+                      localStorage.setItem("currentServerId", selectedServerId);
+                      router.push(
+                        `/server-settings?serverId=${selectedServerId}`
+                      );
+                    } else {
+                      alert("Please select a server first");
+                    }
                   }}
                 >
-                  <span className="flex items-center gap-2">
-                    {channel.is_private ? (
-                      <div className="relative w-4 h-4">
-    <FaHashtag size={12} className="absolute inset-0" />
-    <FaLock
-      size={12}
-      className="absolute -top-1 -right-1 text-gray-400 bg-[#111214] rounded-full"
-    />
-  </div>
-                    ) : (
-                      <FaHashtag size={12} />
-                    )}
-                    {channel.name}
-                  </span>
-                  {activeChannel?.id === channel.id && viewMode === "chat" && (
-                    <FaCog size={12} />
-                  )}
-                </div>
-              ))}
-            </div>
+                  <FaCog className="w-5 h-5 text-[#b5bac1] hover:text-white" />
+                </button>
+              </div>
+
+              <div className="px-2">
+                <h3 className="text-xs font-bold uppercase text-gray-400 mb-2">
+                  Text Channels
+                </h3>
+                {textChannels.map((channel) => (
+                  <div
+                    key={channel.id}
+                    className={`flex items-center justify-between p-2 text-sm rounded-md cursor-pointer transition-all ${
+                      activeChannel?.id === channel.id && viewMode === "chat"
+                        ? "bg-[#2f3136] text-white"
+                        : "text-gray-400 hover:bg-[#2f3136] hover:text-white"
+                    }`}
+                    onClick={() => {
+                      setActiveChannel(channel);
+                      setViewMode("chat");
+                    }}
+                  >
+                    <span className="flex items-center gap-2">
+                      {channel.is_private ? (
+                        <div className="relative w-4 h-4">
+                          <FaHashtag size={12} className="absolute inset-0" />
+                          <FaLock
+                            size={12}
+                            className="absolute -top-1 -right-1 text-gray-400 bg-[#111214] rounded-full"
+                          />
+                        </div>
+                      ) : (
+                        <FaHashtag size={12} />
+                      )}
+                      {channel.name}
+                    </span>
+                    {activeChannel?.id === channel.id &&
+                      viewMode === "chat" && <FaCog size={12} />}
+                  </div>
+                ))}
+              </div>
 
             <div className="px-2">
               <h3 className="text-xs font-bold uppercase text-gray-400 mt-4 mb-2">
@@ -717,49 +711,46 @@ const showVoiceUI =
               </div>
             )}
 
-            {/* Show voice status in sidebar when connected to this server */}
-            {isVoiceActiveForCurrentServer && activeCall && (
-              <div className="mt-auto p-2">
-                {/* Compact hangup bar so users can leave the call from sidebar */}
-                <div className="flex items-center justify-between bg-gray-900 rounded-md p-2 mt-2">
-                  <div className="text-xs text-gray-300 truncate mr-2">
+              {/* Show voice status in sidebar when connected to this server */}
+              {isVoiceActiveForCurrentServer && activeCall && (
+                <div className="mt-auto p-2">
+                  {/* Compact hangup bar so users can leave the call from sidebar */}
+                  <div className="flex items-center justify-between bg-gray-900 rounded-md p-2 mt-2">
+                    <div className="text-xs text-gray-300 truncate mr-2">
+                      <div className="flex items-center gap-1">
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            isConnected
+                              ? "bg-green-500"
+                              : "bg-yellow-500 animate-pulse"
+                          }`}
+                        />
+                        <span>In voice: {activeCall.channelName}</span>
+                      </div>
+                    </div>
                     <div className="flex items-center gap-1">
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          isConnected
-                            ? "bg-green-500"
-                            : "bg-yellow-500 animate-pulse"
-                        }`}
-                      />
-                      <span>In voice: {activeCall.channelName}</span>
+                      {viewMode === "chat" && (
+                        <button
+                          onClick={() => setViewMode("voice")}
+                          className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600"
+                        >
+                          Open
+                        </button>
+                      )}
+                      <button
+                        onClick={handleHangUp}
+                        className="px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-500"
+                      >
+                        Hang up
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    {viewMode === "chat" && (
-                      <button
-                        onClick={() => setViewMode("voice")}
-                        className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600"
-                      >
-                        Open
-                      </button>
-                    )}
-                    <button
-                      onClick={handleHangUp}
-                      className="px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-500"
-                    >
-                      Hang up
-                    </button>
-                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-          
-
+              )}
+            </div>
           )}
-          
-             <div className="flex-1 relative text-white bg-[radial-gradient(ellipse_at_bottom,rgba(37,99,235,0.15)_0%,rgba(0,0,0,1)_85%)] flex flex-col">
-            
+
+          <div className="flex-1 relative text-white bg-[radial-gradient(ellipse_at_bottom,rgba(37,99,235,0.15)_0%,rgba(0,0,0,1)_85%)] flex flex-col">
             <button
               onClick={() => setIsChannelSidebarCollapsed((prev) => !prev)}
               className={`absolute top-4 ${

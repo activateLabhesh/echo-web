@@ -5,6 +5,7 @@ import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import Loader from "@/components/Loader";
 
 function LoginContent() {
   const [identifier, setIdentifier] = useState("");
@@ -12,7 +13,7 @@ function LoginContent() {
   const [rememberMe, setRememberMe] = useState(false);
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false); 
+  const [loading, setLoading] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -36,12 +37,13 @@ function LoginContent() {
     e.preventDefault();
     setMessage("");
     setSuccess(false);
-    setLoading(true); 
+    setLoading(true);
 
     try {
       const data = await login(identifier, password);
 
       setSuccess(true);
+
       if (typeof window !== "undefined") {
         localStorage.setItem("user", JSON.stringify(data.user));
         if (data.token) {
@@ -51,11 +53,11 @@ function LoginContent() {
       }
 
       setMessage(data.message || "Login successful!");
-      const redirect =
-    localStorage.getItem("redirectAfterLogin") || "/servers";
 
-  localStorage.removeItem("redirectAfterLogin");
-  router.replace(redirect);
+      const redirect = localStorage.getItem("redirectAfterLogin") || "/servers";
+      localStorage.removeItem("redirectAfterLogin");
+
+      router.replace(redirect);
     } catch (error: any) {
       setSuccess(false);
       setMessage(
@@ -70,12 +72,13 @@ function LoginContent() {
         getToken(undefined);
       }
     } finally {
-      setLoading(false); // ✅ stop loader
+      setLoading(false);
     }
   }
 
   const handleGoogleLogin = async () => {
-    setLoading(true); 
+    setLoading(true);
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -92,10 +95,10 @@ function LoginContent() {
 
   return (
     <div className="flex h-screen bg-black font-sans relative">
-   
+
       {loading && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+        <div className="fixed inset-0 z-50">
+          <Loader fullscreen text="Signing in…" size="md" />
         </div>
       )}
 
@@ -155,6 +158,7 @@ function LoginContent() {
             </Link>
           </div>
 
+          {/* FORM */}
           <form onSubmit={handleLogin}>
             {/* Email */}
             <div className="mb-4">
@@ -202,26 +206,13 @@ function LoginContent() {
               <label className="ml-2 text-sm text-white">Remember Me</label>
             </div>
 
-            {/* Sign In Button with Loader */}
+            {/* Sign In */}
             <button
               type="submit"
               disabled={loading}
-              className={`w-full py-3 text-lg font-semibold rounded-md mt-2
-                ${
-                  loading
-                    ? "bg-yellow-300 cursor-not-allowed"
-                    : "bg-yellow-400 hover:bg-yellow-500"
-                }
-                text-black flex items-center justify-center`}
+              className="w-full py-3 text-lg font-semibold rounded-md mt-2 bg-yellow-400 hover:bg-yellow-500 disabled:opacity-60 text-black"
             >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  Signing in...
-                </span>
-              ) : (
-                "Sign In"
-              )}
+              Sign In
             </button>
           </form>
 
@@ -250,16 +241,10 @@ function LoginContent() {
             disabled={loading}
             className="flex items-center justify-center w-full py-3 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-100 disabled:opacity-60"
           >
-            {loading ? (
-              <span className="w-5 h-5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <>
-                <img src="/Google.svg" alt="Google" className="w-6 h-6 mr-3" />
-                <span className="text-base font-medium text-[#3c4043]">
-                  Sign up with Google
-                </span>
-              </>
-            )}
+            <img src="/Google.svg" alt="Google" className="w-6 h-6 mr-3" />
+            <span className="text-base font-medium text-[#3c4043]">
+              Sign in with Google
+            </span>
           </button>
         </div>
       </div>

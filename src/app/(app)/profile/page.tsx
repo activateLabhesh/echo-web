@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from 'next/link';
 import { fetchProfile,profile, logout } from "../../api";
 import { useRouter } from "next/navigation";
+import Loader from "@/components/Loader";
 export default function ProfilePage() {
     const numPolygons = 10;
     const maxOpacity = 0.6;
@@ -28,11 +29,21 @@ export default function ProfilePage() {
         getProfileData();
     }, []);
 
-    if (loading) return <p>Loading...</p>;
-    if (error) return <p>{error}</p>;
-    if (!profile) {
-        return <p>Loading profile...</p>; // or your loading UI
+    if (loading) {
+      return <Loader fullscreen text="Loading profile…" size="md" />;
     }
+     if (error) {
+       return (
+         <div className="min-h-screen bg-black flex items-center justify-center text-red-500">
+           {error}
+         </div>
+       );
+     }
+
+     if (!profile) {
+       return <Loader fullscreen text="Loading profile…" size="md" />;
+     }
+
 
     const handleLogout = async () => {
         try {

@@ -6,6 +6,7 @@ import AOS from "aos";
 import "aos/dist/aos.css";
 import { useRouter } from "next/navigation";
 import Modal from 'react-modal';
+import Loader from "@/components/Loader";
 Modal.setAppElement('body');
 
 export default function Home() {
@@ -107,13 +108,8 @@ export default function Home() {
   return (
     <>
       {loading && (
-        <div className="fixed inset-0 z-[9999] bg-black flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-14 h-14 border-4 border-[#FFC64A] border-t-transparent rounded-full animate-spin" />
-            <p className="text-[#FFC64A] font-semibold tracking-widest">
-              LOADING ECHO
-            </p>
-          </div>
+        <div className="fixed inset-0 z-[9999]">
+          <Loader fullscreen text="Loading Echo…" size="lg" />
         </div>
       )}
       {/* Landing page */}

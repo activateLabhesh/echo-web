@@ -10,6 +10,8 @@ import {
   FaMicrophone,
   FaVideoSlash,
   FaLock,
+  FaAngleLeft, 
+  FaAngleRight,
 } from "react-icons/fa";
 import VoiceChannel from "@/components/EnhancedVoiceChannel";
 import { fetchServers, fetchChannelsByServer } from "@/app/api/API";
@@ -35,6 +37,8 @@ interface Channel {
 }
 
 const ServersPageContent: React.FC = () => {
+   const [isChannelSidebarCollapsed, setIsChannelSidebarCollapsed] =
+     useState(false); 
   const searchParams = useSearchParams();
   const refresh = searchParams.get("refresh");
   const serverIdFromQuery = searchParams.get("serverId");
@@ -501,7 +505,10 @@ const showVoiceUI =
         </div>
       ) : (
         <>
+         
+         
           {/* Channel List */}
+          {!isChannelSidebarCollapsed && ( 
           <div className="w-72  h-auto overflow-y-auto text-white px-2 py-4 space-y-4 border-r border-gray-800 bg-black scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
             <div className="flex items-center justify-between px-2 mb-2">
               <h2 className="text-xl font-bold">{selectedServerName}</h2>
@@ -537,7 +544,7 @@ const showVoiceUI =
                   }`}
                   onClick={() => {
                     setActiveChannel(channel);
-                    setViewMode("chat"); // Switch to chat view when clicking text channel
+                    setViewMode("chat"); 
                   }}
                 >
                   <span className="flex items-center gap-2">
@@ -643,9 +650,30 @@ const showVoiceUI =
               </div>
             )}
           </div>
+          
 
-          {/* Main Content Area */}
-          <div className="flex-1 relative text-white bg-[radial-gradient(ellipse_at_bottom,rgba(37,99,235,0.15)_0%,rgba(0,0,0,1)_85%)] flex flex-col">
+          )}
+          
+             <div className="flex-1 relative text-white bg-[radial-gradient(ellipse_at_bottom,rgba(37,99,235,0.15)_0%,rgba(0,0,0,1)_85%)] flex flex-col">
+            
+            <button
+              onClick={() => setIsChannelSidebarCollapsed((prev) => !prev)}
+              className={`absolute top-4 ${
+                isChannelSidebarCollapsed ? "left-4" : "left-[-1.5rem]"
+              } z-20 p-1 rounded-full bg-black border border-gray-800 text-gray-400 hover:text-white hover:bg-[#1e1f22] transition-all`}
+              title={
+                isChannelSidebarCollapsed
+                  ? "Expand Channel List"
+                  : "Collapse Channel List"
+              }
+            >
+              {isChannelSidebarCollapsed ? (
+                <FaAngleRight className="w-6 h-6" />
+              ) : (
+                <FaAngleLeft className="w-6 h-6" />
+              )}
+            </button>
+
             {/* Show voice UI when in voice view mode AND connected to this server's voice channel */}
             {showVoiceUI ? (
               // Voice layout: main VoiceChannel area + right-side member list (Discord-like)
@@ -808,3 +836,10 @@ const ServersPage: React.FC = () => {
 };
 
 export default ServersPage;
+
+
+
+      
+          
+
+                 

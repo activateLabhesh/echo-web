@@ -1,5 +1,5 @@
 "use client";
-import { getUser } from "../app/api";
+import { getUser, logout } from "../app/api";
 import type { profile } from "../app/api";
 import {
   LayoutDashboard,
@@ -11,6 +11,7 @@ import {
   Settings,
   ChevronsLeft,
   ChevronsRight,
+  LogOut,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -59,6 +60,17 @@ export default function Sidebar() {
 
   if (error) return <div className="text-red-500">{error}</div>;
   if (!user) return <div className="text-white">Loading...</div>;
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
 
   return (
     <aside
@@ -134,8 +146,30 @@ export default function Sidebar() {
             })}
           </nav>
         </div>
-       {/* Bottom Section: Profile */}
-        <Link href="/profile-settings">
+
+        {/* Bottom Section: Logout and Profile */}
+        <div>
+          {/* Logout Button */}
+          <div className="px-2 mb-2">
+            <div className="relative group">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-gray-300 hover:bg-red-500/20 hover:text-red-400 transition-all"
+              >
+                <LogOut className="w-5 h-5" />
+                {!collapsed && <span>Logout</span>}
+              </button>
+
+              {collapsed && (
+                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-20 px-3 py-1 text-sm text-white bg-black rounded shadow-lg opacity-0 group-hover:opacity-100 transition">
+                  Logout
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Profile */}
+          <Link href="/profile-settings">
           <div className="p-4 flex items-center gap-3 mt-auto cursor-pointer group hover:bg-white/10 transition rounded-lg">
             <div className="relative shrink-0">
               <div className="p-[2px] rounded-full bg-gradient-to-tr from-purple-500 via-pink-500 to-indigo-500">
@@ -160,7 +194,8 @@ export default function Sidebar() {
               </div>
             )}
           </div>
-        </Link>
+          </Link>
+        </div>
       </div>
     </aside>
   );

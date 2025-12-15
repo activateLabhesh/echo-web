@@ -9,6 +9,7 @@ import {
   FaMicrophoneSlash,
   FaMicrophone,
   FaVideoSlash,
+  FaLock,
 } from "react-icons/fa";
 import VoiceChannel from "@/components/EnhancedVoiceChannel";
 import { fetchServers, fetchChannelsByServer } from "@/app/api/API";
@@ -520,7 +521,11 @@ const ServersPageContent: React.FC = () => {
                   }}
                 >
                   <span className="flex items-center gap-2">
-                    <FaHashtag size={12} />
+                    {channel.is_private ? (
+                      <FaLock size={12} className="text-gray-500" />
+                    ) : (
+                      <FaHashtag size={12} />
+                    )}
                     {channel.name}
                   </span>
                   {activeChannel?.id === channel.id && viewMode === "chat" && (
@@ -546,7 +551,14 @@ const ServersPageContent: React.FC = () => {
                   onClick={() => handleJoinVoiceChannel(channel)}
                 >
                   <span className="flex items-center gap-2">
-                    <FaVolumeUp size={12} />
+                    {channel.is_private ? (
+                      <>
+                        <FaLock size={12} className="text-gray-500" />
+                        <FaVolumeUp size={12} />
+                      </>
+                    ) : (
+                      <FaVolumeUp size={12} />
+                    )}
                     {channel.name}
                     {/* Show indicator if connected to this channel */}
                     {activeVoiceChannelName === channel.name && (

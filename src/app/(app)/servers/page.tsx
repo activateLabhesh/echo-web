@@ -702,50 +702,143 @@ const showVoiceUI =
                 ))}
               </div>
 
-            <div className="px-2">
-              <h3 className="text-xs font-bold uppercase text-gray-400 mt-4 mb-2">
-                Voice Channels
-              </h3>
-              {voiceChannels.map((channel) => (
-                <div
-                  key={channel.id}
-                  className={`flex items-center justify-between p-2 text-sm rounded-md cursor-pointer transition-all ${
-                    activeVoiceChannelName === channel.name &&
-                    viewMode === "voice"
-                      ? "bg-[#2f3136] text-white"
-                      : "text-gray-400 hover:bg-[#2f3136] hover:text-white"
-                  }`}
-                  onClick={() => handleJoinVoiceChannel(channel)}
-                >
-                  <span className="flex items-center gap-2">
-                    {channel.is_private ? (
-                     <div className="relative w-4 h-4">
-    <FaVolumeUp size={12} className="absolute inset-0" />
-    <FaLock
-      size={12}
-      className="absolute -top-1 -right-1 text-gray-400 bg-[#111214] rounded-full"
-    />
-  </div>
-                    ) : (
-                      <FaVolumeUp size={12} />
-                    )}
-                    {channel.name}
-                    {/* Show indicator if connected to this channel */}
-                    {activeVoiceChannelName === channel.name && (
+              <div className="px-2">
+                <h3 className="text-xs font-bold uppercase text-gray-400 mt-4 mb-2">
+                  Voice Channels
+                </h3>
+                {voiceChannels.map((channel) => {
+                  const isActive = activeVoiceChannelName === channel.name;
+
+                  return (
+                    <div key={channel.id} className="space-y-1">
+                      {/* Voice channel row */}
                       <div
-                        className={`w-2 h-2 rounded-full ${
-                          isConnected
-                            ? "bg-green-500"
-                            : "bg-yellow-500 animate-pulse"
+                        className={`flex items-center justify-between p-2 text-sm rounded-md cursor-pointer transition-all ${
+                          isActive && viewMode === "voice"
+                            ? "bg-[#2f3136] text-white"
+                            : "text-gray-400 hover:bg-[#2f3136] hover:text-white"
                         }`}
-                      />
-                    )}
-                  </span>
-                  {activeVoiceChannelName === channel.name &&
-                    viewMode === "voice" && <FaCog size={12} />}
+                        onClick={() => handleJoinVoiceChannel(channel)}
+                      >
+                        <span className="flex items-center gap-2">
+                          <FaVolumeUp size={12} />
+                          {channel.name}
+
+                          {isActive && (
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                isConnected
+                                  ? "bg-green-500"
+                                  : "bg-yellow-500 animate-pulse"
+                              }`}
+                            />
+                          )}
+                        </span>
+                      </div>
+
+                      {/*  Voice members  */}
+                      {isActive && (
+                        <div className="ml-6 space-y-1">
+                          {voiceMembers.length === 0 ? (
+                            <div className="text-xs text-gray-500 px-2">
+                              {isConnecting ? "Connecting…" : "No one here"}
+                            </div>
+                          ) : (
+                            voiceMembers.map((m) => (
+                              <div
+                                key={m.id}
+                                className="flex items-center justify-between px-2 py-1 rounded hover:bg-[#2f3136]"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className={`w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-xs ${
+                                      m.speaking ? "ring-2 ring-green-500" : ""
+                                    }`}
+                                  >
+                                    {m.username?.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="text-xs text-gray-300 truncate">
+                                    {m.username}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  {m.muted ? (
+                                    <FaMicrophoneSlash className="w-3 h-3 text-red-500" />
+                                  ) : (
+                                    <FaMicrophone className="w-3 h-3 text-gray-400" />
+                                  )}
+                                  {!m.video && (
+                                    <FaVideoSlash className="w-3 h-3 text-gray-500" />
+                                  )}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Self-Assignable Roles Section */}
+              {selfAssignableRoles.length > 0 && (
+                <div className="px-2 mt-4">
+                  <div
+                    className="flex items-center justify-between cursor-pointer hover:bg-[#2f3136] rounded-md p-2 transition-all"
+                    onClick={() => setShowRoles(!showRoles)}
+                  >
+                    <h3 className="text-xs font-bold uppercase text-gray-400 flex items-center gap-2">
+                      <FaShieldAlt size={12} />
+                      Roles ({selfAssignableRoles.length})
+                    </h3>
+                    <span className="text-gray-400 text-xs">
+                      {showRoles ? "▼" : "▶"}
+                    </span>
+                  </div>
+
+                  {showRoles && (
+                    <div className="mt-2 space-y-1 max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                      {rolesLoading ? (
+                        <div className="text-xs text-gray-400 text-center py-2">
+                          Loading...
+                        </div>
+                      ) : (
+                        selfAssignableRoles.map((role) => {
+                          const hasRole = myRoles.some((r) => r.id === role.id);
+                          return (
+                            <div
+                              key={role.id}
+                              className={`flex items-center justify-between p-2 text-sm rounded-md cursor-pointer transition-all ${
+                                hasRole
+                                  ? "bg-[#2f3136] text-white"
+                                  : "text-gray-400 hover:bg-[#2f3136] hover:text-white"
+                              }`}
+                              onClick={() => handleRoleToggle(role.id)}
+                            >
+                              <span className="flex items-center gap-2 flex-1 min-w-0">
+                                <div
+                                  className="w-3 h-3 rounded-full flex-shrink-0"
+                                  style={{
+                                    backgroundColor: role.color || "#5865f2",
+                                  }}
+                                />
+                                <span className="truncate">{role.name}</span>
+                              </span>
+                              {hasRole && (
+                                <span className="text-green-400 text-xs ml-2 flex-shrink-0">
+                                  ✓
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              )}
 
               {/* Show voice status in sidebar when connected to this server */}
               {isVoiceActiveForCurrentServer && activeCall && (
@@ -825,98 +918,7 @@ const showVoiceUI =
                     />
                   </div>
 
-                  {/* Right column: member list */}
-                  <div className="w-72 border-l border-gray-800 bg-black p-4 flex flex-col">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold">Voice Members</h3>
-                      <span className="text-xs text-gray-400">
-                        {voiceMembers.length}
-                      </span>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
-                      {/* ensure current user is shown first */}
-                      {voiceMembers.length === 0 ? (
-                        <div className="text-gray-400 text-sm">
-                          {isConnecting
-                            ? "Connecting..."
-                            : "No one else is in the call"}
-                        </div>
-                      ) : (
-                        voiceMembers.map((m) => (
-                          <div
-                            key={m.id}
-                            className="flex items-center justify-between"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={`w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-xs overflow-hidden ${
-                                  m.speaking ? "ring-2 ring-green-500" : ""
-                                }`}
-                              >
-                                {m.avatar_url ? (
-                                  <img
-                                    src={m.avatar_url}
-                                    alt={m.username}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <span className="text-gray-400">
-                                    {(m.username || "U")
-                                      .charAt(0)
-                                      .toUpperCase()}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-sm">{m.username}</span>
-                                <span className="text-xs text-gray-500">
-                                  {m.speaking
-                                    ? "Speaking"
-                                    : m.status === "online"
-                                    ? "Online"
-                                    : m.status}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {/* mic icon (muted/unmuted) */}
-                              {m.muted ? (
-                                <FaMicrophoneSlash className="w-4 h-4 text-red-500" />
-                              ) : (
-                                <FaMicrophone
-                                  className={`w-4 h-4 ${
-                                    m.speaking
-                                      ? "text-green-400"
-                                      : "text-gray-400"
-                                  }`}
-                                />
-                              )}
-                              {/* video icon */}
-                              {!m.video && (
-                                <FaVideoSlash className="w-4 h-4 text-gray-500" />
-                              )}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    {/* Optional footer controls */}
-                    <div className="mt-3">
-                      <button
-                        onClick={() => {
-                          // example: open user list or invite modal
-                          alert(
-                            "Invite flow not implemented — hook up your invite modal here."
-                          );
-                        }}
-                        className="w-full py-2 rounded bg-[#2f3136] text-sm hover:bg-[#3a3c3f]"
-                      >
-                        Invite People
-                      </button>
-                    </div>
-                  </div>
+             
                 </div>
               </div>
             ) : activeChannel ? (

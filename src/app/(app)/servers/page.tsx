@@ -15,6 +15,7 @@ import { fetchServers, fetchChannelsByServer } from "@/app/api/API";
 import Chatwindow from "@/components/ChatWindow";
 import { useSearchParams } from "next/navigation";
 import { useVoiceCall } from "@/contexts/VoiceCallContext";
+import { supabase } from '@/lib/supabaseClient';
 
 const serverIcons: string[] = [
   "/hackbattle.png",
@@ -83,9 +84,13 @@ const ServersPageContent: React.FC = () => {
     ? activeCall?.channelName
     : null;
 
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   // Should show voice UI: only when in voice view mode AND connected to this server's voice
-  const showVoiceUI =
-    viewMode === "voice" && isVoiceActiveForCurrentServer && activeCall;
+const showVoiceUI =
+  voiceEnabled &&
+  viewMode === "voice" &&
+  isVoiceActiveForCurrentServer &&
+  activeCall;
 
   // Debug logging for voice UI visibility
   useEffect(() => {
@@ -278,17 +283,32 @@ const ServersPageContent: React.FC = () => {
     if (!selectedServerId) return;
     const loadChannels = async () => {
       try {
-        const data: Channel[] = await fetchChannelsByServer(selectedServerId);
-        console.log(data);
-        // Normalize channel types to lowercase to avoid casing mismatches
-        const normalized = (data || []).map((c) => ({
-          ...c,
-          type: (c.type || "").toLowerCase(),
-        }));
-        setChannels(normalized);
-        const firstTextChannel = normalized.find((c) => c.type === "text");
-        setActiveChannel(firstTextChannel || null);
-      } catch (err) {
+        
+      const { data: controls } = await supabase
+        .from('admin_controls')
+        .select('voice_enabled')
+        .single();
+      
+      const isVoiceEnabled = controls?.voice_enabled ?? true;
+      setVoiceEnabled(isVoiceEnabled);
+      
+      const data: Channel[] = await fetchChannelsByServer(selectedServerId);
+      console.log(data);
+      
+      const normalized = (data || []).map((c) => ({
+        ...c,
+        type: (c.type || "").toLowerCase(),
+      }));
+      
+      const filteredChannels = isVoiceEnabled
+        ? normalized
+        : normalized.filter((c) => c.type === "text");
+      
+      setChannels(filteredChannels);
+      
+      const firstTextChannel = filteredChannels.find((c) => c.type === "text");
+      setActiveChannel(firstTextChannel || null);
+    } catch (err) {
         console.error("Error fetching channels", err);
         setError("Failed to load channels");
         setChannels([]);

@@ -402,8 +402,12 @@ export default function Members({ serverId, isOwner = false, isAdmin = false }: 
                     return !memberRoles.some(mr => mr.id === role.id);
                   })
                   .filter(role => {
-                    // Only owner can assign owner/admin roles
-                    if (role.role_type === 'owner' || role.role_type === 'admin') {
+                    // NEVER allow assigning owner role - there can only be one owner
+                    if (role.role_type === 'owner') {
+                      return false;
+                    }
+                    // Only owner can assign admin roles
+                    if (role.role_type === 'admin') {
                       return isOwner;
                     }
                     return true;

@@ -1,9 +1,9 @@
 "use client";
 
 import { login, getToken } from "../../api";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function Login() {
@@ -15,6 +15,22 @@ export default function Login() {
   const [loading, setLoading] = useState(false); 
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Check for email verification success
+  useEffect(() => {
+    const verified = searchParams.get("verified");
+    if (verified === "true") {
+      setMessage("Email verified successfully! You can now login.");
+      setSuccess(true);
+      
+      // Clear the query parameter after 5 seconds
+      setTimeout(() => {
+        setMessage("");
+        setSuccess(false);
+      }, 5000);
+    }
+  }, [searchParams]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();

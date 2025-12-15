@@ -10,11 +10,13 @@ import {
   FaMicrophone,
   FaVideoSlash,
   FaLock,
-  FaAngleLeft, 
+  FaShieldAlt,
+  FaAngleLeft,
   FaAngleRight,
 } from "react-icons/fa";
 import VoiceChannel from "@/components/EnhancedVoiceChannel";
 import { fetchServers, fetchChannelsByServer } from "@/app/api/API";
+import { getSelfAssignableRoles, getMyRoles, selfAssignRole, selfUnassignRole, type Role } from "@/app/api";
 import Chatwindow from "@/components/ChatWindow";
 import { useSearchParams } from "next/navigation";
 import { useVoiceCall } from "@/contexts/VoiceCallContext";
@@ -54,6 +56,12 @@ const ServersPageContent: React.FC = () => {
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Self-assignable roles state
+  const [selfAssignableRoles, setSelfAssignableRoles] = useState<Role[]>([]);
+  const [myRoles, setMyRoles] = useState<Role[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [showRoles, setShowRoles] = useState(false);
 
   // View mode: 'voice' shows full voice UI, 'chat' shows text chat (with floating window if in voice)
   const [viewMode, setViewMode] = useState<"voice" | "chat">("chat");
@@ -322,6 +330,28 @@ const showVoiceUI =
     loadChannels();
   }, [selectedServerId]);
 
+  // Load self-assignable roles when server is selected
+  useEffect(() => {
+    const loadRoles = async () => {
+      if (!selectedServerId) return;
+      
+      setRolesLoading(true);
+      try {
+        const [assignableRoles, userRoles] = await Promise.all([
+          getSelfAssignableRoles(selectedServerId),
+          getMyRoles(selectedServerId)
+        ]);
+        setSelfAssignableRoles(assignableRoles);
+        setMyRoles(userRoles);
+      } catch (err) {
+        console.error("Error loading roles:", err);
+      } finally {
+        setRolesLoading(false);
+      }
+    };
+    loadRoles();
+  }, [selectedServerId]);
+
   // Update localStorage with current viewed server ID (for FloatingVoiceWindow)
   useEffect(() => {
     if (selectedServerId) {
@@ -372,6 +402,28 @@ const showVoiceUI =
   const handleHangUp = () => {
     leaveCall();
     setViewMode("chat"); // Switch back to chat view after hanging up
+  };
+
+  // Handle role toggle (assign/unassign)
+  const handleRoleToggle = async (roleId: string) => {
+    if (!selectedServerId) return;
+    
+    try {
+      const hasRole = myRoles.some(r => r.id === roleId);
+      
+      if (hasRole) {
+        await selfUnassignRole(selectedServerId, roleId);
+        setMyRoles(prev => prev.filter(r => r.id !== roleId));
+      } else {
+        await selfAssignRole(selectedServerId, roleId);
+        // Refresh my roles to get the updated list
+        const updatedRoles = await getMyRoles(selectedServerId);
+        setMyRoles(updatedRoles);
+      }
+    } catch (err: any) {
+      console.error("Error toggling role:", err);
+      alert(err?.response?.data?.error || "Failed to toggle role");
+    }
   };
 
   // Build external state for EnhancedVoiceChannel
@@ -612,6 +664,58 @@ const showVoiceUI =
                 </div>
               ))}
             </div>
+
+            {/* Self-Assignable Roles Section */}
+            {selfAssignableRoles.length > 0 && (
+              <div className="px-2 mt-4">
+                <div 
+                  className="flex items-center justify-between cursor-pointer hover:bg-[#2f3136] rounded-md p-2 transition-all"
+                  onClick={() => setShowRoles(!showRoles)}
+                >
+                  <h3 className="text-xs font-bold uppercase text-gray-400 flex items-center gap-2">
+                    <FaShieldAlt size={12} />
+                    Roles ({selfAssignableRoles.length})
+                  </h3>
+                  <span className="text-gray-400 text-xs">
+                    {showRoles ? "▼" : "▶"}
+                  </span>
+                </div>
+                
+                {showRoles && (
+                  <div className="mt-2 space-y-1 max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                    {rolesLoading ? (
+                      <div className="text-xs text-gray-400 text-center py-2">Loading...</div>
+                    ) : (
+                      selfAssignableRoles.map((role) => {
+                        const hasRole = myRoles.some(r => r.id === role.id);
+                        return (
+                          <div
+                            key={role.id}
+                            className={`flex items-center justify-between p-2 text-sm rounded-md cursor-pointer transition-all ${
+                              hasRole
+                                ? "bg-[#2f3136] text-white"
+                                : "text-gray-400 hover:bg-[#2f3136] hover:text-white"
+                            }`}
+                            onClick={() => handleRoleToggle(role.id)}
+                          >
+                            <span className="flex items-center gap-2 flex-1 min-w-0">
+                              <div
+                                className="w-3 h-3 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: role.color || '#5865f2' }}
+                              />
+                              <span className="truncate">{role.name}</span>
+                            </span>
+                            {hasRole && (
+                              <span className="text-green-400 text-xs ml-2 flex-shrink-0">✓</span>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Show voice status in sidebar when connected to this server */}
             {isVoiceActiveForCurrentServer && activeCall && (

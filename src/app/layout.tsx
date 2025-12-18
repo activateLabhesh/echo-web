@@ -3,6 +3,7 @@ import "../app/globals.css";
 import { MinimizedCallBar } from "@/components/MinimizedCallBar";
 import { MobileBlocker } from "@/components/MobileBlocker";
 import { TokenRefreshProvider } from "@/components/TokenRefreshProvider";
+import { ToastProvider } from "@/contexts/ToastContext";
 
 export const metadata: Metadata = {
   title: {
@@ -54,7 +55,9 @@ export default function RootLayout({
       <body>
         <TokenRefreshProvider>
           <MobileBlocker>
-            {children}
+            <ToastProvider>
+              {children}
+            </ToastProvider>
             <MinimizedCallBar />
           </MobileBlocker>
         </TokenRefreshProvider>

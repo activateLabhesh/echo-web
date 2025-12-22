@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react";
 import { Socket } from "socket.io-client";
 import MessageInput from "./MessageInput";
 import MessageInputWithMentions from "./MessageInputWithMentions";
@@ -12,7 +12,10 @@ import { createAuthSocket } from "@/socket";
 import VideoPanel from "./VideoPanel";
 import MessageBubble from "./MessageBubble";
 import UserProfileModal from "./UserProfileModal";
-import Toast  from "@/components/Toast";
+import Toast from "@/components/Toast";
+import { ChevronDown } from "lucide-react";
+import { apiClient } from "@/utils/apiClient";
+
 interface Message {
   id: string | number;
   content: string;
@@ -39,7 +42,16 @@ interface ChatWindowProps {
   serverId?: string;
 }
 
-export default function ChatWindow({ channelId, currentUserId, localStream = null, remoteStreams = [], serverId }: ChatWindowProps) {
+export default forwardRef(function ChatWindow(
+  {
+    channelId,
+    currentUserId,
+    localStream = null,
+    remoteStreams = [],
+    serverId,
+  }: ChatWindowProps,
+  ref
+) {
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -66,12 +78,80 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
     users: [],
   });
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [currentUsername, setCurrentUsername] = useState<string>("");
+  const [currentUserRoles, setCurrentUserRoles] = useState<string[]>([]);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const isInitialLoadRef = useRef(true);
+  const lastProcessedMessageIdRef = useRef<string | number | null>(null);
+  const isScrollingToMentionRef = useRef(false);
+  const hasMountedRef = useRef(false);
+  const hasScrolledForChannelRef = useRef<string | null>(null);
+
+  // Fetch unread mentions for a specific channel
+  const fetchChannelUnreadMentions = async (chId: string, userId: string) => {
+    const response = await apiClient.get(
+      `/api/mentions?userId=${userId}&unreadOnly=true&channelId=${chId}`
+    );
+    return response.data || [];
+  };
+
+  // Mark all mentions as read for a channel
+  const markAllChannelMentionsAsRead = async (mentionIds: string[]) => {
+    await Promise.all(
+      mentionIds.map((id) => apiClient.patch(`/api/mentions/${id}/read`))
+    );
+  };
+
+  // Expose imperative methods to parent via ref
+  useImperativeHandle(ref, () => ({
+    async scrollToMessage(messageId: string, options: { highlightDuration?: number } = { highlightDuration: 1500 }) {
+      isScrollingToMentionRef.current = true;
+
+      const tryFindAndScroll = (attempt: number): Promise<boolean> => {
+        return new Promise((resolve) => {
+          const el = document.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement | null;
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.classList.add("mention-highlight");
+            setTimeout(() => el.classList.remove("mention-highlight"), options.highlightDuration || 1500);
+            setTimeout(() => {
+              isScrollingToMentionRef.current = false;
+              resolve(true);
+            }, 500);
+          } else if (attempt < 6) {
+            const delay = 100 * Math.pow(2, attempt);
+            setTimeout(() => resolve(tryFindAndScroll(attempt + 1)), delay);
+          } else {
+            isScrollingToMentionRef.current = false;
+            resolve(false);
+          }
+        });
+      };
+
+      return tryFindAndScroll(0);
+    },
+
+    async loadOlderPages(limitPages = 1) {
+      if (!hasMore) return false;
+      for (let i = 0; i < limitPages; i++) {
+        const previousScrollHeight = messagesContainerRef.current?.scrollHeight || 0;
+        await loadMessages(true);
+        await new Promise((r) => setTimeout(r, 60));
+        if (!hasMore) break;
+      }
+      return true;
+    },
+
+    scrollToBottom() {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      return true;
+    }
+  }));
 
   const handleReply = (message: Message) => {
     console.log("Reply clicked for:", message);
     setReplyingTo(message);
   };
- const [currentUsername, setCurrentUsername] = useState<string>("");
 const [currentUserRoleIds, setCurrentUserRoleIds] = useState<string[]>([]);
 const messageRefs = useRef<Record<string | number, HTMLDivElement | null>>({});
 
@@ -441,9 +521,89 @@ const loadMessages = useCallback(async (loadMore: boolean = false) => {
 }, [channelId, currentUserId, offset]); // Removed currentUserAvatar from dependencies
 
   useEffect(() => {
-    if (channelId) loadMessages(false);
+    if (channelId) {
+      hasScrolledForChannelRef.current = null; // Reset on channel change
+      loadMessages(false);
+    }
   }, [channelId]);
 
+  // Auto-scroll to first unread mention when channel loads
+  useEffect(() => {
+    // Skip if still loading messages
+    if (loadingMessages) return;
+    // Skip if no channel or user
+    if (!channelId || !currentUserId) return;
+    // Skip if we already scrolled for this channel
+    if (hasScrolledForChannelRef.current === channelId) return;
+
+    const handleAutoScroll = async () => {
+      try {
+        // Mark that we're handling this channel
+        hasScrolledForChannelRef.current = channelId;
+        isScrollingToMentionRef.current = true;
+
+        // Fetch unread mentions for this channel
+        const mentions = await fetchChannelUnreadMentions(channelId, currentUserId);
+
+        if (!mentions || mentions.length === 0) {
+          // No unread mentions → scroll to bottom (last message)
+          messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+          isScrollingToMentionRef.current = false;
+          return;
+        }
+
+        // Get the first (oldest) unread mention
+        // API returns DESC order (newest first), so oldest is last
+        const firstMention = mentions[mentions.length - 1];
+        const messageId = firstMention.message_id;
+
+        // Try to scroll to the message
+        let scrolled = false;
+        let el = document.querySelector(`[data-message-id="${messageId}"]`);
+
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("mention-highlight");
+          setTimeout(() => el?.classList.remove("mention-highlight"), 1500);
+          scrolled = true;
+        } else {
+          // Message not in current view - load older pages
+          for (let i = 0; i < 8 && !scrolled; i++) {
+            await loadMessages(true);
+            await new Promise((r) => setTimeout(r, 100));
+
+            el = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+              el.classList.add("mention-highlight");
+              setTimeout(() => el?.classList.remove("mention-highlight"), 1500);
+              scrolled = true;
+            }
+            if (!hasMore) break;
+          }
+        }
+
+        // Fallback: scroll to bottom if message still not found
+        if (!scrolled) {
+          messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+        }
+
+        // Mark ALL unread mentions in this channel as read
+        const mentionIds = mentions.map((m: any) => m.id);
+        await markAllChannelMentionsAsRead(mentionIds);
+      } catch (error) {
+        console.error("Failed to auto-scroll to mention:", error);
+        // Fallback to bottom
+        messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+      } finally {
+        isScrollingToMentionRef.current = false;
+      }
+    };
+
+    handleAutoScroll();
+  }, [loadingMessages, channelId, currentUserId, hasMore]);
+
+  // Handle scroll to load more messages when scrolling to top
   const handleScroll = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container || loadingMore || !hasMore) return;
@@ -906,4 +1066,4 @@ userHasScrolledRef.current = false;
       />
     </div>
   );
-}
+});

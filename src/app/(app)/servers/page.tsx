@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   FaHashtag,
@@ -19,6 +19,7 @@ import { fetchServers, fetchChannelsByServer } from "@/api";
 import { getSelfAssignableRoles, getMyRoles, selfAssignRole, selfUnassignRole} from "@/api";
 import {type Role } from "@/api/types/roles.types";
 import Chatwindow from "@/components/ChatWindow";
+import NotificationBell from '@/components/NotificationBell';
 import { useSearchParams } from "next/navigation";
 import { useVoiceCall } from "@/contexts/VoiceCallContext";
 import { supabase } from '@/lib/supabaseClient';
@@ -58,6 +59,7 @@ const ServersPageContent: React.FC = () => {
   const [selectedServerName, setSelectedServerName] = useState<string>("");
   const [channels, setChannels] = useState<Channel[]>([]);
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
+  const chatWindowRef = useRef<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -851,16 +853,66 @@ const showVoiceUI =
                 <h1 className="text-2xl font-bold mb-4 text-center pt-6">
                   Welcome to #{activeChannel.name}
                 </h1>
-                <div className="flex-1 overflow-y-auto px-6 pb-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 rounded-lg">
-                  <Chatwindow
-                    channelId={activeChannel.id}
-                    isDM={false}
-                    currentUserId={user.id}
-                    localStream={null}
-                    remoteStreams={[]}
-                    serverId={selectedServerId}
-                  />
-                </div>
+                 <div className="flex-1 overflow-y-auto px-6 pb-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 rounded-lg">
+                   <div className="absolute top-4 right-6 z-30">
+                     <NotificationBell onNavigateToMessage={async (channelId, messageId) => {
+                       // Parent-level navigation handler
+                       // If target channel is different, switch to it
+                       const targetChannel = channels.find(c => c.id === channelId);
+                       if (targetChannel) {
+                         setActiveChannel(targetChannel);
+                         setViewMode("chat");
+                       }
+
+                       // Wait a tick for chat window to mount and load initial messages
+                       await new Promise(r => setTimeout(r, 250));
+
+                       // Try to scroll to message; if not found, paginate older messages up to a limit
+                       const MAX_PAGES = 8;
+                       let found = false;
+                       for (let i = 0; i <= MAX_PAGES && !found; i++) {
+                         // Attempt to scroll
+                         if (chatWindowRef.current) {
+                           const scrolled = await chatWindowRef.current.scrollToMessage(messageId);
+                           if (scrolled) {
+                             found = true;
+                             break;
+                           }
+                         }
+
+                         // If not found, load older messages if available
+                         if (chatWindowRef.current) {
+                           const loaded = await chatWindowRef.current.loadOlderPages(1);
+                           if (!loaded) break; // no more pages
+                         } else {
+                           break;
+                         }
+
+                         // small delay to allow DOM update
+                         await new Promise(r => setTimeout(r, 200));
+                       }
+
+                       if (!found) {
+                         // fallback: open channel and scroll to bottom
+                         // ensure chat window is visible
+                         setViewMode("chat");
+                         setTimeout(() => {
+                           if (chatWindowRef.current) chatWindowRef.current.scrollToMessage('last');
+                         }, 300);
+                       }
+                     }} />
+                   </div>
+
+                   <Chatwindow
+                     ref={chatWindowRef}
+                     channelId={activeChannel.id}
+                     isDM={false}
+                     currentUserId={user.id}
+                     localStream={null}
+                     remoteStreams={[]}
+                     serverId={selectedServerId}
+                   />
+                 </div>
               </>
             ) : (
               <div className="flex flex-col items-center justify-center h-full">

@@ -32,10 +32,12 @@ interface Notification {
 
 interface NotificationDropdownProps {
   onClose: () => void;
+  onNavigateToMessage?: (channelId: string, messageId: string) => void;
 }
 
 export default function NotificationDropdown({ 
-  onClose 
+  onClose,
+  onNavigateToMessage
 }: NotificationDropdownProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -174,14 +176,23 @@ export default function NotificationDropdown({
           </div>
         ) : (
           <div className="p-2 space-y-1">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`p-3 rounded-md hover:bg-[#23272a] transition-colors cursor-pointer ${
-                  !notification.is_read ? 'bg-blue-500/10 border-l-2 border-blue-500' : ''
-                }`}
-                onClick={() => !notification.is_read && markAsRead(notification.id)}
-              >
+                {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-3 rounded-md hover:bg-[#23272a] transition-colors cursor-pointer ${
+                    !notification.is_read ? 'bg-blue-500/10 border-l-2 border-blue-500' : ''
+                  }`}
+                  onClick={() => {
+                    if (!notification.is_read) markAsRead(notification.id);
+                    // If navigation handler is provided, call it with channelId and messageId
+                    const channelId = notification.message?.channel_id || notification.message?.channels?.server_id;
+                    const messageId = notification.message_id || notification.message?.id;
+                    if (onNavigateToMessage && channelId && messageId) {
+                      onNavigateToMessage(channelId, messageId);
+                      onClose();
+                    }
+                  }}
+                >
                 <div className="flex items-start gap-3">
                   {/* Avatar */}
                   <img

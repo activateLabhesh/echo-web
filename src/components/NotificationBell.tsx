@@ -6,9 +6,10 @@ import NotificationDropdown from './NotificationDropdown';
 
 interface NotificationBellProps {
   className?: string;
+  onNavigateToMessage?: (channelId: string, messageId: string) => void;
 }
 
-export default function NotificationBell({ className = "" }: NotificationBellProps) {
+export default function NotificationBell({ className = "", onNavigateToMessage }: NotificationBellProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const { unreadCount } = useNotifications();
 
@@ -39,6 +40,7 @@ export default function NotificationBell({ className = "" }: NotificationBellPro
       {showDropdown && (
         <NotificationDropdown
           onClose={() => setShowDropdown(false)}
+          onNavigateToMessage={onNavigateToMessage}
         />
       )}
     </div>

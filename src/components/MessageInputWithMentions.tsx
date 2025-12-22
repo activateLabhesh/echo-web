@@ -18,6 +18,7 @@ interface MessageInputWithMentionsProps {
   sendMessage: (text: string, file: File | null) => void;
   isSending: boolean;
   serverId?: string;
+  serverRoles: { id: string; name: string; color?: string }[];
 }
 
 /* -------------------- COMPONENT -------------------- */
@@ -26,6 +27,7 @@ export default function MessageInputWithMentions({
   sendMessage,
   isSending,
   serverId,
+  serverRoles
 }: MessageInputWithMentionsProps) {
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -56,15 +58,49 @@ export default function MessageInputWithMentions({
     if (selected) setFile(selected);
   };
 
-  /* -------------------- SEND -------------------- */
+
+
+  
+   const validateRoleMentions = (message: string) => {
+  const roleMentionRegex = /@&([a-zA-Z0-9_ ]+?)(?=\s|$)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = roleMentionRegex.exec(message)) !== null) {
+    const roleName = match[1].trim();
+
+    const roleExists = serverRoles.some(
+      (r) => r.name.toLowerCase() === roleName.toLowerCase()
+    );
+
+    if (!roleExists) {
+      return { valid: false, invalidRole: roleName };
+    }
+  }
+
+  return { valid: true };
+};
+
 
   const handleSend = () => {
-    if (!text.trim() && !file) return;
+    if (text.trim() === "" && !file) return;
+
+   
+    const validation = validateRoleMentions(text);
+    if (!validation.valid) {
+      alert(`Role "${validation.invalidRole}" does not exist in this server.`);
+      return;
+    }
+
     sendMessage(text.trim(), file);
+
+ 
+    setShowEmojiPicker(false);
+    setShowMentionDropdown(false);
+
     setText("");
     setFile(null);
-    setShowMentionDropdown(false);
   };
+
 
   /* -------------------- MENTION SEARCH -------------------- */
 
@@ -113,26 +149,39 @@ export default function MessageInputWithMentions({
 
   /* -------------------- INSERT MENTION -------------------- */
 
-  const insertMention = (username: string) => {
-    const before = text.slice(0, mentionPosition);
-    const after = text.slice(mentionPosition + mentionQuery.length + 1);
+  const insertMention = (type: 'user' | 'role' | 'everyone', name: string) => {
+    const beforeMention = text.substring(0, mentionPosition);
+    const afterMention = text.substring(mentionPosition + mentionQuery.length + 1); // +1 for @
+    
+    let mentionText = '';
+    if (type === 'user') {
+      mentionText = `@${name}`;
+    } else if (type === 'role') {
+      mentionText = `@&${name}`;
+    } else if (type === 'everyone') {
+      mentionText = `@everyone`;
+    }
 
-    const newText = `${before}@${username} ${after}`;
+    const newText = beforeMention + mentionText + ' ' + afterMention;
     setText(newText);
     setShowMentionDropdown(false);
 
     requestAnimationFrame(() => {
       textInputRef.current?.focus();
-      const pos = before.length + username.length + 2;
+      const pos = beforeMention.length + mentionText.length + 1;
       textInputRef.current?.setSelectionRange(pos, pos);
     });
   };
 
   /* -------------------- KEYBOARD -------------------- */
 
+  const filteredRoles = serverRoles.filter(role =>
+    role.name.toLowerCase().includes(mentionQuery.toLowerCase())
+  );
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (showMentionDropdown) {
-      const total = mentionableUsers.length + 1;
+      const total = filteredRoles.length + mentionableUsers.length + 1;
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -142,10 +191,15 @@ export default function MessageInputWithMentions({
         setSelectedMentionIndex((i) => (i - 1 + total) % total);
       } else if (e.key === "Enter") {
         e.preventDefault();
-        if (selectedMentionIndex < mentionableUsers.length) {
-          insertMention(mentionableUsers[selectedMentionIndex].username);
+        const roleCount = filteredRoles.length;
+        const userCount = mentionableUsers.length;
+        
+        if (selectedMentionIndex < roleCount) {
+          insertMention('role', filteredRoles[selectedMentionIndex].name);
+        } else if (selectedMentionIndex < roleCount + userCount) {
+          insertMention('user', mentionableUsers[selectedMentionIndex - roleCount].username);
         } else {
-          insertMention("everyone");
+          insertMention('everyone', 'everyone');
         }
       } else if (e.key === "Escape") {
         setShowMentionDropdown(false);
@@ -176,43 +230,94 @@ export default function MessageInputWithMentions({
             </div>
           ) : (
             <>
-              {mentionableUsers.map((user, i) => (
+              {filteredRoles.length > 0 && (
+                <div className="px-3 py-1 text-xs text-purple-400">Roles</div>
+              )}
+              {filteredRoles.map((role, idx) => (
                 <div
-                  key={user.id}
-                  className={`px-3 py-2 cursor-pointer flex items-center gap-3 ${
-                    i === selectedMentionIndex
-                      ? "bg-blue-600"
-                      : "hover:bg-gray-700"
+                  key={`role-${role.id}`}
+                  className={`px-3 py-3 cursor-pointer flex items-center space-x-3 transition-colors ${
+                    idx === selectedMentionIndex ? 'bg-blue-600' : 'hover:bg-gray-700'
                   }`}
-                  onClick={() => insertMention(user.username)}
+                  onClick={() => insertMention('role', role.name)}
                 >
-                  <img
-                    src={user.avatar_url || "/User_profil.png"}
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                  <div>
-                    <div className="text-white text-sm font-medium">
-                      {user.fullname || user.username}
+                  <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                    #
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-purple-300 text-sm font-medium">
+                      {role.name}
                     </div>
-                    <div className="text-xs text-gray-400">
-                      @{user.username}
+                    <div className="text-gray-400 text-xs">
+                      @{role.name}
                     </div>
+                  </div>
+                  <div className="text-purple-400 text-xs">
+                    role
                   </div>
                 </div>
               ))}
-
+              
+              {mentionableUsers.length > 0 && (
+                <div className="px-3 py-1 text-xs text-blue-400">Users</div>
+              )}
+              {mentionableUsers.map((user, idx) => {
+                const adjustedIdx = filteredRoles.length + idx;
+                return (
+                  <div
+                    key={`user-${user.id}`}
+                    className={`px-3 py-3 cursor-pointer flex items-center space-x-3 transition-colors ${
+                      adjustedIdx === selectedMentionIndex ? 'bg-blue-600' : 'hover:bg-gray-700'
+                    }`}
+                    onClick={() => insertMention('user', user.username)}
+                  >
+                    {user.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt={user.username}
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                        {user.username[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <div className="text-white text-sm font-medium">
+                        {user.fullname || user.username}
+                      </div>
+                      <div className="text-gray-400 text-xs">
+                        @{user.username}
+                      </div>
+                    </div>
+                    <div className="text-blue-400 text-xs">
+                      user
+                    </div>
+                  </div>
+                );
+              })}
+              
+              <div className="px-3 py-1 text-xs text-red-400">Special</div>
               <div
-                className={`px-3 py-2 cursor-pointer flex items-center gap-3 ${
-                  selectedMentionIndex === mentionableUsers.length
-                    ? "bg-red-600"
-                    : "hover:bg-gray-700"
+                className={`px-3 py-3 cursor-pointer flex items-center space-x-3 transition-colors ${
+                  selectedMentionIndex === filteredRoles.length + mentionableUsers.length ? 'bg-blue-600' : 'hover:bg-gray-700'
                 }`}
-                onClick={() => insertMention("everyone")}
+                onClick={() => insertMention('everyone', 'everyone')}
               >
-                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white">
+                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
                   @
                 </div>
-                <span className="text-white">@everyone</span>
+                <div className="flex-1">
+                  <div className="text-white text-sm font-medium">
+                    everyone
+                  </div>
+                  <div className="text-gray-400 text-xs">
+                    @everyone
+                  </div>
+                </div>
+                <div className="text-red-400 text-xs">
+                  everyone
+                </div>
               </div>
             </>
           )}

@@ -120,6 +120,9 @@ export const uploadMessage = async (payload: {
     formData.append("sender_id", payload.sender_id || "");
     formData.append("channel_id", payload.channel_id);
     formData.append("content", payload.content || "");
+    if (payload.reply_to !== undefined && payload.reply_to !== null) {
+      formData.append("reply_to", String(payload.reply_to));
+    }
     if (payload.file) formData.append("file", payload.file);
 
     const response = await apiClient.post("/api/message/upload", formData, {

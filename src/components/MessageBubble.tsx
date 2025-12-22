@@ -18,10 +18,12 @@ interface MessageBubbleProps {
   isSender?: boolean;
   avatarUrl?: string;
   timestamp?: string;
+
   onProfileClick?: () => void;
   onReply?: () => void;
   children?: React.ReactNode;
   messageRenderer?: (content: string) => React.ReactNode;
+  isMentioned?: boolean;
 }
 
 /* -------------------- COMPONENT -------------------- */
@@ -36,12 +38,12 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   onReply,
   children,
   messageRenderer,
+  isMentioned = false,
 }) => {
   const bubbleStyles = isSender
-    ? "bg-gradient-to-br from-indigo-500/90 via-sky-500/80 to-cyan-400/70 text-white shadow-[0_12px_30px_rgba(14,165,233,0.25)]"
-    : "bg-slate-800/80 text-slate-100 shadow-[0_12px_30px_rgba(15,23,42,0.35)]";
+    ? "bg-[#3a3c43] text-[#dbdee1]"
+    : "bg-[#2b2d31] text-[#dbdee1]";
 
-  const alignment = isSender ? "items-end text-right" : "items-start";
   const displayAvatar = avatarUrl || "/User_profil.png";
 
   return (
@@ -54,7 +56,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             alt={name || "User"}
             onClick={onProfileClick}
             onError={(e) => (e.currentTarget.src = "/User_profil.png")}
-            className="w-8 h-8 rounded-full object-cover cursor-pointer hover:scale-105 transition"
+            className="w-8 h-8 rounded-full object-cover cursor-pointer hover:opacity-90 transition"
           />
         </div>
       )}
@@ -62,13 +64,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       {/* Message Body */}
       <div
         className={`flex flex-col gap-1 max-w-[75%] ${
-          isSender ? "items-end" : "items-start"
+          isSender ? "items-end text-right" : "items-start"
         }`}
       >
         {/* Username */}
         {name && !isSender && (
           <span
-            className="text-xs font-medium uppercase tracking-wide text-slate-400 px-1 cursor-pointer hover:text-slate-200 transition"
+            className="text-xs font-medium text-[#949ba4] px-1 cursor-pointer hover:text-[#dbdee1]"
             onClick={onProfileClick}
           >
             {name}
@@ -77,7 +79,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Reply Preview */}
         {message.replyTo && (
-          <div className="px-3 py-2 text-xs text-slate-300 bg-black/30 rounded-lg border-l-4 border-blue-400">
+          <div className="px-3 py-2 text-xs text-[#dbdee1] bg-[#1e1f22] rounded-md border-l-4 border-[#5865f2]">
             <span className="font-semibold">
               {message.replyTo.author || "User"}
             </span>
@@ -88,24 +90,18 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         {/* Message Bubble */}
         <div
           className={`
-            px-4 py-3 w-fit
-            max-w-full
+            px-4 py-2.5 w-fit max-w-full
             ${bubbleStyles}
+            rounded-lg
             ${
-              isSender
-                ? "rounded-2xl rounded-br-md"
-                : "rounded-2xl rounded-bl-md"
+              isMentioned
+                ? "bg-[rgba(250,204,21,0.15)] ring-1 ring-[#facc15]"
+                : ""
             }
           `}
         >
           {/* Message text */}
-          <div
-            className="
-              text-sm leading-relaxed
-              whitespace-pre-wrap
-              break-all
-            "
-          >
+          <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
             {messageRenderer
               ? messageRenderer(message.content)
               : message.content}
@@ -116,7 +112,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           {onReply && (
             <button
               onClick={onReply}
-              className="mt-2 text-xs text-slate-400 hover:text-white transition"
+              className="mt-1 text-xs text-[#949ba4] hover:text-[#dbdee1]"
             >
               Reply
             </button>
@@ -125,9 +121,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Timestamp */}
         {timestamp && (
-          <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500 px-1">
-            {timestamp}
-          </span>
+          <span className="text-[10px] text-[#949ba4] px-1">{timestamp}</span>
         )}
       </div>
 

@@ -744,6 +744,22 @@ userHasScrolledRef.current = false;
         return;
       }
 
+
+      const isMentioned = 
+          saved?.content?.includes(`@${currentUsername}`) ||
+          saved?.mentions?.includes(`currentUserId`);
+
+      if(isMentioned){
+        setTimeout(()=>{
+          const el = document.querySelector(
+            `[data-message-id="${messageId}"]`
+          );
+          el?.classList.add("mention-highlight");
+          setTimeout(()=>el?.classList.remove("mention-highlight"),2000);
+        },100);
+      }
+
+
       const senderId = saved?.sender_id || saved?.senderId || "";
       const resolvedUsername = (senderId === currentUserId) ? 'You' : (
         saved?.username ||

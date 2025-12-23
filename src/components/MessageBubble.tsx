@@ -47,7 +47,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   const displayAvatar = avatarUrl || "/User_profil.png";
 
   return (
-    <div className={`flex mb-3 ${isSender ? "justify-end" : "justify-start"}`}>
+    <div 
+    data-message-id = {message.id}
+    className={`flex mb-3 ${isSender ? "justify-end" : "justify-start"}`}
+    >
       {/* Left Avatar */}
       {!isSender && (
         <div className="w-8 h-8 mr-3 flex-shrink-0">

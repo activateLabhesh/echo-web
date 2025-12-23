@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { VoiceVideoManager } from '@/lib/VoiceVideoManager';
 import { callStateManager } from '@/lib/CallStateManager';
 import { FaMicrophone, FaMicrophoneSlash, FaPhoneSlash, FaVideo, FaVideoSlash, FaRedo, FaMinus } from 'react-icons/fa';
+import { createAuthSocket } from '../socket';
 
 interface VoiceChannelProps {
     channelId: string;
@@ -143,6 +144,52 @@ const VoiceChannel = ({ channelId, userId, serverId, channelName, onHangUp, onMi
     const [isMuted, setIsMuted] = useState(false);
     const [isCameraOn, setIsCameraOn] = useState(false); // Camera off by default
     const [voiceMembers, setVoiceMembers] = useState<VoiceMember[]>([]);
+    const [isFetchingRoster, setIsFetchingRoster] = useState(false);
+    const socketRef = useRef<any>(null);
+    // Fetch channel members (roster) on mount and when channelId changes
+    useEffect(() => {
+        setIsFetchingRoster(true);
+        if (!userId || !channelId) return;
+        if (!socketRef.current) {
+            socketRef.current = createAuthSocket(userId);
+        }
+        const socket = socketRef.current;
+        const fetchRoster = () => {
+            socket.emit('get_voice_channel_roster', channelId, (data: any) => {
+                if (data && Array.isArray(data.members)) {
+                    // Map to VoiceMember shape if needed
+                    setVoiceMembers(data.members.map((m: any) => ({
+                        odattendeeId: m.socketId || m.odattendeeId || m.attendeeId || m.id,
+                        oduserId: m.userId || m.oduserId || m.username || m.id,
+                        username: m.username || m.userId || m.oduserId || `User ${(m.userId || m.socketId || '').slice(0, 8)}`,
+                        muted: m.muted || false,
+                        speaking: m.speaking || false,
+                        video: m.video || false
+                    })));
+                }
+                setIsFetchingRoster(false);
+            });
+        };
+        fetchRoster();
+        // Optionally, listen for real-time updates
+        socket.on('voice_channel_roster', (data: any) => {
+            if (data && data.channelId === channelId && Array.isArray(data.members)) {
+                setVoiceMembers(data.members.map((m: any) => ({
+                    odattendeeId: m.socketId || m.odattendeeId || m.attendeeId || m.id,
+                    oduserId: m.userId || m.oduserId || m.username || m.id,
+                    username: m.username || m.userId || m.oduserId || `User ${(m.userId || m.socketId || '').slice(0, 8)}`,
+                    muted: m.muted || false,
+                    speaking: m.speaking || false,
+                    video: m.video || false
+                })));
+            }
+        });
+        return () => {
+            if (socket) {
+                socket.off('voice_channel_roster');
+            }
+        };
+    }, [userId, channelId]);
     const [voiceStates, setVoiceStates] = useState<Map<string, VoiceState>>(new Map());
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [permissionError, setPermissionError] = useState<string | null>(null);
@@ -595,12 +642,14 @@ Find this site (${window.location.origin}) and set permissions to "Allow"`;
                 )}
             </div>
             
-            {/* Voice Members List */}
-            {voiceMembers.length > 0 && (
-                <div className="mt-2 p-2 bg-gray-800 rounded-md">
-                    <h4 className="text-sm font-medium text-gray-300 mb-2">
-                        Voice Members ({voiceMembers.length})
-                    </h4>
+            {/* Voice Members List - always visible under channel name */}
+            <div className="mt-2 p-2 bg-gray-800 rounded-md">
+                <h4 className="text-sm font-medium text-gray-300 mb-2">
+                    Voice Members ({voiceMembers.length})
+                </h4>
+                {isFetchingRoster ? (
+                    <div className="text-xs text-gray-400">Loading members...</div>
+                ) : (
                     <div className="flex flex-wrap gap-1">
                         {voiceMembers.map(member => {
                             const voiceState = voiceStates.get(member.odattendeeId);
@@ -623,8 +672,8 @@ Find this site (${window.location.origin}) and set permissions to "Allow"`;
                             );
                         })}
                     </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 };

@@ -73,6 +73,54 @@ export default function ChatWindow({ channelId, currentUserId, localStream = nul
   };
  const [currentUsername, setCurrentUsername] = useState<string>("");
 const [currentUserRoleIds, setCurrentUserRoleIds] = useState<string[]>([]);
+const messageRefs = useRef<Record<string | number, HTMLDivElement | null>>({});
+
+const isMessageMentioningMe = useCallback(
+  (content: string) => {
+    if (!content) return false;
+
+    const lower = content.toLowerCase();
+
+
+    if (/@(everyone|here)\b/.test(lower)) {
+      return true;
+    }
+
+   
+    if (currentUsername) {
+      const userRegex = new RegExp(`@${currentUsername}\\b`, "i");
+      if (userRegex.test(content)) return true;
+    }
+
+    
+    for (const roleId of currentUserRoleIds) {
+      const role = serverRoles.find((r) => r.id === roleId);
+      if (!role) continue;
+
+      const roleRegex = new RegExp(`@&${role.name}\\b`, "i");
+      if (roleRegex.test(content)) return true;
+    }
+
+    return false;
+  },
+  [currentUsername, currentUserRoleIds, serverRoles]
+);
+const hasMentionInHistoryRef = useRef(false);
+const hasScrolledToMentionRef = useRef(false);
+const userHasScrolledRef = useRef(false);
+useEffect(() => {
+  const mentionExists = messages.some(
+    (m) => m.senderId !== currentUserId && isMessageMentioningMe(m.content)
+  );
+
+  hasMentionInHistoryRef.current = mentionExists;
+
+ 
+  if (!mentionExists) {
+    hasScrolledToMentionRef.current = false;
+    userHasScrolledRef.current = false;
+  }
+}, [messages, currentUserId, isMessageMentioningMe]);
 
 
 
@@ -92,6 +140,7 @@ const [currentUserRoleIds, setCurrentUserRoleIds] = useState<string[]>([]);
   };
   fetchRoles();
 }, [serverId]);
+
  
 useEffect(() => {
   const loadCurrentUserAvatar = async () => {
@@ -247,25 +296,71 @@ useEffect(() => {
 
       // console.log("Response status:", response.status);
 
-      if (response.ok) {
-        const memberData = await response.json();
-        // console.log("Member data received:", memberData);
+     if (!response.ok) {
+       // ⚠️ User not found in this server (normal case, non-blocking)
+       console.warn("Member not found in server (non-blocking):", msg.senderId);
+       return; // ⬅️ IMPORTANT: stop here, keep basic profile
+     }
 
-        // Update with full user details including roles
-        setSelectedUser({
-          id: msg.senderId,
-          username: msg.username || "Unknown",
-          avatarUrl: msg.avatarUrl || "/User_profil.png",
-          about: memberData.user.bio || "No bio yet...",
-          roles: memberData.roles?.map((role: any) => role.name) || [],
-        });
-      } else {
-        console.error("Failed to fetch member data:", response.status, await response.text());
-      }
+     const memberData = await response.json();
+
+     // Update with full user details including roles
+     setSelectedUser({
+       id: msg.senderId,
+       username: msg.username || "Unknown",
+       avatarUrl: msg.avatarUrl || "/User_profil.png",
+       about: memberData.user?.bio || "No bio yet...",
+       roles: memberData.roles?.map((role: any) => role.name) || [],
+     });
+
     } catch (error) {
       console.error("Error fetching user details:", error);
     }
   };
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      try {
+        const user = await getUser();
+
+        if (user?.username) {
+          setCurrentUsername(user.username);
+        }
+      } catch (err) {
+        console.error("Failed to load current user", err);
+      }
+    };
+
+    loadCurrentUser();
+  }, []);
+useEffect(() => {
+  if (!serverId || !currentUserId) return;
+
+  const loadMyServerRoles = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/newserver/${serverId}/members/${currentUserId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      
+      setCurrentUserRoleIds(data.roles?.map((r: any) => r.id) || []);
+    } catch (err) {
+      console.error("Failed to load my server roles", err);
+    }
+  };
+
+  loadMyServerRoles();
+}, [serverId, currentUserId]);
+
 
   useEffect(() => {
     const newSocket = createAuthSocket(currentUserId);
@@ -349,10 +444,22 @@ const loadMessages = useCallback(async (loadMore: boolean = false) => {
     if (channelId) loadMessages(false);
   }, [channelId]);
 
-  // Handle scroll to load more messages when scrolling to top
   const handleScroll = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container || loadingMore || !hasMore) return;
+
+    // Mark that user has manually scrolled
+    userHasScrolledRef.current = true;
+
+    // Check if user scrolled to bottom (within 50px)
+    const isAtBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      50;
+
+    // If user scrolled to bottom, mark mentions as read
+    if (isAtBottom) {
+      hasScrolledToMentionRef.current = true;
+    }
 
     // Load more when scrolled near the top (within 100px)
     if (container.scrollTop < 100) {
@@ -362,12 +469,53 @@ const loadMessages = useCallback(async (loadMore: boolean = false) => {
         requestAnimationFrame(() => {
           if (messagesContainerRef.current) {
             const newScrollHeight = messagesContainerRef.current.scrollHeight;
-            messagesContainerRef.current.scrollTop = newScrollHeight - previousScrollHeight;
+            messagesContainerRef.current.scrollTop =
+              newScrollHeight - previousScrollHeight;
           }
         });
       });
     }
   }, [loadingMore, hasMore, loadMessages]);
+ useEffect(() => {
+   // Wait until username is known
+   if (!currentUsername) return;
+
+   const container = messagesContainerRef.current;
+   if (!container) return;
+
+   // If no mentions exist, scroll to bottom
+   if (!hasMentionInHistoryRef.current) {
+     messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+     hasScrolledToMentionRef.current = false;
+     userHasScrolledRef.current = false;
+     return;
+   }
+
+   // If user has manually scrolled OR we've already auto-scrolled to mention, don't auto-scroll again
+   if (hasScrolledToMentionRef.current || userHasScrolledRef.current) {
+     return;
+   }
+
+   // Find the first mention
+   const target = messages.find(
+     (m) => m.senderId !== currentUserId && isMessageMentioningMe(m.content)
+   );
+
+   if (!target) {
+     messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+     return;
+   }
+
+   const el = messageRefs.current[target.id];
+   if (el) {
+     el.scrollIntoView({
+       behavior: "smooth",
+       block: "center",
+     });
+     // Mark that we've auto-scrolled to mention
+     hasScrolledToMentionRef.current = true;
+   }
+ }, [messages, currentUsername, currentUserId, isMessageMentioningMe]);
 
   useEffect(() => {
     if (!localStream) return;
@@ -379,14 +527,21 @@ const loadMessages = useCallback(async (loadMore: boolean = false) => {
     localStream.getVideoTracks().forEach(t => (t.enabled = camOn));
   }, [localStream, camOn]);
 
-  useEffect(() => {
-    // Only scroll to bottom on initial load or new messages, not when loading older messages
-    if (!isLoadingMoreRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-    // Reset the ref after the effect runs
-    isLoadingMoreRef.current = false;
-  }, [messages]);
+  
+useEffect(() => {
+ 
+  const hasUnreadMentions =
+    hasMentionInHistoryRef.current &&
+    !hasScrolledToMentionRef.current &&
+    !userHasScrolledRef.current;
+
+  if (!isLoadingMoreRef.current && !hasUnreadMentions) {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+  isLoadingMoreRef.current = false;
+}, [messages]);
+hasScrolledToMentionRef.current = false;
+userHasScrolledRef.current = false;
 
   useEffect(() => {
     if (!socket) return;
@@ -632,74 +787,80 @@ const loadMessages = useCallback(async (loadMore: boolean = false) => {
               </div>
             )}
             {messages.map((msg) => (
-              <MessageBubble
+              <div
                 key={msg.id}
-                name={msg.username}
-                message={{
-                  content: msg.content,
-                  replyTo: msg.replyTo || null,
+                ref={(el) => {
+                  messageRefs.current[msg.id] = el;
                 }}
-                avatarUrl={msg.avatarUrl}
-                isSender={msg.senderId === currentUserId}
-                timestamp={new Date(msg.timestamp).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-                onReply={() => handleReply(msg)}
-                onProfileClick={() => openProfile(msg)}
-                messageRenderer={(content: string) => (
-                  <MessageContentWithMentions
-                    content={content}
-                    currentUserId={currentUserId}
-                    currentUsername={currentUsername}
-                    serverRoles={serverRoles}
-                    currentUserRoleIds={currentUserRoleIds}
-                    onMentionClick={handleUsernameClick}
-                    onRoleMentionClick={handleRoleMentionClick}
-                  />
-                )}
               >
-                {msg.mediaUrl && <MessageAttachment media_url={msg.mediaUrl} />}
-              </MessageBubble>
+                <MessageBubble
+                  name={msg.username}
+                  message={{
+                    content: msg.content,
+                    replyTo: msg.replyTo || null,
+                  }}
+                  avatarUrl={msg.avatarUrl}
+                  isSender={msg.senderId === currentUserId}
+                  timestamp={new Date(msg.timestamp).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  onReply={() => handleReply(msg)}
+                  onProfileClick={() => openProfile(msg)}
+                  messageRenderer={(content: string) => (
+                    <MessageContentWithMentions
+                      content={content}
+                      currentUserId={currentUserId}
+                      currentUsername={currentUsername}
+                      serverRoles={serverRoles}
+                      currentUserRoleIds={currentUserRoleIds}
+                      onMentionClick={handleUsernameClick}
+                      onRoleMentionClick={handleRoleMentionClick}
+                    />
+                  )}
+                >
+                  {msg.mediaUrl && (
+                    <MessageAttachment media_url={msg.mediaUrl} />
+                  )}
+                </MessageBubble>
+              </div>
             ))}
+
             <div ref={messagesEndRef} />
           </>
         )}
       </div>
 
-<div className="flex-shrink-0 px-6 pb-6">
-  {replyingTo && (
-    <div className="mx-6 mb-2 px-4 py-2 bg-slate-800 rounded-lg flex items-center justify-between border-l-4 border-blue-500">
-      <div className="text-sm text-slate-300 truncate">
-        Replying to{" "}
-        <span className="font-semibold">
-          {replyingTo.username || "User"}
-        </span>
-        :{" "}
-        <span className="italic">
-          {replyingTo.content}
-        </span>
+      <div className="flex-shrink-0 px-6 pb-6">
+        {replyingTo && (
+          <div className="mx-6 mb-2 px-4 py-2 bg-slate-800 rounded-lg flex items-center justify-between border-l-4 border-blue-500">
+            <div className="text-sm text-slate-300 truncate">
+              Replying to{" "}
+              <span className="font-semibold">
+                {replyingTo.username || "User"}
+              </span>
+              : <span className="italic">{replyingTo.content}</span>
+            </div>
+            <button
+              onClick={() => setReplyingTo(null)}
+              className="ml-3 text-slate-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        {serverId ? (
+          <MessageInputWithMentions
+            sendMessage={handleSend}
+            isSending={isSending}
+            serverId={serverId}
+            serverRoles={serverRoles}
+          />
+        ) : (
+          <MessageInput sendMessage={handleSend} isSending={isSending} />
+        )}
       </div>
-      <button
-        onClick={() => setReplyingTo(null)}
-        className="ml-3 text-slate-400 hover:text-white"
-      >
-        ✕
-      </button>
-    </div>
-  )}
-  {serverId ? (
-    <MessageInputWithMentions
-      sendMessage={handleSend}
-      isSending={isSending}
-      serverId={serverId}
-      serverRoles={serverRoles}
-    />
-  ) : (
-    <MessageInput sendMessage={handleSend} isSending={isSending} />
-  )}
-</div>
-      
+
       {roleModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-[#232428] rounded-2xl shadow-2xl w-96 p-6 text-white relative">

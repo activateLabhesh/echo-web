@@ -93,7 +93,10 @@ api.interceptors.response.use(
       const response = await axios.post(
         `${API_BASE_URL}/api/auth/refresh`,
         { refreshToken },
-        { withCredentials: true }
+        { 
+          withCredentials: true,
+          headers: { 'Content-Type': 'application/json' }
+        }
       );
       
       const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
@@ -163,7 +166,10 @@ export const refreshToken = async (): Promise<{
         const response = await axios.post(
             `${API_BASE_URL}/api/auth/refresh`,
             { refreshToken },
-            { withCredentials: true }
+            { 
+                withCredentials: true,
+                headers: { 'Content-Type': 'application/json' }
+            }
         );
 
         const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;

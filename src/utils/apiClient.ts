@@ -44,6 +44,9 @@ apiClient.interceptors.response.use(
     if (originalRequest._retry || originalRequest.url?.includes('/api/auth/refresh')) {
       // Refresh failed or already retried, redirect to login
       localStorage.removeItem("token");
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("tokenExpiry");
       localStorage.removeItem("user");
       window.location.href = "/login";
       return Promise.reject(error);
@@ -62,8 +65,11 @@ apiClient.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      // Attempt to refresh the token
-      await apiClient.post('/api/auth/refresh');
+      // Get refresh token from localStorage as fallback
+      const refreshToken = localStorage.getItem("refresh_token");
+      
+      // Attempt to refresh the token - send refreshToken in body as fallback to cookies
+      await apiClient.post('/api/auth/refresh', { refreshToken });
       
       // Token refreshed successfully, process queued requests
       processQueue(null);
@@ -76,6 +82,9 @@ apiClient.interceptors.response.use(
       
       // Clear local storage and redirect to login
       localStorage.removeItem("token");
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("tokenExpiry");
       localStorage.removeItem("user");
       window.location.href = "/login";
       

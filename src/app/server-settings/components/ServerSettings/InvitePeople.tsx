@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { getServerInvites, createServerInvite, deleteInvite, ServerInvite, testDirectPost } from "@/app/api";
+import { getServerInvites, createServerInvite, deleteInvite, testDirectPost } from "@/api";
+import { ServerInvite } from "@/api/types/server.types";
 
 interface InvitePeopleProps {
   serverId: string;

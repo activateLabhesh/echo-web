@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
-import { createChannel, ChannelData, getAllRoles, setChannelRoleAccess, Role } from "@/app/api";
+import { createChannel, getAllRoles, setChannelRoleAccess } from "@/api";
+import { ChannelData } from "@/api/types/channel.types";
+import { Role } from "@/api/types/roles.types";
 import { useSearchParams } from "next/navigation";
 
 const AddChannel: React.FC = () => {

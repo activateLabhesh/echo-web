@@ -176,10 +176,12 @@ interface ChatWindowProps {
     activeUser: User | null;
     messages: DirectMessage[];
     currentUser: User | null;
+    partnerId: string | null;
+    allUsers: User[];
     onSendMessage: (message: string, file: File | null) => void;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ activeUser, messages, currentUser, onSendMessage }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ activeUser, messages, currentUser, partnerId, allUsers, onSendMessage }) => {
     const [draft, setDraft] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
@@ -198,6 +200,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ activeUser, messages, currentUs
         if (!messages.length) return [];
 
         const sections: GroupedSection[] = [];
+        const partner = partnerId ? allUsers.find(u => u.id === partnerId) || activeUser : activeUser;
 
         messages.forEach((message) => {
             const timestamp = new Date(message.timestamp);
@@ -210,15 +213,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ activeUser, messages, currentUs
 
             const senderId = message.sender_id;
             const isSender = senderId === currentUser?.id;
-            const name = isSender ? 'You' : activeUser?.fullname ?? 'Member';
+            const name = isSender ? 'You' : partner?.fullname ?? 'Unknown User';
             const avatarUrl = isSender
-                ? '/User_profil.png'
-                : activeUser?.avatar_url || '/avatar.png';
+            ? '/User_profil.png'
+            : partner?.avatar_url ?? '/User_profil.png';
 
             let group = section.groups[section.groups.length - 1];
             if (!group || group.senderId !== senderId) {
                 group = {
-                    key: `${dayLabel}-${senderId}-${message.id}`,
+                    key: `${dayLabel}-${partnerId}-${isSender ? 'me' : 'them'}-${message.id}`,
                     senderId,
                     name,
                     isSender,
@@ -235,7 +238,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ activeUser, messages, currentUs
         });
 
         return sections;
-    }, [messages, currentUser?.id, activeUser?.fullname, activeUser?.avatar_url, dayFormatter, timeFormatter]);
+    }, [messages, currentUser?.id, partnerId, allUsers, dayFormatter, timeFormatter]);
 
     const handleSend = (value: string) => {
         if (!value.trim() && !file) return;
@@ -452,19 +455,38 @@ useEffect(() => {
             }
 
             // Normalize fields from various possible keys
+            // Standardize to canonical DM shape
+            const sender = String(
+            incoming.sender_id ??
+            incoming.senderId ??
+            incoming.from ??
+            incoming.userId ??
+            incoming.user ??
+            ""
+            );
+
+            const receiver = String(
+            incoming.receiver_id ??
+            incoming.receiverId ??
+            incoming.to ??
+            incoming.targetId ??
+            ""
+            );
+
             const incomingMsg: DirectMessage = {
-                id: String(incoming.id ?? incoming.message_id ?? incoming.clientMessageId ?? `sock-${Date.now()}`),
-                content: String(incoming.content ?? incoming.message ?? ""),
-                sender_id: String(incoming.sender_id ?? incoming.senderId ?? incoming.from ?? ""),
-                receiver_id: String(incoming.receiver_id ?? incoming.receiverId ?? incoming.to ?? ""),
-                timestamp: String(incoming.timestamp ?? new Date().toISOString()),
-                media_url: incoming.media_url ?? incoming.mediaUrl ?? incoming.media ?? null,
+            id: String(incoming.id ?? incoming.message_id ?? incoming.clientMessageId ?? `sock-${Date.now()}`),
+            content: String(incoming.content ?? incoming.message ?? ""),
+            sender_id: sender,
+            receiver_id: receiver,
+            timestamp: String(incoming.timestamp ?? new Date().toISOString()),
+            media_url: incoming.media_url ?? incoming.mediaUrl ?? null,
             };
 
             const selfId = currentUser?.id;
-            const partnerId = incomingMsg.sender_id === selfId
-                ? incomingMsg.receiver_id
-                : incomingMsg.sender_id;
+            let partnerId = incomingMsg.sender_id;
+            if (partnerId === selfId) partnerId = incomingMsg.receiver_id;
+            if (!partnerId) return console.warn("Missing partner for DM:", incomingMsg);
+
             if (!partnerId) {
                 console.warn("Incoming DM missing partner id", incoming);
                 return;
@@ -570,8 +592,8 @@ useEffect(() => {
                         // B) { recipientId, recipientName, lastMessage, updatedAt, messages?: [...] }
                         const other = thread.other_user;
                         if (other && other.id) {
-                            const name = other.fullname || other.username || other.name || "Unknown User";
-                            users.push({ id: String(other.id), fullname: String(name), avatar_url: other.avatar_url });
+                            const name = other.fullname || other.username || other.name || other.display_name || "Unknown User";
+                            users.push({id: String(other.id), fullname: name, avatar_url: other.avatar_url ?? null,});
                             if (Array.isArray(thread.messages)) {
                                 const sorted = thread.messages
                                     .map((m: any) => ({
@@ -892,6 +914,8 @@ useEffect(() => {
                         activeUser={activeUser}
                         messages={activeMessages} 
                         currentUser={currentUser}
+                        partnerId={activeDmId}
+                        allUsers={allUsers}
                         onSendMessage={handleSendMessage}
                     />
                 </div>

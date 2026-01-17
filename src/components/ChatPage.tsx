@@ -1,9 +1,10 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Bell, MoreVertical, Paperclip, Search, Send, Smile, X } from 'lucide-react';
-import { getUserDMs, uploaddm, fetchUserProfile, markThreadAsRead } from '@/api'; 
+import { getUserDMs, uploaddm, markThreadAsRead } from '@/api/message.api'; 
+import { fetchUserProfile } from '@/api/profile.api'; 
 import { Socket } from "socket.io-client";
 import { createAuthSocket } from '@/socket';
 import MessageBubble from './MessageBubble';
@@ -792,10 +793,10 @@ useEffect(() => {
         }
     };
 
-    const handleSelectDm = (userId: string) => {
+    const handleSelectDm = useCallback((userId: string) => {
         setActiveDmId(userId);
         router.push(`/messages?dm=${userId}`);
-    };
+    }, [router]);
     
     // Mark thread as read when user opens a DM
     useEffect(() => {
@@ -830,36 +831,38 @@ useEffect(() => {
         return () => clearTimeout(timeoutId);
     }, [activeDmId, currentUser?.id]);
     
-    const conversations = allUsers.map(user => {
-        const userMessages = messages.get(user.id) || [];
-        const lastMessageObj = userMessages.length > 0 ? userMessages[userMessages.length - 1] : null;
-        let lastMessage = "No messages yet.";
-        let timestamp = new Date(0).toISOString(); // Default to epoch
-        
-        if (lastMessageObj) {
-            const isSender = lastMessageObj.sender_id === currentUser?.id;
-            const content = lastMessageObj.media_url ? "Sent an attachment" : (lastMessageObj.content || "");
-            const prefix = isSender ? "You: " : `${user.fullname}: `;
-            lastMessage = `${prefix}${content}`.trim();
-            timestamp = lastMessageObj.timestamp;
-        }
-        
-        // Get unread count from context
-        const threadId = lastMessageObj?.thread_id;
-        const unreadCount = threadId ? unreadPerThread[threadId] || 0 : 0;
-        
-        return { 
-            user, 
-            lastMessage, 
-            timestamp,
-            unreadCount 
-        };
-    }).sort((a, b) => {
-        // Sort by timestamp descending (newest first)
-        const timeA = new Date(a.timestamp).getTime();
-        const timeB = new Date(b.timestamp).getTime();
-        return timeB - timeA;
-    });
+    const conversations = useMemo(() => {
+        return allUsers.map(user => {
+            const userMessages = messages.get(user.id) || [];
+            const lastMessageObj = userMessages.length > 0 ? userMessages[userMessages.length - 1] : null;
+            let lastMessage = "No messages yet.";
+            let timestamp = new Date(0).toISOString(); // Default to epoch
+            
+            if (lastMessageObj) {
+                const isSender = lastMessageObj.sender_id === currentUser?.id;
+                const content = lastMessageObj.media_url ? "Sent an attachment" : (lastMessageObj.content || "");
+                const prefix = isSender ? "You: " : `${user.fullname}: `;
+                lastMessage = `${prefix}${content}`.trim();
+                timestamp = lastMessageObj.timestamp;
+            }
+            
+            // Get unread count from context
+            const threadId = lastMessageObj?.thread_id;
+            const unreadCount = threadId ? unreadPerThread[threadId] || 0 : 0;
+            
+            return { 
+                user, 
+                lastMessage, 
+                timestamp,
+                unreadCount 
+            };
+        }).sort((a, b) => {
+            // Sort by timestamp descending (newest first)
+            const timeA = new Date(a.timestamp).getTime();
+            const timeB = new Date(b.timestamp).getTime();
+            return timeB - timeA;
+        });
+    }, [allUsers, messages, currentUser?.id, unreadPerThread]);
 
     const activeUser = allUsers.find(u => u.id === activeDmId) || null;
     const activeMessages = activeDmId ? messages.get(activeDmId) || [] : [];

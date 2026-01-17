@@ -2,19 +2,32 @@
 
 import React, { useCallback, useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react";
 import { Socket } from "socket.io-client";
+import dynamic from "next/dynamic";
 import MessageInput from "./MessageInput";
 import MessageInputWithMentions from "./MessageInputWithMentions";
 import MessageContentWithMentions from "./MessageContentWithMentions";
 import MessageAttachment from "./MessageAttachment";
-import { fetchMessages, uploadMessage, getUserAvatar } from "@/api";
-import { getUser } from "@/api";
+import { fetchMessages, uploadMessage } from "@/api/message.api";
+import { getUser, getUserAvatar } from "@/api/profile.api";
 import { createAuthSocket } from "@/socket";
-import VideoPanel from "./VideoPanel";
 import MessageBubble from "./MessageBubble";
-import UserProfileModal from "./UserProfileModal";
 import Toast from "@/components/Toast";
 import { ChevronDown } from "lucide-react";
 import { apiClient } from "@/utils/apiClient";
+
+// Dynamic imports for heavy components that are conditionally rendered
+const VideoPanel = dynamic(() => import("./VideoPanel"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-gray-900 rounded-lg flex items-center justify-center">
+      <div className="animate-spin w-8 h-8 border-2 border-gray-600 border-t-blue-500 rounded-full" />
+    </div>
+  ),
+});
+
+const UserProfileModal = dynamic(() => import("./UserProfileModal"), {
+  ssr: false,
+});
 
 interface Message {
   id: string | number;
@@ -282,67 +295,7 @@ useEffect(() => {
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  const handleUsernameClick = async (userId: string, username: string) => {
-    // console.log("handleUsernameClick called with:", { userId, username });
-    
-    // First, try to find the user in existing messages to get more info
-    const existingMessage = messages.find(msg => 
-      msg.senderId === userId || msg.username === username
-    );
-    
-    let mockMessage: Message;
-    if (existingMessage) {
-      // Use data from existing message if found
-      mockMessage = existingMessage;
-    } else {
-      // Create a mock message object for the openProfile function
-      mockMessage = {
-        id: `temp-${userId}`,
-        content: '',
-        senderId: userId,
-        timestamp: new Date().toISOString(),
-        username: username,
-        avatarUrl: avatarCacheRef.current[userId] || "/User_profil.png",
-      };
-    }
-    
-    // console.log("Opening profile for mock message:", mockMessage);
-    await openProfile(mockMessage);
-  };
-
-  const handleRoleMentionClick = async (roleName: string) => {
-  if (!serverId) return;
-
-  try {
-    // Fetch all users with this role from your backend
-    const token = localStorage.getItem("access_token");
-    const url = `${process.env.NEXT_PUBLIC_API_URL}/api/newserver/${serverId}/roles/${encodeURIComponent(roleName.trim())}/members`;
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch users for role: ${roleName}`);
-    }
-
-    const data = await response.json();
-    // Assume data.users is an array of { id, username, avatarUrl }
-    setRoleModal({
-      open: true,
-      role: roleName,
-      users: data.users || [],
-    });
-  } catch (err) {
-    console.error("Error fetching users for role:", err);
-    setRoleModal({
-      open: true,
-      role: roleName,
-      users: [],
-    });
-  }
-};
-
-  const openProfile = async (msg: Message) => {
+  const openProfile = useCallback(async (msg: Message) => {
     if (!msg.senderId) return;
 
     // console.log("Opening profile for user:", msg.senderId, "in server:", serverId);
@@ -396,7 +349,67 @@ useEffect(() => {
     } catch (error) {
       console.error("Error fetching user details:", error);
     }
-  };
+  }, [serverId]);
+
+  const handleUsernameClick = useCallback(async (userId: string, username: string) => {
+    // console.log("handleUsernameClick called with:", { userId, username });
+    
+    // First, try to find the user in existing messages to get more info
+    const existingMessage = messages.find(msg => 
+      msg.senderId === userId || msg.username === username
+    );
+    
+    let mockMessage: Message;
+    if (existingMessage) {
+      // Use data from existing message if found
+      mockMessage = existingMessage;
+    } else {
+      // Create a mock message object for the openProfile function
+      mockMessage = {
+        id: `temp-${userId}`,
+        content: '',
+        senderId: userId,
+        timestamp: new Date().toISOString(),
+        username: username,
+        avatarUrl: avatarCacheRef.current[userId] || "/User_profil.png",
+      };
+    }
+    
+    // console.log("Opening profile for mock message:", mockMessage);
+    await openProfile(mockMessage);
+  }, [messages, openProfile]);
+
+  const handleRoleMentionClick = useCallback(async (roleName: string) => {
+  if (!serverId) return;
+
+  try {
+    // Fetch all users with this role from your backend
+    const token = localStorage.getItem("access_token");
+    const url = `${process.env.NEXT_PUBLIC_API_URL}/api/newserver/${serverId}/roles/${encodeURIComponent(roleName.trim())}/members`;
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch users for role: ${roleName}`);
+    }
+
+    const data = await response.json();
+    // Assume data.users is an array of { id, username, avatarUrl }
+    setRoleModal({
+      open: true,
+      role: roleName,
+      users: data.users || [],
+    });
+  } catch (err) {
+    console.error("Error fetching users for role:", err);
+    setRoleModal({
+      open: true,
+      role: roleName,
+      users: [],
+    });
+  }
+}, [serverId]);
   useEffect(() => {
     const loadCurrentUser = async () => {
       try {

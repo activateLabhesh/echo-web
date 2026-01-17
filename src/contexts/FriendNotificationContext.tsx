@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
 import { fetchFriendRequests } from '@/api';
 
 interface FriendNotificationContextType {
@@ -18,7 +18,7 @@ export function FriendNotificationProvider({ children }: { children: ReactNode }
   const [friendRequestCount, setFriendRequestCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const refreshCount = async () => {
+  const refreshCount = useCallback(async () => {
     try {
       const requests = await fetchFriendRequests();
       setFriendRequestCount(requests.length);
@@ -29,15 +29,20 @@ export function FriendNotificationProvider({ children }: { children: ReactNode }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     // Only fetch once on mount, no polling
     refreshCount();
-  }, []);
+  }, [refreshCount]);
+
+  const contextValue = useMemo(
+    () => ({ friendRequestCount, loading, refreshCount }),
+    [friendRequestCount, loading, refreshCount]
+  );
 
   return (
-    <FriendNotificationContext.Provider value={{ friendRequestCount, loading, refreshCount }}>
+    <FriendNotificationContext.Provider value={contextValue}>
       {children}
     </FriendNotificationContext.Provider>
   );

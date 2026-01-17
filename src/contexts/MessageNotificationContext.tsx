@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
 import { getUnreadMessageCounts } from '@/api';
 
 interface MessageNotificationContextType {
@@ -40,15 +40,18 @@ export function MessageNotificationProvider({ children }: { children: ReactNode 
     refreshCount();
   }, [refreshCount]);
 
+  const contextValue = useMemo(
+    () => ({
+      unreadMessageCount,
+      unreadPerThread,
+      loading,
+      refreshCount,
+    }),
+    [unreadMessageCount, unreadPerThread, loading, refreshCount]
+  );
+
   return (
-    <MessageNotificationContext.Provider 
-      value={{ 
-        unreadMessageCount, 
-        unreadPerThread, 
-        loading, 
-        refreshCount 
-      }}
-    >
+    <MessageNotificationContext.Provider value={contextValue}>
       {children}
     </MessageNotificationContext.Provider>
   );

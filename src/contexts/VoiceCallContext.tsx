@@ -10,6 +10,7 @@ import React, {
   useRef,
   useEffect,
   useCallback,
+  useMemo,
   ReactNode,
 } from "react";
 import {
@@ -425,26 +426,47 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
 
   // ==================== CONTEXT VALUE ====================
 
-  const contextValue: VoiceCallContextValue = {
-    manager: managerRef.current,
-    activeCall,
-    isConnected,
-    isConnecting,
-    isInitialized,
-    participants,
-    localMediaState,
-    localVideoTileId,
-    videoTiles,
-    permissionError,
-    connectionError,
-    joinCall,
-    leaveCall,
-    toggleAudio,
-    toggleVideo,
-    toggleScreenShare,
-    bindVideoElement,
-    unbindVideoElement,
-  };
+  const contextValue = useMemo<VoiceCallContextValue>(
+    () => ({
+      manager: managerRef.current,
+      activeCall,
+      isConnected,
+      isConnecting,
+      isInitialized,
+      participants,
+      localMediaState,
+      localVideoTileId,
+      videoTiles,
+      permissionError,
+      connectionError,
+      joinCall,
+      leaveCall,
+      toggleAudio,
+      toggleVideo,
+      toggleScreenShare,
+      bindVideoElement,
+      unbindVideoElement,
+    }),
+    [
+      activeCall,
+      isConnected,
+      isConnecting,
+      isInitialized,
+      participants,
+      localMediaState,
+      localVideoTileId,
+      videoTiles,
+      permissionError,
+      connectionError,
+      joinCall,
+      leaveCall,
+      toggleAudio,
+      toggleVideo,
+      toggleScreenShare,
+      bindVideoElement,
+      unbindVideoElement,
+    ]
+  );
 
   return (
     <VoiceCallContext.Provider value={contextValue}>

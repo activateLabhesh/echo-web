@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { getUnreadMessageCounts } from '@/api';
 
 export function useMessageNotifications() {
@@ -7,7 +7,7 @@ export function useMessageNotifications() {
   const [unreadPerThread, setUnreadPerThread] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
-  const refreshCount = async () => {
+  const refreshCount = useCallback(async () => {
     try {
       const { unreadCounts, totalUnread } = await getUnreadMessageCounts();
       setUnreadMessageCount(totalUnread);
@@ -19,17 +19,17 @@ export function useMessageNotifications() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     // Only fetch once on mount, no polling
     refreshCount();
-  }, []);
+  }, [refreshCount]);
 
-  return { 
+  return useMemo(() => ({ 
     unreadMessageCount,
     unreadPerThread,
     loading,
     refreshCount 
-  };
+  }), [unreadMessageCount, unreadPerThread, loading, refreshCount]);
 }

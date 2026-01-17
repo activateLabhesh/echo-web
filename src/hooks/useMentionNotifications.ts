@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 export function useMentionNotifications() {
@@ -36,7 +36,7 @@ export function useMentionNotifications() {
   }, []);
 
   // Fetch initial unread count
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCount = useCallback(async () => {
     try {
       const response = await fetch('/api/mentions?unreadOnly=true', {
         credentials: 'include'
@@ -49,10 +49,10 @@ export function useMentionNotifications() {
     } catch (error) {
       console.error('Failed to fetch unread mentions count:', error);
     }
-  };
+  }, []);
 
   // Request notification permission
-  const requestNotificationPermission = async () => {
+  const requestNotificationPermission = useCallback(async () => {
     if ('Notification' in window) {
       if (Notification.permission === 'default') {
         const permission = await Notification.requestPermission();
@@ -61,24 +61,31 @@ export function useMentionNotifications() {
       return Notification.permission === 'granted';
     }
     return false;
-  };
+  }, []);
 
   // Mark mention as read (decrease count)
-  const markMentionAsRead = () => {
+  const markMentionAsRead = useCallback(() => {
     setUnreadMentionsCount(prev => Math.max(0, prev - 1));
-  };
+  }, []);
 
   // Mark all mentions as read
-  const markAllMentionsAsRead = () => {
+  const markAllMentionsAsRead = useCallback(() => {
     setUnreadMentionsCount(0);
-  };
+  }, []);
 
-  return {
+  return useMemo(() => ({
     unreadMentionsCount,
     fetchUnreadCount,
     requestNotificationPermission,
     markMentionAsRead,
     markAllMentionsAsRead,
     socket
-  };
+  }), [
+    unreadMentionsCount,
+    fetchUnreadCount,
+    requestNotificationPermission,
+    markMentionAsRead,
+    markAllMentionsAsRead,
+    socket
+  ]);
 }

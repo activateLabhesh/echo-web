@@ -2,8 +2,23 @@
 
 import { useState, useRef } from "react";
 import { Smile, Send, Paperclip, X } from "lucide-react";
-import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
+import dynamic from "next/dynamic";
+import type { EmojiClickData } from "emoji-picker-react";
+import { Theme } from "emoji-picker-react";
 import { apiClient } from "@/utils/apiClient";
+
+// Dynamic import for EmojiPicker (~300KB) - only loaded when emoji picker is opened
+const EmojiPicker = dynamic(
+  () => import("emoji-picker-react").then((mod) => mod.default),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="w-[350px] h-[450px] bg-gray-800 rounded-lg flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-2 border-gray-600 border-t-blue-500 rounded-full" />
+      </div>
+    )
+  }
+);
 
 /* -------------------- TYPES -------------------- */
 

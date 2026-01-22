@@ -557,6 +557,18 @@ useEffect(() => {
             router.push('/');
         }
     }, [router]);
+    useEffect(() => {
+      if (!currentUser?.id || !currentUser.avatar_url) return;
+
+      setAllUsers((prev) =>
+        prev.map((u) =>
+          u.id === currentUser.id
+            ? { ...u, avatar_url: currentUser.avatar_url }
+            : u
+        )
+      );
+    }, [currentUser?.avatar_url]);
+
     
     // Removed duplicate socket setup effect; handled in single effect above
 

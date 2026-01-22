@@ -97,33 +97,39 @@ export default function ProfilePage() {
   };
 
 
-  const handleSave = async () => {
-    if (!changed) return;
+ const handleSave = async () => {
+   if (!changed) return;
 
-    setIsSaving(true);
+   setIsSaving(true);
 
-    try {
-      const formData = new FormData();
-      formData.append("fullname", displayName);
-      formData.append("bio", about);
-      if (avatarFile) formData.append("avatar", avatarFile);
+   try {
+     const formData = new FormData();
+     formData.append("fullname", displayName);
+     formData.append("bio", about);
+     if (avatarFile) formData.append("avatar", avatarFile);
 
-      const res = await apiClient.patch("/api/profile/updateProfile", formData);
+     const res = await apiClient.patch("/api/profile/updateProfile", formData, {
+       headers: { "Content-Type": "multipart/form-data" },
+     });
 
-      const updatedUser = res.data.user;
+     const updatedUser = res.data.user;
 
-      // 🔥 single source of truth
-      setUser(updatedUser);
+   
+     setAvatar(updatedUser.avatar_url || "/User_profil.png");
 
-      setChanged(false);
-      showToast("Profile updated");
-    } catch (err) {
-      console.error(err);
-      showToast("Failed to update profile");
-    } finally {
-      setIsSaving(false);
-    }
-  };
+
+     setUser(updatedUser);
+
+     setAvatarFile(null);
+     setChanged(false);
+     showToast("Profile updated");
+   } catch (err) {
+     console.error(err);
+     showToast("Failed to update profile");
+   } finally {
+     setIsSaving(false);
+   }
+ };
 
   if (loading) {
     return (

@@ -75,7 +75,10 @@ export default forwardRef(function ChatWindow(
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
   const usernamesRef = useRef<Record<string, string>>({});
-  const avatarCacheRef = useRef<Record<string, string>>({});
+ const avatarCacheRef = useRef<
+   Record<string, { url: string; updatedAt: number }>
+ >({});
+
   const [micOn, setMicOn] = useState<boolean>(true);
   const [camOn, setCamOn] = useState<boolean>(true);
   const [isSending, setIsSending] = useState(false);
@@ -264,51 +267,84 @@ useEffect(() => {
   const loadCurrentUserAvatar = async () => {
     try {
       const user = await getUser();
-      if (user?.avatar_url) {
-        setCurrentUserAvatar(user.avatar_url);
-        // Important: Also cache it immediately
-        avatarCacheRef.current[currentUserId] = user.avatar_url;
-        
-        // Force update messages with the new avatar
-        setMessages(prevMessages => 
-          prevMessages.map(msg => 
-            msg.senderId === currentUserId 
-              ? { ...msg, avatarUrl: user.avatar_url || undefined }
-              : msg
-          )
-        );
-      }
+      if (!user?.avatar_url) return;
+
+      const freshUrl = `${user.avatar_url}?t=${Date.now()}`;
+
+      setCurrentUserAvatar(freshUrl);
+
+     
+      avatarCacheRef.current[currentUserId] = {
+        url: freshUrl,
+        updatedAt: Date.now(),
+      };
+
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg.senderId === currentUserId ? { ...msg, avatarUrl: freshUrl } : msg
+        )
+      );
     } catch (error) {
       console.error("Failed to load current user's avatar:", error);
     }
   };
-  
-  loadCurrentUserAvatar();
+
+  if (currentUserId) {
+    loadCurrentUserAvatar();
+  }
 }, [currentUserId]);
+
+useEffect(() => {
+  if (!currentUserId) return;
+
+  const syncMyAvatar = async () => {
+    try {
+      const user = await getUser();
+      if (!user?.avatar_url) return;
+
+      const freshUrl = `${user.avatar_url}?t=${Date.now()}`;
+
+      avatarCacheRef.current[currentUserId] = {
+        url: freshUrl,
+        updatedAt: Date.now(),
+      };
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.senderId === currentUserId ? { ...msg, avatarUrl: freshUrl } : msg
+        )
+      );
+    } catch (err) {
+      console.error("Failed to sync avatar", err);
+    }
+  };
+
+  syncMyAvatar();
+}, [currentUserId]);
+
   // Function to get user avatar with caching
   const getAvatarUrl = async (userId: string): Promise<string> => {
-  // Check cache first for all users (including current user)
-  if (avatarCacheRef.current[userId]) {
-    return avatarCacheRef.current[userId];
-  }
-  
-  try {
-    const avatarUrl = await getUserAvatar(userId);
-    if (avatarUrl) {
-      avatarCacheRef.current[userId] = avatarUrl;
-      return avatarUrl;
+    const cached = avatarCacheRef.current[userId];
+
+    // cache valid for 5 minutes only
+    if (cached && Date.now() - cached.updatedAt < 5 * 60 * 1000) {
+      return cached.url;
     }
-    // If no avatar URL returned, use fallback
-    const fallbackAvatar = "/User_profil.png";
-    avatarCacheRef.current[userId] = fallbackAvatar;
-    return fallbackAvatar;
-  } catch (error) {
-    console.error(`Failed to get avatar for user ${userId}:`, error);
-    const fallbackAvatar = "/User_profil.png";
-    avatarCacheRef.current[userId] = fallbackAvatar;
-    return fallbackAvatar;
-  }
-};
+
+    try {
+      const avatarUrl = await getUserAvatar(userId);
+      const finalUrl = avatarUrl || "/User_profil.png";
+
+      avatarCacheRef.current[userId] = {
+        url: `${finalUrl}?t=${Date.now()}`, // 🔥 cache bust
+        updatedAt: Date.now(),
+      };
+
+      return avatarCacheRef.current[userId].url;
+    } catch {
+      return "/User_profil.png";
+    }
+  };
 
   const [selectedUser, setSelectedUser] = useState<{
     id: string;
@@ -376,33 +412,32 @@ useEffect(() => {
     }
   }, [serverId]);
 
-  const handleUsernameClick = useCallback(async (userId: string, username: string) => {
-    // console.log("handleUsernameClick called with:", { userId, username });
-    
-    // First, try to find the user in existing messages to get more info
-    const existingMessage = messages.find(msg => 
-      msg.senderId === userId || msg.username === username
-    );
-    
-    let mockMessage: Message;
-    if (existingMessage) {
-      // Use data from existing message if found
-      mockMessage = existingMessage;
-    } else {
-      // Create a mock message object for the openProfile function
-      mockMessage = {
-        id: `temp-${userId}`,
-        content: '',
-        senderId: userId,
-        timestamp: new Date().toISOString(),
-        username: username,
-        avatarUrl: avatarCacheRef.current[userId] || "/User_profil.png",
-      };
-    }
-    
-    // console.log("Opening profile for mock message:", mockMessage);
-    await openProfile(mockMessage);
-  }, [messages, openProfile]);
+ const handleUsernameClick = useCallback(
+   async (userId: string, username: string) => {
+     // Try to find an existing message for richer data
+     const existingMessage = messages.find(
+       (msg) => msg.senderId === userId || msg.username === username
+     );
+
+     let mockMessage: Message;
+
+     if (existingMessage) {
+       mockMessage = existingMessage;
+     } else {
+       mockMessage = {
+         id: `temp-${userId}`,
+         content: "",
+         senderId: userId,
+         timestamp: new Date().toISOString(),
+         username,
+         avatarUrl: avatarCacheRef.current[userId]?.url || "/User_profil.png",
+       };
+     }
+
+     await openProfile(mockMessage);
+   },
+   [messages, openProfile]
+ );
 
   const handleRoleMentionClick = useCallback(async (roleName: string) => {
   if (!serverId) return;
@@ -920,16 +955,17 @@ if (!userValidation.valid) {
     content: file ? `${text} 📎 Uploading ${file.name}...` : text,
     senderId: currentUserId,
     timestamp: new Date().toISOString(),
-    avatarUrl: userAvatar,
+    avatarUrl: userAvatar?.url || "/User_profil.png",
+
     username: "You",
     replyTo: replyingTo
       ? {
           id: replyingTo.id,
           content: replyingTo.content,
           author: (replyingTo as any).username || "User",
-          avatarUrl: replyingTo.avatarUrl || "/User_profil.png"
+          avatarUrl: replyingTo.avatarUrl || "/User_profil.png",
         }
-      : null
+      : null,
   };
   
   setMessages(prev => [...prev, optimisticMessage]);
@@ -945,7 +981,7 @@ if (!userValidation.valid) {
     setReplyingTo(null);
     console.log('[Upload Message] Response:', response);
   } catch (err: any) {
-    console.error('💔 Failed to upload message:', err);
+    console.error(' Failed to upload message:', err);
     alert(`Upload failed: ${err.message || 'Unknown error'}`);
     setMessages(prev => prev.filter((msg) => msg.id !== optimisticMessage.id));
   } finally {

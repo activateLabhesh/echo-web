@@ -325,7 +325,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ activeUser, messages, currentUs
                         <p className="text-xs text-slate-400">Direct message • {messages.length} {messages.length === 1 ? 'message' : 'messages'}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 text-slate-400">
+                {/* <div className="flex items-center gap-2 text-slate-400">
                     <button className="rounded-full border border-slate-800/70 p-2 transition-colors hover:border-indigo-500/50 hover:text-slate-100" aria-label="Search in conversation">
                         <Search className="h-4 w-4" />
                     </button>
@@ -335,7 +335,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ activeUser, messages, currentUs
                     <button className="rounded-full border border-slate-800/70 p-2 transition-colors hover:border-indigo-500/50 hover:text-slate-100" aria-label="More options">
                         <MoreVertical className="h-4 w-4" />
                     </button>
-                </div>
+                </div> */}
             </header>
 
             <div className="chat-scroll flex-1 space-y-8 overflow-y-auto px-6 py-8">

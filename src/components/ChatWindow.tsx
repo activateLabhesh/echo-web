@@ -26,7 +26,7 @@ import { getServerMembers } from "@/api/server.api";
 
 import { apiClient } from "@/utils/apiClient";
 
-// Dynamic imports for heavy components that are conditionally rendered
+
 const VideoPanel = dynamic(() => import("./VideoPanel"), {
   ssr: false,
   loading: () => (
@@ -55,7 +55,7 @@ interface Message {
     author: string;
     avatarUrl?: string;
   } | null;
-  // Optimistic UI fields
+  
   status?: 'pending' | 'sent' | 'failed';
   tempId?: string;
 }
@@ -109,9 +109,9 @@ export default forwardRef(function ChatWindow(
   const [currentUserAvatar, setCurrentUserAvatar] =
     useState<string>("/User_profil.png");
   const isLoadingMoreRef = useRef(false);
-  const channelIdRef = useRef(channelId); // Add ref to track current channel
-  const receivedMessageIdsRef = useRef<Set<string | number>>(new Set()); // Persistent message ID tracking
-  const offsetRef = useRef(0); // Track offset in ref to prevent unnecessary callback recreation
+  const channelIdRef = useRef(channelId); 
+  const receivedMessageIdsRef = useRef<Set<string | number>>(new Set()); 
+  const offsetRef = useRef(0); 
   const [serverRoles, setServerRoles] = useState<
     { id: string; name: string; color?: string }[]
   >([]);
@@ -146,10 +146,10 @@ export default forwardRef(function ChatWindow(
   const [lastReadTimestamp, setLastReadTimestamp] = useState<string | null>(
     null
   );
-  // ✅ ADD this with your other refs (around line 330)
+
   const isManuallyScrollingRef = useRef(false);
 
-  // Fetch unread mentions for a specific channel
+ 
   const fetchChannelUnreadMentions = async (chId: string, userId: string) => {
     const response = await apiClient.get(
       `/api/mentions?userId=${userId}&unreadOnly=true&channelId=${chId}`
@@ -157,51 +157,15 @@ export default forwardRef(function ChatWindow(
     return response.data || [];
   };
 
-  // Mark all mentions as read for a channel
+ 
   const markAllChannelMentionsAsRead = async (mentionIds: string[]) => {
     await Promise.all(
       mentionIds.map((id) => apiClient.patch(`/api/mentions/${id}/read`))
     );
   };
 
-  // Expose imperative methods to parent via ref
-  // ✅ REPLACE the scrollToMessage implementation inside useImperativeHandle
-  useImperativeHandle(ref, () => ({
-    async scrollToMessage(
-      messageId: string,
-      options: { highlightDuration?: number } = { highlightDuration: 1500 }
-    ) {
-      isAutoScrollingRef.current = true;
+  
 
-      try {
-        const success = await scrollToMention(messageId, 6);
-
-        if (success) {
-          const el = document.querySelector(
-            `[data-message-id="${messageId}"]`
-          ) as HTMLElement;
-          if (el && options.highlightDuration) {
-            el.classList.add("mention-highlight");
-            setTimeout(
-              () => el.classList.remove("mention-highlight"),
-              options.highlightDuration
-            );
-          }
-        }
-
-        return success;
-      } finally {
-        setTimeout(() => {
-          isAutoScrollingRef.current = false;
-          isManuallyScrollingRef.current = false;
-        }, 1000);
-      }
-    },
-
-    // ... keep loadOlderPages and scrollToBottom as they are
-  }));
-
-  // Update ref whenever channelId changes
   useEffect(() => {
     channelIdRef.current = channelId;
   }, [channelId]);
@@ -234,7 +198,7 @@ export default forwardRef(function ChatWindow(
         }
       }
 
-      // Check roles with word boundaries (case-insensitive)
+    
       for (const roleId of currentUserRoleIds) {
         const role = serverRoles.find((r) => r.id === roleId);
         if (!role) continue;
@@ -251,12 +215,11 @@ export default forwardRef(function ChatWindow(
     [currentUsername, currentUserRoleIds, serverRoles]
   );
 
- 
   const isValidUsernameMention = (mention: string) => {
     const name = mention.replace("@", "").toLowerCase();
 
-    // ✅ Allow @everyone and @here
-    if (name === "everyone" ) return true;
+    
+    if (name === "everyone") return true;
 
     return validUsernamesRef.current.has(name);
   };
@@ -266,7 +229,7 @@ export default forwardRef(function ChatWindow(
   const normalizeRoleName = (name: string) =>
     name.trim().toLowerCase().replace(/\s+/g, " ");
 
-  // Load last-read timestamp for this channel from localStorage
+
   useEffect(() => {
     if (!channelId || !currentUserId) {
       setLastReadTimestamp(null);
@@ -283,13 +246,13 @@ export default forwardRef(function ChatWindow(
     }
   }, [channelId, currentUserId]);
 
-  // ✅ REPLACE: Auto-scroll only when user is at bottom AND not manually scrolling
+  
   useEffect(() => {
-    // ✅ ADD: Check if manually scrolling
+
     if (
       loadingMessages ||
       isAutoScrollingRef.current ||
-      isManuallyScrollingRef.current || // ← ADD THIS CHECK
+      isManuallyScrollingRef.current || 
       messages.length === 0
     ) {
       return;
@@ -298,12 +261,12 @@ export default forwardRef(function ChatWindow(
     const container = messagesContainerRef.current;
     if (!container) return;
 
-    // Check if user is at bottom (within 150px)
+  
     const isNearBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight <
       150;
 
-    // Only auto-scroll if user is already at bottom
+
     if (isNearBottom) {
       requestAnimationFrame(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -311,7 +274,7 @@ export default forwardRef(function ChatWindow(
     }
   }, [messages, loadingMessages]);
 
-  // Seed valid usernames for mention validation
+ 
   useEffect(() => {
     if (!serverId) return;
 
@@ -330,7 +293,7 @@ export default forwardRef(function ChatWindow(
           set.add(normalizeUsername(username));
         }
 
-        // Always include self (important for optimistic messages)
+      
         if (currentUsername) {
           set.add(normalizeUsername(currentUsername));
         }
@@ -350,7 +313,7 @@ export default forwardRef(function ChatWindow(
     };
   }, [serverId, currentUsername]);
 
-  // Seed valid role names for role mention validation
+ 
   useEffect(() => {
     if (!serverRoles.length) return;
 
@@ -366,9 +329,7 @@ export default forwardRef(function ChatWindow(
     console.log("MENTIONABLE ROLES:", Array.from(set));
   }, [serverRoles]);
 
-  // Track whether there are *unread* mentions in history
 
-  // Fetch channel permissions
   useEffect(() => {
     const fetchPermissions = async () => {
       if (!channelId || !serverId) return;
@@ -379,7 +340,7 @@ export default forwardRef(function ChatWindow(
         setPermissionError(null);
       } catch (err: any) {
         console.error("Error fetching channel permissions:", err);
-        // If error, assume normal permissions
+       
         setChannelPermissions({
           channelType: "normal",
           canView: true,
@@ -475,11 +436,11 @@ export default forwardRef(function ChatWindow(
     syncMyAvatar();
   }, [currentUserId]);
 
-  // Function to get user avatar with caching
+ 
   const getAvatarUrl = async (userId: string): Promise<string> => {
     const cached = avatarCacheRef.current[userId];
 
-    // cache valid for 5 minutes only
+   
     if (cached && Date.now() - cached.updatedAt < 5 * 60 * 1000) {
       return cached.url;
     }
@@ -515,7 +476,7 @@ export default forwardRef(function ChatWindow(
 
       // console.log("Opening profile for user:", msg.senderId, "in server:", serverId);
 
-      // Set basic user info first
+  
       setSelectedUser({
         id: msg.senderId,
         username: msg.username || "Unknown",
@@ -525,7 +486,7 @@ export default forwardRef(function ChatWindow(
       });
       setIsProfileOpen(true);
 
-      // Fetch user details including roles
+
       try {
         const token = localStorage.getItem("access_token");
         if (!token || !serverId) {
@@ -537,7 +498,7 @@ export default forwardRef(function ChatWindow(
         }
 
         const url = `${process.env.NEXT_PUBLIC_API_URL}/api/newserver/${serverId}/members/${msg.senderId}`;
-        // console.log("Fetching member data from:", url);
+      
 
         const response = await fetch(url, {
           headers: {
@@ -548,17 +509,17 @@ export default forwardRef(function ChatWindow(
         // console.log("Response status:", response.status);
 
         if (!response.ok) {
-          // ⚠️ User not found in this server (normal case, non-blocking)
+        
           console.warn(
             "Member not found in server (non-blocking):",
             msg.senderId
           );
-          return; // ⬅️ IMPORTANT: stop here, keep basic profile
+          return; 
         }
 
         const memberData = await response.json();
 
-        // Update with full user details including roles
+       
         setSelectedUser({
           id: msg.senderId,
           username: msg.username || "Unknown",
@@ -575,7 +536,7 @@ export default forwardRef(function ChatWindow(
 
   const handleUsernameClick = useCallback(
     async (userId: string, username: string) => {
-      // Try to find an existing message for richer data
+     
       const existingMessage = messages.find(
         (msg) => msg.senderId === userId || msg.username === username
       );
@@ -605,7 +566,7 @@ export default forwardRef(function ChatWindow(
       if (!serverId) return;
 
       try {
-        // Fetch all users with this role from your backend
+      
         const token = localStorage.getItem("access_token");
         const url = `${
           process.env.NEXT_PUBLIC_API_URL
@@ -621,7 +582,7 @@ export default forwardRef(function ChatWindow(
         }
 
         const data = await response.json();
-        // Assume data.users is an array of { id, username, avatarUrl }
+      
         setRoleModal({
           open: true,
           role: roleName,
@@ -698,25 +659,25 @@ export default forwardRef(function ChatWindow(
           isLoadingMoreRef.current = true;
         } else {
           setLoadingMessages(true);
-          offsetRef.current = 0; // Reset offset ref
+          offsetRef.current = 0; 
           setOffset(0);
           isLoadingMoreRef.current = false;
         }
 
         const currentOffset = loadMore ? offsetRef.current : 0;
 
-        // Check if request was cancelled
+       
         if (abortSignal?.aborted) {
           return;
         }
 
-        // Use channelIdRef.current to always get the latest channel ID
+
         const currentChannelId = channelIdRef.current;
 
-        // Fetch messages for the CURRENT channel
+     
         const res = await fetchMessages(currentChannelId, currentOffset);
 
-        // Check again after async operation - verify we're still on the same channel
+        
         if (abortSignal?.aborted || channelIdRef.current !== currentChannelId) {
           console.log(
             `Fetch completed for ${currentChannelId} but current channel is ${channelIdRef.current}, ignoring`
@@ -729,7 +690,7 @@ export default forwardRef(function ChatWindow(
             const senderId = msg.sender_id || msg.senderId;
             const avatarUrl = await getAvatarUrl(senderId);
 
-            // Add replyTo using backend-provided reply_to_message
+           
             let replyTo = null;
             if (msg.reply_to_message) {
               replyTo = {
@@ -756,12 +717,12 @@ export default forwardRef(function ChatWindow(
                     msg.sender_name ||
                     "Unknown",
               mediaUrl: msg.media_url || msg.mediaUrl,
-              replyTo, // <-- add this
+              replyTo, 
             };
           })
         );
 
-        // Final check before updating state - CRITICAL: verify channel hasn't changed
+
         if (abortSignal?.aborted || channelIdRef.current !== currentChannelId) {
           console.log(
             `Message processing completed for ${currentChannelId} but current channel is ${channelIdRef.current}, ignoring`
@@ -818,7 +779,7 @@ export default forwardRef(function ChatWindow(
           return true;
         }
 
-        // If not found and we have more messages, load them
+     
         if (hasMore && attempt < retries - 1) {
           await loadMessages(true);
           await new Promise((resolve) => setTimeout(resolve, 100));
@@ -835,7 +796,12 @@ export default forwardRef(function ChatWindow(
   );
 
   useEffect(() => {
-    if (loadingMessages || initialScrollDoneRef.current === channelId) {
+ 
+    if (
+      loadingMessages ||
+      messages.length === 0 ||
+      initialScrollDoneRef.current === channelId
+    ) {
       return;
     }
 
@@ -848,32 +814,39 @@ export default forwardRef(function ChatWindow(
           ? new Date(lastReadTimestamp).getTime()
           : 0;
 
-        if (!lastReadMs || messages.length === 0) {
-          // No read marker - scroll to bottom
+        if (!lastReadMs) {
+          
           messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
           isAutoScrollingRef.current = false;
           return;
         }
 
-        // Find first unread message (any message, not just mentions)
+      
         const firstUnreadIndex = messages.findIndex((msg) => {
           const msgTime = new Date(msg.timestamp).getTime();
           return msgTime > lastReadMs && msg.senderId !== currentUserId;
         });
 
         if (firstUnreadIndex === -1) {
-          // All messages are read - scroll to bottom
+          
           messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
         } else {
-          // Scroll to first unread message
+       
           const firstUnread = messages[firstUnreadIndex];
           const el = messageRefs.current[firstUnread.id];
 
           if (el) {
             el.scrollIntoView({ behavior: "auto", block: "start" });
           } else {
-            // Element not rendered yet, scroll to bottom
-            messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+           
+            requestAnimationFrame(() => {
+              const retryEl = messageRefs.current[firstUnread.id];
+              if (retryEl) {
+                retryEl.scrollIntoView({ behavior: "auto", block: "start" });
+              } else {
+                messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+              }
+            });
           }
         }
 
@@ -885,8 +858,8 @@ export default forwardRef(function ChatWindow(
       }
     };
 
-    // Small delay to ensure DOM is ready
-    setTimeout(performInitialScroll, 100);
+  
+    requestAnimationFrame(performInitialScroll);
   }, [loadingMessages, channelId, currentUserId, messages, lastReadTimestamp]);
   useEffect(() => {
     initialScrollDoneRef.current = null;
@@ -914,12 +887,12 @@ export default forwardRef(function ChatWindow(
     if (!container || loadingMore || !hasMore) return;
     isManuallyScrollingRef.current = false;
 
-    // Check if user is at bottom
+    
     const isAtBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight <
       50;
 
-    // Update last read timestamp if at bottom
+ 
     if (isAtBottom && messages.length > 0 && channelId && currentUserId) {
       const last = messages[messages.length - 1];
       const ts = last.timestamp;
@@ -932,7 +905,7 @@ export default forwardRef(function ChatWindow(
       }
     }
 
-    // Update last read for visible messages
+ 
     if (messages.length > 0 && channelId && currentUserId && !isAtBottom) {
       const viewportBottom = container.scrollTop + container.clientHeight;
 
@@ -963,7 +936,7 @@ export default forwardRef(function ChatWindow(
       }
     }
 
-    // Load more messages when scrolled to top
+  
     if (container.scrollTop < 100) {
       const previousScrollHeight = container.scrollHeight;
       const previousScrollTop = container.scrollTop;
@@ -987,7 +960,7 @@ export default forwardRef(function ChatWindow(
     currentUserId,
     lastReadTimestamp,
   ]);
-  // ✅ ADD: Count unread mentions
+
   useEffect(() => {
     if (!lastReadTimestamp) {
       setUnreadMentionCount(0);
@@ -1005,8 +978,7 @@ export default forwardRef(function ChatWindow(
 
     setUnreadMentionCount(unreadMentions.length);
   }, [messages, lastReadTimestamp, currentUserId, isMessageMentioningMe]);
-  // ✅ ADD: Jump to next mention
-  // ✅ REPLACE your jumpToNextMention function
+ 
   const jumpToNextMention = useCallback(() => {
     if (!lastReadTimestamp) return;
 
@@ -1026,14 +998,14 @@ export default forwardRef(function ChatWindow(
     const el = messageRefs.current[targetMention.id];
 
     if (el) {
-      // ✅ ADD: Set manual scrolling flag
+      
       isManuallyScrollingRef.current = true;
 
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add("mention-highlight");
       setTimeout(() => el.classList.remove("mention-highlight"), 2000);
 
-      // ✅ ADD: Clear flag after scroll completes
+
       setTimeout(() => {
         isManuallyScrollingRef.current = false;
       }, 1000);
@@ -1068,6 +1040,58 @@ export default forwardRef(function ChatWindow(
       console.log(`Left room: ${channelId}`);
     };
   }, [socket, channelId]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      async scrollToMessage(
+        messageId: string,
+        options: { highlightDuration?: number } = { highlightDuration: 1500 }
+      ) {
+        isAutoScrollingRef.current = true;
+        isManuallyScrollingRef.current = true;
+
+        try {
+          const success = await scrollToMention(messageId, 6);
+
+          if (success) {
+            const el = document.querySelector(
+              `[data-message-id="${messageId}"]`
+            ) as HTMLElement;
+            if (el && options.highlightDuration) {
+              el.classList.add("mention-highlight");
+              setTimeout(
+                () => el.classList.remove("mention-highlight"),
+                options.highlightDuration
+              );
+            }
+          }
+
+          return success;
+        } finally {
+          setTimeout(() => {
+            isAutoScrollingRef.current = false;
+            isManuallyScrollingRef.current = false;
+          }, 1000);
+        }
+      },
+
+      async loadOlderPages(limitPages = 1) {
+        if (!hasMore) return false;
+        for (let i = 0; i < limitPages; i++) {
+          await loadMessages(true);
+          await new Promise((r) => setTimeout(r, 60));
+          if (!hasMore) break;
+        }
+        return true;
+      },
+
+      scrollToBottom() {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        return true;
+      },
+    }),
+    [scrollToMention, hasMore, loadMessages] 
+  );
 
   useEffect(() => {
     if (!socket) return;
@@ -1212,11 +1236,11 @@ export default forwardRef(function ChatWindow(
       }, 10 * 60 * 1000);
     };
 
-    // Handle message confirmation (for sender's optimistic UI)
+   
     const handleMessageConfirmed = async (saved: any) => {
       const tempId = saved?.tempId;
       const realId = saved?.id;
-      
+
       if (!tempId || !realId) {
         console.warn("message_confirmed missing tempId or id:", saved);
         return;
@@ -1225,10 +1249,10 @@ export default forwardRef(function ChatWindow(
       const senderId = saved?.sender_id || saved?.senderId || currentUserId;
       const avatarUrl = await getAvatarUrl(senderId);
 
-      // Replace optimistic message with confirmed message
-      setMessages(prev => {
-        const optimisticIndex = prev.findIndex(msg => msg.tempId === tempId);
-        
+     
+      setMessages((prev) => {
+        const optimisticIndex = prev.findIndex((msg) => msg.tempId === tempId);
+
         if (optimisticIndex === -1) {
           console.log(`No optimistic message found for tempId ${tempId}`);
           return prev;
@@ -1240,10 +1264,10 @@ export default forwardRef(function ChatWindow(
           senderId,
           timestamp: saved?.timestamp || new Date().toISOString(),
           avatarUrl,
-          username: 'You',
+          username: "You",
           mediaUrl: saved?.media_url || saved?.mediaUrl,
           replyTo: prev[optimisticIndex].replyTo,
-          status: 'sent'
+          status: "sent",
         };
 
         const updated = [...prev];
@@ -1251,28 +1275,30 @@ export default forwardRef(function ChatWindow(
         return updated;
       });
 
-      // Mark as received to prevent duplicate from socket
+    
       receivedMessageIdsRef.current.add(realId);
     };
 
-    // Handle message error (for sender's optimistic UI)
+   
     const handleMessageError = (error: any) => {
       const tempId = error?.tempId;
       const errorMsg = error?.error || error;
-      
-      console.error('Message error:', errorMsg);
-      
+
+      console.error("Message error:", errorMsg);
+
       if (tempId) {
-        // Mark the optimistic message as failed
-        setMessages(prev => prev.map(msg => 
-          msg.tempId === tempId 
-            ? { ...msg, status: 'failed' as const }
-            : msg
-        ));
+       
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.tempId === tempId ? { ...msg, status: "failed" as const } : msg
+          )
+        );
       }
     };
 
     socket.on("new_message", handleIncomingMessage);
+    socket.on("message_confirmed", handleMessageConfirmed);
+    socket.on("message_error", handleMessageError);
     socket.on("reconnect", async () => {
       await loadMessages();
     });
@@ -1293,10 +1319,10 @@ export default forwardRef(function ChatWindow(
       const mention = `@${match[1]}`;
 
       if (message.includes(`@&${match[1]}`)) continue;
-       const mentionLower = mention.toLowerCase();
-       if (mentionLower === "@everyone" ) {
-         continue;
-       }
+      const mentionLower = mention.toLowerCase();
+      if (mentionLower === "@everyone") {
+        continue;
+      }
 
       if (!isValidUsernameMention(mention)) {
         return { valid: false, invalidUser: mention };
@@ -1413,7 +1439,7 @@ export default forwardRef(function ChatWindow(
 
       setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
     } catch (err: any) {
-      console.error("💔 Failed to upload message:", err);
+      console.error(" Failed to upload message:", err);
       const errorMessage =
         err?.response?.data?.error || err.message || "Unknown error";
 

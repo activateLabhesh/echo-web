@@ -301,7 +301,7 @@ export default function MessageInputWithMentions({
       {showMentionDropdown && (
         <div
           ref={mentionDropdownRef}
-          className="absolute bottom-20 left-4 w-72 max-h-60 overflow-y-auto rounded-lg bg-gray-800 border border-gray-600 z-50"
+          className="absolute bottom-20 left-4 w-72 max-h-60 overflow-y-auto overflow-x-hidden rounded-lg bg-gray-800 border border-gray-600 z-50"
         >
           {searchingMentions ? (
             <div className="p-4 text-center text-gray-400 text-sm">
@@ -322,16 +322,20 @@ export default function MessageInputWithMentions({
                   }`}
                   onClick={() => insertMention("role", role.name)}
                 >
-                  <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                  <div className="w-8 h-8 flex-shrink-0 bg-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
                     #
                   </div>
-                  <div className="flex-1">
-                    <div className="text-purple-300 text-sm font-medium">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-purple-300 text-sm font-medium truncate">
                       {role.name}
                     </div>
-                    <div className="text-gray-400 text-xs">@{role.name}</div>
+                    <div className="text-gray-400 text-xs truncate">
+                      @{role.name}
+                    </div>
                   </div>
-                  <div className="text-purple-400 text-xs">role</div>
+                  <div className="text-purple-400 text-xs flex-shrink-0">
+                    role
+                  </div>
                 </div>
               ))}
 
@@ -354,22 +358,24 @@ export default function MessageInputWithMentions({
                       <img
                         src={user.avatar_url}
                         alt={user.username}
-                        className="w-8 h-8 rounded-full object-cover"
+                        className="w-8 h-8 flex-shrink-0 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                      <div className="w-8 h-8 flex-shrink-0 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
                         {user.username[0].toUpperCase()}
                       </div>
                     )}
-                    <div className="flex-1">
-                      <div className="text-white text-sm font-medium">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white text-sm font-medium truncate">
                         {user.fullname || user.username}
                       </div>
-                      <div className="text-gray-400 text-xs">
+                      <div className="text-gray-400 text-xs truncate">
                         @{user.username}
                       </div>
                     </div>
-                    <div className="text-blue-400 text-xs">user</div>
+                    <div className="text-blue-400 text-xs flex-shrink-0">
+                      user
+                    </div>
                   </div>
                 );
               })}
@@ -384,20 +390,25 @@ export default function MessageInputWithMentions({
                 }`}
                 onClick={() => insertMention("everyone", "everyone")}
               >
-                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                <div className="w-8 h-8 flex-shrink-0 bg-red-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
                   @
                 </div>
-                <div className="flex-1">
-                  <div className="text-white text-sm font-medium">everyone</div>
-                  <div className="text-gray-400 text-xs">@everyone</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-white text-sm font-medium truncate">
+                    everyone
+                  </div>
+                  <div className="text-gray-400 text-xs truncate">
+                    @everyone
+                  </div>
                 </div>
-                <div className="text-red-400 text-xs">everyone</div>
+                <div className="text-red-400 text-xs flex-shrink-0">
+                  everyone
+                </div>
               </div>
             </>
           )}
         </div>
       )}
-
       {/* File Preview */}
       {file && (
         <div className="mb-3 flex items-center bg-gray-800 p-2 rounded-lg">

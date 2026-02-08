@@ -23,6 +23,7 @@ import MessageBubble from "./MessageBubble";
 import Toast from "@/components/Toast";
 import { ChevronDown } from "lucide-react";
 import { getServerMembers } from "@/api/server.api";
+import { getAllRoles } from "@/api/roles.api";
 
 import { apiClient } from "@/utils/apiClient";
 
@@ -361,15 +362,8 @@ export default forwardRef(function ChatWindow(
     if (!serverId) return;
     const fetchRoles = async () => {
       try {
-        const token = localStorage.getItem("access_token");
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/newserver/${serverId}/roles`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        const data = await res.json();
-        setServerRoles(data.roles || []);
+        const roles = await getAllRoles(serverId);
+        setServerRoles(roles || []);
       } catch (err) {
         setServerRoles([]);
       }

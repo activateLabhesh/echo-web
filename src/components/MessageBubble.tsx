@@ -50,7 +50,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     ? "bg-[#3a3c43] text-[#dbdee1]"
     : "bg-[#2b2d31] text-[#dbdee1]";
 
-  const displayAvatar = avatarUrl || "/User_profil.png";
+  const displayAvatar = avatarUrl;
 
   return (
     <div 

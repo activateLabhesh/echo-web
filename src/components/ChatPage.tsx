@@ -226,8 +226,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ activeUser, messages, currentUs
             const isSender = senderId === currentUser?.id;
             const name = isSender ? 'You' : partner?.fullname ?? 'Unknown User';
            const avatarUrl = isSender
-             ? currentUser?.avatar_url ?? "/User_profil.png"
-             : partner?.avatar_url ?? "/User_profil.png";
+             ? currentUser?.avatar_url 
+             : partner?.avatar_url;
 
 
             let group = section.groups[section.groups.length - 1];

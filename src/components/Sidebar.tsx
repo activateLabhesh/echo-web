@@ -41,7 +41,7 @@ export default function Sidebar() {
 
   const [error, setError] = useState<string | null>(null);
 
-  
+  // ✅ Get values directly from hooks (no refreshCount needed)
   const { unreadCount, setUnreadCount } = useNotifications();
   const { friendRequestCount, refreshCount: refreshFriendCount } =
     useFriendNotifications();
@@ -55,10 +55,10 @@ export default function Sidebar() {
     } else if (path === "/messages") {
       await refreshMessageCount();
     }
-   
+    // Notifications page will handle its own refresh
   };
 
-
+  // ✅ WebSocket-based real-time updates
   useEffect(() => {
     if (!user?.id) return;
 
@@ -66,7 +66,7 @@ export default function Sidebar() {
 
     // Listen for real-time notification events
     socket.on("new_notification", (data?: { count?: number }) => {
-      console.log("New notification received", data);
+      console.log("📬 New notification received", data);
 
       // If backend sends the new count, use it
       if (data?.count !== undefined) {
@@ -165,7 +165,7 @@ export default function Sidebar() {
       {/* Background */}
       <div
         className="absolute inset-0 z-0 bg-no-repeat bg-cover opacity-9"
-        style={{ backgroundImage: "url('/dash-bg.webp')" }}
+        style={{ backgroundImage: "url('/dash-bg.jpg')" }}
       />
 
       {/* Content */}

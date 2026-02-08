@@ -24,6 +24,7 @@ import { useEffect, useState } from "react";
 import { useNotifications } from "../hooks/useNotifications";
 import { useFriendNotifications } from "../contexts/FriendNotificationContext";
 import { useMessageNotifications } from "../contexts/MessageNotificationContext";
+import { createAuthSocket } from "@/socket";
 
 const navItems = [
   { label: "Servers", icon: Users, path: "/servers" },
@@ -39,20 +40,87 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
-  const { unreadCount } = useNotifications();
+
+  // ✅ Get values directly from hooks (no refreshCount needed)
+  const { unreadCount, setUnreadCount } = useNotifications();
   const { friendRequestCount, refreshCount: refreshFriendCount } =
     useFriendNotifications();
   const { unreadMessageCount, refreshCount: refreshMessageCount } =
     useMessageNotifications();
 
   const handleNavClick = async (path: string) => {
-    
+    // Refresh counts when clicking nav items
     if (path === "/friends") {
       await refreshFriendCount();
     } else if (path === "/messages") {
       await refreshMessageCount();
     }
+    // Notifications page will handle its own refresh
   };
+
+  // ✅ WebSocket-based real-time updates
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const socket = createAuthSocket(user.id);
+
+    // Listen for real-time notification events
+    socket.on("new_notification", (data?: { count?: number }) => {
+      console.log("📬 New notification received", data);
+
+      // If backend sends the new count, use it
+      if (data?.count !== undefined) {
+        setUnreadCount(data.count);
+      } else {
+        // Otherwise increment locally
+        setUnreadCount((prev) => prev + 1);
+      }
+    });
+
+    socket.on("new_message", () => {
+      console.log("💬 New message received");
+      // Message notifications context will handle its own update
+      refreshMessageCount?.();
+    });
+
+    socket.on("friend_request", () => {
+      console.log("👋 New friend request received");
+      refreshFriendCount?.();
+    });
+
+    socket.on("friend_request_accepted", () => {
+      console.log("✅ Friend request accepted");
+      refreshFriendCount?.();
+    });
+
+    // Cleanup on unmount
+    return () => {
+      socket.off("new_notification");
+      socket.off("new_message");
+      socket.off("friend_request");
+      socket.off("friend_request_accepted");
+      socket.disconnect();
+    };
+  }, [user?.id, setUnreadCount, refreshFriendCount, refreshMessageCount]);
+
+  // ✅ Refresh counts when window regains focus
+  useEffect(() => {
+    const handleFocus = async () => {
+      try {
+        // Only refresh what we can
+        await Promise.all(
+          [refreshFriendCount?.(), refreshMessageCount?.()].filter(Boolean)
+        );
+
+        // Notification count is managed by its own context
+      } catch (error) {
+        console.error("Failed to refresh counts on focus:", error);
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [refreshFriendCount, refreshMessageCount]);
 
   useEffect(() => {
     const stored = localStorage.getItem("sidebarCollapsed");
@@ -78,11 +146,9 @@ export default function Sidebar() {
     try {
       await logout();
 
-
       localStorage.removeItem("token");
       localStorage.removeItem("user");
 
-      
       window.location.href = "/";
     } catch (error) {
       console.error("Failed to logout:", error);
@@ -96,15 +162,15 @@ export default function Sidebar() {
         collapsed ? "w-20" : "w-64"
       )}
     >
-   
+      {/* Background */}
       <div
         className="absolute inset-0 z-0 bg-no-repeat bg-cover opacity-9"
         style={{ backgroundImage: "url('/dash-bg.jpg')" }}
       />
 
-
+      {/* Content */}
       <div className="relative z-10 flex flex-col h-full justify-between">
-
+        {/* Top Section */}
         <div>
           <div className="flex items-center justify-between p-4">
             <Image
@@ -156,9 +222,9 @@ export default function Sidebar() {
                   >
                     <div className="relative">
                       <item.icon className="w-5 h-5" />
-                      {/* Show notification badge */}
+                      {/* Show notification badge with animation */}
                       {notificationCount > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1 font-bold">
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1 font-bold animate-pulse">
                           {notificationCount > 99 ? "99+" : notificationCount}
                         </span>
                       )}
@@ -179,7 +245,7 @@ export default function Sidebar() {
           </nav>
         </div>
 
-
+        {/* Bottom Section */}
         <div>
           {/* Logout Button */}
           <div className="px-2 mb-2">

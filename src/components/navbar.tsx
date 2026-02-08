@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 export default function Navbar() {
     const router = useRouter();
     return (
-        <nav className="w-screen px-6 py-4 shadow-md shadow-gray-600 bg-white/10">
+        <nav className="w-screen px-6 py-4 ">
             <div className="flex items-center justify-between max-w-7xl mx-auto">
                 {/* Logo */}
                 <div className="flex items-center space-x-2">

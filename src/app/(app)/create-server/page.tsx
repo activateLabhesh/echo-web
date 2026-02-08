@@ -67,7 +67,7 @@ export default function CreateServerPage() {
           {/* File Upload Section */}
           <div className="space-y-2">
             <label className="block text-sm text-gray-400 font-medium">
-              Server Icon (optional)
+              Server Icon
             </label>
 
             <div className="flex items-center gap-3">

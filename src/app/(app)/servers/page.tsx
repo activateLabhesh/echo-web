@@ -735,7 +735,7 @@ const showVoiceUI =
                         {channel.name}
                       </span>
                       {activeChannel?.id === channel.id &&
-                        viewMode === "chat" && <FaCog size={12} />}
+                        viewMode === "chat"}
                     </div>
                   ))}
                 </div>

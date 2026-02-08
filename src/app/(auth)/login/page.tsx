@@ -272,7 +272,7 @@ export default function Login() {
     </Suspense>
   );
 } */}
- "use client";
+
 
 import { useEffect } from "react";
  import { useRouter } from "next/router";

@@ -54,6 +54,7 @@ const ChatItem = ({
 
 export default function ChatList() {
   const [dms, setDms] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const searchParams = useSearchParams();
@@ -63,6 +64,7 @@ export default function ChatList() {
   useEffect(() => {
     const fetchDMs = async () => {
       try {
+        setLoading(true);
         if (typeof window === "undefined") return;
 
         const token = localStorage.getItem("token");
@@ -102,6 +104,8 @@ export default function ChatList() {
         setDms(transformedDMs);
       } catch (err) {
         console.error("Failed to load DMs", err);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -131,7 +135,24 @@ export default function ChatList() {
         
       </div>
       {/* DM list */}
-      {dms.length === 0 ? (
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="animate-pulse rounded-lg bg-gray-800/60 px-4 py-3"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-gray-700" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 w-1/2 rounded bg-gray-700" />
+                  <div className="h-3 w-3/4 rounded bg-gray-700/70" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : dms.length === 0 ? (
         <p className="text-gray-400 text-sm">No DMs yet</p>
       ) : (
         dms.map((dm, idx) => (

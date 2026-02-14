@@ -272,10 +272,10 @@ export default function Login() {
     </Suspense>
   );
 } */}
- "use client";
+
 
 import { useEffect } from "react";
- import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
  import { useToast } from "@/contexts/ToastContext";
 
 export default function LoginPage() {

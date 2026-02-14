@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { apiClient } from "@/api/axios";
 import { useUser } from "@/components/UserContext";
+import Loader from "@/components/Loader";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -131,14 +132,16 @@ export default function ProfilePage() {
    }
  };
 
+ 
+
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-gray-400">
-        Loading profile…
+      <div className="min-h-screen bg-black">
+        <Loader fullscreen text="Loading profile..." />
       </div>
     );
   }
-
 
   return (
     <div className="min-h-screen bg-black text-white px-6 py-16 flex justify-center">

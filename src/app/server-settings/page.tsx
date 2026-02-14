@@ -85,13 +85,7 @@ export default function ServerSettingsPage() {
   }, [serverIdReady, serverId]);
 
 
-  if (!serverIdReady || loading) {
-    return (
-      <div className="flex min-h-screen bg-black items-center justify-center">
-        <div className="text-white text-lg">Loading server settings…</div>
-      </div>
-    );
-  }
+
 
 
   if (error || !serverDetails) {

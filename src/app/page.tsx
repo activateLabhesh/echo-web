@@ -6,7 +6,7 @@ import AOS from "aos";
 import "aos/dist/aos.css";
 import { useRouter } from "next/navigation";
 import Modal from 'react-modal';
-import Loader from "@/components/Loader";
+// import Loader from "@/components/Loader";
 import { FaGoogle } from "react-icons/fa";
 import { supabase } from "@/lib/supabaseClient";
 import Toast from "@/components/Toast";
@@ -44,6 +44,13 @@ export default function Home() {
       console.error("Error initiating Google sign-in:", error);
     }
   };
+   useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false)
+    }, 1800) // adjust time here
+
+    return () => clearTimeout(timer)
+  }, [])
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -65,17 +72,6 @@ export default function Home() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]); 
 
-  useEffect(() => {
-    if (loading) {
-      setShowLoadingToast(true);
-    } else {
-      setShowLoadingToast(false);
-    }
-  }, [loading]);
-
-  useEffect(() => {
-    document.body.style.overflow = loading ? "hidden" : "";
-  }, [loading]);
 
   useEffect(() => {
     // Check screen size
@@ -156,9 +152,75 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, []);
 
+ 
+
   return (
     <>
+      {/* Loader Overlay */}
+      <div
+        className={`
+          fixed inset-0 z-[9999] flex items-center justify-center
+          bg-black
+          transition-opacity duration-700 ease-in-out
+          ${loading ? "opacity-100" : "opacity-0 pointer-events-none"}
+        `}
+      >
+        <div
+          className={`
+            text-center transition-all duration-700
+            ${loading ? "opacity-100 scale-100" : "opacity-0 scale-95"}
+          `}
+        >
+   
+          <div className="mb-6">
+            <div className="relative inline-block">
+              <div className="font-jersey text-[64px] font-normal text-white">
+                echo
+              </div>
+
+              <svg
+                width="13"
+                height="34"
+                className="absolute left-[116px] top-[34px]"
+                fill="none"
+              >
+                <path
+                  d="M2 2C14.2659 13.7159 13.7311 20.2841 2 32"
+                  stroke="white"
+                  strokeWidth="4"
+                />
+              </svg>
+
+              <svg
+                width="16"
+                height="46"
+                className="absolute left-[120px] top-[28px]"
+                fill="none"
+              >
+                <path
+                  d="M2 2C18.3545 18.4022 17.6415 27.5977 2 44"
+                  stroke="white"
+                  strokeWidth="4"
+                />
+              </svg>
+            </div>
+          </div>
+
+      
+        <div className="mb-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mx-auto"></div>
+        </div>
+            
+
+        
+        </div>
+      </div>
+
       <div className="relative w-screen overflow-x-hidden">
+
+       
+
+      
         <div
           className="fixed inset-0 bg-[url('/bg1.webp')] bg-cover bg-center -z-20 transition-transform duration-500"
           aria-hidden="true"
@@ -542,6 +604,7 @@ export default function Home() {
           </div>
         </div>
       </footer>
+     
     </>
   );
 }

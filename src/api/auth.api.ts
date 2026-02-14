@@ -57,6 +57,10 @@ export const resetPassword = async (newPassword: string, accessToken: string) =>
 
 export const logout = async () => {
     try {
+        if (typeof window !== "undefined") {
+            sessionStorage.setItem("skipGlobalLoader", "1");
+        }
+
         const res = await api.get("/api/auth/logout");
         
         // Clear all stored tokens and user data

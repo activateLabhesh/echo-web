@@ -60,6 +60,7 @@ api.interceptors.response.use(
       localStorage.removeItem("refresh_token");
       localStorage.removeItem("tokenExpiry");
       localStorage.removeItem("user");
+      sessionStorage.setItem("skipGlobalLoader", "1");
       window.location.href = "/";
       return Promise.reject(error);
     }
@@ -132,6 +133,7 @@ api.interceptors.response.use(
       localStorage.removeItem("refresh_token");
       localStorage.removeItem("tokenExpiry");
       localStorage.removeItem("user");
+      sessionStorage.setItem("skipGlobalLoader", "1");
       window.location.href = "/login";
       
       return Promise.reject(refreshError);

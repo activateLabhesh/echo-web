@@ -1,10 +1,12 @@
 "use client";
 import { useState, useEffect } from 'react';
+import { usePageReady } from "@/components/RouteChangeLoader";
 import { Bell, CheckCheck, Check } from 'lucide-react';
 import { getUser } from '@/api';
 import { useNotifications } from '../../../hooks/useNotifications';
 import { apiClient } from '@/utils/apiClient';
-import Loader from '@/components/Loader';
+
+import Loader from "@/components/Loader";
 import Toast from "@/components/Toast";
 
 
@@ -34,6 +36,7 @@ interface Notification {
 }
 
 export default function NotificationsPage() {
+  const pageReady = usePageReady();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
@@ -53,7 +56,7 @@ export default function NotificationsPage() {
       setLoading(true);
 
       
-      setToast({ message: "Loading notifications…", type: "info" });
+    
 
       const user = await getUser();
       if (!user?.id) return;
@@ -73,6 +76,7 @@ export default function NotificationsPage() {
       setNotifications([]);
     } finally {
       setLoading(false);
+      pageReady();
     }
   };
 
@@ -139,10 +143,7 @@ export default function NotificationsPage() {
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  
-  if (loading) {
-    return <Loader fullscreen  size="md" />;
-  }
+
 
   return (
     <> {toast && (() => {
@@ -225,7 +226,11 @@ export default function NotificationsPage() {
         </div>
 
         {/* Notifications List */}
-        {filteredNotifications.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center min-h-[400px]">
+            
+          </div>
+        ) : filteredNotifications.length === 0 ? (
           <div className="flex items-center justify-center min-h-[400px] text-center py-16">
             <div>
               <Bell size={64} className="text-gray-600 mx-auto mb-4" />

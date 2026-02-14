@@ -1,23 +1,29 @@
 "use client";
 
-import React, { useState, useEffect, Suspense, useRef } from "react";
+import React, { useState, useEffect, Suspense, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { usePageReady } from "@/components/RouteChangeLoader";
 import {
   FaHashtag,
   FaCog,
-  FaVolumeUp,
-  FaMicrophoneSlash,
-  FaMicrophone,
-  FaVideoSlash,
   FaLock,
   FaShieldAlt,
+  FaChevronDown,
+  FaChevronRight,
+  FaCheckCircle,
+  FaPlusCircle,
   FaAngleLeft,
   FaAngleRight,
 } from "react-icons/fa";
 import VoiceChannel from "@/components/EnhancedVoiceChannel";
 import { fetchServers, fetchChannelsByServer } from "@/api";
-import { getSelfAssignableRoles, getMyRoles, selfAssignRole, selfUnassignRole} from "@/api";
-import {type Role } from "@/api/types/roles.types";
+import {
+  getSelfAssignableRoles,
+  getMyRoles,
+  selfAssignRole,
+  selfUnassignRole,
+} from "@/api";
+import { type Role } from "@/api/types/roles.types";
 import Chatwindow from "@/components/ChatWindow";
 import NotificationBell from '@/components/NotificationBell';
 import { useSearchParams } from "next/navigation";
@@ -44,6 +50,7 @@ interface Channel {
 }
 
 const ServersPageContent: React.FC = () => {
+  const pageReady = usePageReady();
    const [isChannelSidebarCollapsed, setIsChannelSidebarCollapsed] =
      useState(false); 
   const searchParams = useSearchParams();
@@ -95,7 +102,6 @@ const ServersPageContent: React.FC = () => {
     localVideoTileId,
     videoTiles,
     manager,
-    joinCall,
     leaveCall,
     permissionError,
     connectionError,
@@ -104,9 +110,6 @@ const ServersPageContent: React.FC = () => {
   // Check if this server's voice channel is active
   const isVoiceActiveForCurrentServer =
     activeCall?.serverId === selectedServerId;
-  const activeVoiceChannelName = isVoiceActiveForCurrentServer
-    ? activeCall?.channelName
-    : null;
 
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   // Should show voice UI: only when in voice view mode AND connected to this server's voice
@@ -116,38 +119,6 @@ const showVoiceUI =
   isVoiceActiveForCurrentServer &&
   activeCall;
 
-  // Voice members derived from context participants
-  interface VoiceMember {
-    id: string;
-    username: string;
-    avatar_url?: string | null;
-    status?: "online" | "offline" | "idle" | "dnd";
-    muted?: boolean;
-    video?: boolean;
-    speaking?: boolean;
-  }
-
-  // Map context participants to VoiceMember format
-  const uniqueParticipantsMap = new Map<string, any>();
-
-  participants.forEach((p) => {
-    const id = p.attendeeId || p.oduserId;
-    if (!uniqueParticipantsMap.has(id)) {
-      uniqueParticipantsMap.set(id, p);
-    }
-  });
-
-  const voiceMembers: VoiceMember[] = Array.from(
-    uniqueParticipantsMap.values()
-  ).map((p) => ({
-    id: p.attendeeId || p.oduserId,
-    username: p.name || `User ${p.oduserId.slice(0, 8)}`,
-    avatar_url: null,
-    status: "online",
-    muted: p.muted,
-    video: p.video,
-    speaking: p.speaking,
-  }));
 
   interface User {
     id: string;
@@ -161,26 +132,58 @@ const showVoiceUI =
     status: "online" | "offline" | "idle" | "dnd";
   }
 
-  const user: User =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("user") || "{}")
-      : {
-          id: "guest",
-          email: "guest@example.com",
-          fullname: "Guest",
-          username: "guest",
-          avatar_url: null,
-          bio: "",
-          created_at: "",
-          date_of_birth: "",
-          status: "offline",
-        };
+  const user: User = useMemo(() => {
+    if (typeof window === "undefined") {
+      return {
+        id: "guest",
+        email: "guest@example.com",
+        fullname: "Guest",
+        username: "guest",
+        avatar_url: null,
+        bio: "",
+        created_at: "",
+        date_of_birth: "",
+        status: "offline",
+      };
+    }
+
+    try {
+      const stored = localStorage.getItem("user");
+      const defaults: User = {
+        id: "guest",
+        email: "guest@example.com",
+        fullname: "Guest",
+        username: "guest",
+        avatar_url: null,
+        bio: "",
+        created_at: "",
+        date_of_birth: "",
+        status: "offline",
+      };
+      const parsed = stored ? JSON.parse(stored) : null;
+      return parsed && typeof parsed === "object"
+        ? { ...defaults, ...parsed }
+        : defaults;
+    } catch {
+      return {
+        id: "guest",
+        email: "guest@example.com",
+        fullname: "Guest",
+        username: "guest",
+        avatar_url: null,
+        bio: "",
+        created_at: "",
+        date_of_birth: "",
+        status: "offline",
+      };
+    }
+  }, []);
 
  useEffect(() => {
    const loadServers = async () => {
      try {
        setLoading(true);
-       setToast({ message: "Loading servers…", type: "info" });
+       
 
        const data = await fetchServers();
        setServers(data);
@@ -205,11 +208,12 @@ const showVoiceUI =
        setToast({ message: "Failed to load servers", type: "error" });
      } finally {
        setLoading(false);
+       pageReady();
      }
    };
 
    loadServers();
- }, [serverIdFromQuery]);
+ }, [serverIdFromQuery, pageReady]);
 
   // Handle view mode from query params (when navigating from expand button)
   useEffect(() => {
@@ -291,7 +295,12 @@ const showVoiceUI =
         const firstTextChannel = filteredChannels.find(
           (c) => c.type === "text"
         );
-        setActiveChannel(firstTextChannel || null);
+        setActiveChannel((prev) => {
+          if (prev && filteredChannels.some((c) => c.id === prev.id)) {
+            return prev;
+          }
+          return firstTextChannel || null;
+        });
       } catch (err) {
         console.error("Error fetching channels", err);
         setError("Failed to load channels");
@@ -356,19 +365,10 @@ const showVoiceUI =
   }, [refresh]);
 
   // Derived channel lists
-  const textChannels = channels.filter((c) => c.type === "text");
-  const voiceChannels = channels.filter((c) => c.type === "voice");
-
-  // When joining a voice channel, use the context's joinCall
-  const handleJoinVoiceChannel = async (channel: Channel) => {
-    setViewMode("voice"); // Switch to voice view when joining
-    await joinCall(
-      channel.id,
-      channel.name,
-      selectedServerId,
-      selectedServerName
-    );
-  };
+  const textChannels = useMemo(
+    () => channels.filter((c) => c.type === "text"),
+    [channels]
+  );
 
   // Handle hang up
   const handleHangUp = () => {
@@ -404,33 +404,32 @@ const showVoiceUI =
   };
 
   // Build external state for EnhancedVoiceChannel
-  const externalState = {
-    participants,
-    localMediaState,
-    localVideoTileId,
-    videoTiles,
-    isConnected,
-    isConnecting,
-    permissionError,
-    connectionError,
-  };
+  const externalState = useMemo(
+    () => ({
+      participants,
+      localMediaState,
+      localVideoTileId,
+      videoTiles,
+      isConnected,
+      isConnecting,
+      permissionError,
+      connectionError,
+    }),
+    [
+      participants,
+      localMediaState,
+      localVideoTileId,
+      videoTiles,
+      isConnected,
+      isConnecting,
+      permissionError,
+      connectionError,
+    ]
+  );
 
   return (
     <>
-      {toast &&
-        (() => {
-          const { message, type } = toast;
-          return (
-            <div className="fixed top-6 right-6 z-[9999]">
-              <Toast
-                message={message}
-                type={type}
-                duration={3000}
-                onClose={() => setToast(null)}
-              />
-            </div>
-          );
-        })()}
+      
 
       <div className="relative flex h-screen bg-black select-none">
         {/* Server Sidebar */}
@@ -450,7 +449,7 @@ const showVoiceUI =
                 key={server.id}
                 src={server.icon_url || serverIcons[idx % serverIcons.length]}
                 alt={server.name}
-                className={`w-12 h-12 rounded-full hover:scale-105 transition-transform cursor-pointer ${
+                className={`w-12 h-12 rounded-full hover:scale-105 transition-transform cursor-pointer shadow-[0_0_18px_rgba(0,0,0,0.4)] ${
                   selectedServerId === server.id ? "ring-2 ring-white" : ""
                 }`}
                 onClick={() => {
@@ -463,12 +462,15 @@ const showVoiceUI =
 
           <div className="relative bottom-0">
             <div className="relative group">
-              {/*  Add Server Button   <button
-                className="w-12 h-12 px-1  flex items-center justify-center rounded-full bg-gray-800 text-yellow-300 hover:bg-yellow-500 hover:text-white transition-all text-3xl font-bold"
+              {/* Add Server button hidden for now
+              <button
+                className="w-12 h-12 px-1 flex items-center justify-center rounded-full bg-gray-900 text-yellow-300 hover:bg-yellow-500 hover:text-white transition-all text-3xl font-bold"
                 onClick={() => setShowAddMenu((prev) => !prev)}
+                aria-label="Add server"
               >
                 +
-              </button> */}
+              </button>
+              */}
 
               {/* Popup Menu */}
               {showAddMenu && (
@@ -499,8 +501,46 @@ const showVoiceUI =
 
         {/* Main Content */}
         {loading ? (
-          <div className="flex-1">
-            <Loader text="Loading servers…" />
+          <div className="relative flex-1 flex">
+           
+            {/* Channel sidebar skeleton */}
+            <div className="w-60 shrink-0 flex flex-col border-r border-slate-800/50 p-3 bg-black">
+              <div className="h-5 w-32 rounded bg-slate-800/70 animate-pulse mb-4" />
+              <div className="space-y-1.5">
+                <div className="h-3 w-20 rounded bg-slate-800/50 animate-pulse mb-2" />
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-8 rounded-md bg-slate-800/40 animate-pulse" />
+                ))}
+                <div className="h-3 w-24 rounded bg-slate-800/50 animate-pulse mt-4 mb-2" />
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-8 rounded-md bg-slate-800/40 animate-pulse" />
+                ))}
+              </div>
+            </div>
+            {/* Chat area skeleton */}
+            <div className="flex-1 flex flex-col bg-black">
+              <div className="h-14 border-b border-slate-800/50 flex items-center px-4 gap-3">
+                <div className="h-4 w-4 rounded bg-slate-800/50 animate-pulse" />
+                <div className="h-4 w-28 rounded bg-slate-800/60 animate-pulse" />
+              </div>
+              <div className="flex-1 p-4 space-y-5">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex gap-3">
+                    <div className="h-10 w-10 rounded-full bg-slate-800/50 animate-pulse shrink-0" />
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="h-3.5 w-24 rounded bg-slate-800/60 animate-pulse" />
+                        <div className="h-3 w-12 rounded bg-slate-800/30 animate-pulse" />
+                      </div>
+                      <div className="h-3.5 rounded bg-slate-800/40 animate-pulse w-3/4" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="h-16 border-t border-slate-800/50 px-4 flex items-center">
+                <div className="flex-1 h-10 rounded-lg bg-slate-800/40 animate-pulse" />
+              </div>
+            </div>
           </div>
         ) : error ? (
           // Error state
@@ -546,8 +586,18 @@ const showVoiceUI =
         ) : (
           <>
             {/* Channel List */}
-            {!isChannelSidebarCollapsed && (
-              <div className="w-72  h-auto overflow-y-auto text-white px-2 py-4 space-y-4 border-r border-gray-800 bg-black scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+            <div
+              className={`h-auto overflow-y-auto text-white border-r border-gray-800 bg-black/95 backdrop-blur-[2px] scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-800 overflow-hidden transition-all duration-500 ease-in-out ${
+                isChannelSidebarCollapsed ? "w-0" : "w-72"
+              }`}
+            >
+              <div
+                className={`px-2 py-4 space-y-4 transition-opacity duration-200 ${
+                  isChannelSidebarCollapsed
+                    ? "opacity-0 pointer-events-none"
+                    : "opacity-100"
+                }`}
+              >
                 <div className="flex items-center justify-between px-2 mb-2">
                   <h2 className="text-xl font-bold">{selectedServerName}</h2>
                   <button
@@ -571,136 +621,136 @@ const showVoiceUI =
                   </button>
                 </div>
                 {selfAssignableRoles.length > 0 && (
-                  <div className="px-2 mt-4">
+                  <div className="px-2 mt-4 transition-all duration-300 ease-out">
                     <div
-                      className="flex items-center justify-between cursor-pointer hover:bg-[#2f3136] rounded-md p-2 transition-all"
+                      className="flex items-center justify-between cursor-pointer hover:bg-[#2f3136] rounded-md p-2 transition-all duration-500 ease-out"
                       onClick={() => setShowRoles(!showRoles)}
                     >
                       <h3 className="text-xs font-bold uppercase text-gray-400 flex items-center gap-2">
                         <FaShieldAlt size={12} />
-                        Self-Assign Roles
+                        Self Assign Roles
                       </h3>
-                      <span className="text-gray-400 text-xs">
-                        {showRoles ? "▼" : "▶"}
+                      <span className="text-gray-400 text-xs flex items-center gap-1 transition-all duration-500 ease-out">
+                        {showRoles ? (
+                          <FaChevronDown className="w-3 h-3" />
+                        ) : (
+                          <FaChevronRight className="w-3 h-3" />
+                        )}
                       </span>
                     </div>
 
-                    {showRoles && (
-                      <div className="mt-2 space-y-2">
-                        {rolesLoading ? (
-                          <div className="text-xs text-gray-400 text-center py-2">
-                            Loading...
-                          </div>
-                        ) : (
-                          <>
-                            {/* My Active Roles Section */}
-                            {myRoles.filter((r) =>
-                              selfAssignableRoles.some((sr) => sr.id === r.id)
-                            ).length > 0 && (
-                              <div className="mb-3">
-                                <div className="text-[10px] font-semibold uppercase text-gray-500 mb-1 px-1">
-                                  Your Roles (
-                                  {
-                                    myRoles.filter((r) =>
-                                      selfAssignableRoles.some(
-                                        (sr) => sr.id === r.id
-                                      )
-                                    ).length
-                                  }
-                                  )
-                                </div>
-                                <div className="space-y-1">
-                                  {selfAssignableRoles
-                                    .filter((role) =>
-                                      myRoles.some((r) => r.id === role.id)
+                    <div
+                      className={`mt-2 space-y-2 overflow-hidden transition-all duration-500 ease-in-out ${
+                        showRoles
+                          ? "max-h-96 opacity-100"
+                          : "max-h-0 opacity-0 pointer-events-none"
+                      }`}
+                    >
+                      {rolesLoading ? (
+                        <div className="text-xs text-gray-400 text-center py-2">
+                          Loading...
+                        </div>
+                      ) : (
+                        <>
+                          {/* My Active Roles Section */}
+                          {myRoles.filter((r) =>
+                            selfAssignableRoles.some((sr) => sr.id === r.id)
+                          ).length > 0 && (
+                            <div className="mb-3">
+                              <div className="text-[10px] font-semibold uppercase text-gray-500 mb-1 px-1 flex items-center gap-1">
+                                <FaCheckCircle className="w-3 h-3 text-green-400" />
+                                Your Roles (
+                                {
+                                  myRoles.filter((r) =>
+                                    selfAssignableRoles.some(
+                                      (sr) => sr.id === r.id
                                     )
-                                    .map((role) => (
-                                      <div
-                                        key={role.id}
-                                        className="flex items-center justify-between p-2 rounded-md cursor-pointer transition-all bg-[#2f3136] hover:bg-[#36393f] border border-green-500/20"
-                                        onClick={() =>
-                                          handleRoleToggle(role.id)
-                                        }
-                                      >
-                                        <span className="flex items-center gap-2 flex-1 min-w-0">
-                                          <div
-                                            className="w-3 h-3 rounded-full flex-shrink-0"
-                                            style={{
-                                              backgroundColor:
-                                                role.color || "#5865f2",
-                                            }}
-                                          />
-                                          <span className="text-sm text-white truncate">
-                                            {role.name}
-                                          </span>
-                                        </span>
-                                        <span className="text-green-400 text-lg ml-2 flex-shrink-0">
-                                          ✓
-                                        </span>
-                                      </div>
-                                    ))}
-                                </div>
+                                  ).length
+                                }
+                                )
                               </div>
-                            )}
-
-                            {/* Available Roles Section */}
-                            {selfAssignableRoles.filter(
-                              (role) => !myRoles.some((r) => r.id === role.id)
-                            ).length > 0 && (
-                              <div>
-                                <div className="text-[10px] font-semibold uppercase text-gray-500 mb-1 px-1">
-                                  Available to Join (
-                                  {
-                                    selfAssignableRoles.filter(
-                                      (role) =>
-                                        !myRoles.some((r) => r.id === role.id)
-                                    ).length
-                                  }
+                              <div className="space-y-1">
+                                {selfAssignableRoles
+                                  .filter((role) =>
+                                    myRoles.some((r) => r.id === role.id)
                                   )
-                                </div>
-                                <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-                                  {selfAssignableRoles
-                                    .filter(
-                                      (role) =>
-                                        !myRoles.some((r) => r.id === role.id)
-                                    )
-                                    .map((role) => (
-                                      <div
-                                        key={role.id}
-                                        className="flex items-center justify-between p-2 rounded-md cursor-pointer transition-all text-gray-400 hover:bg-[#2f3136] hover:text-white border border-transparent hover:border-gray-600"
-                                        onClick={() =>
-                                          handleRoleToggle(role.id)
-                                        }
-                                      >
-                                        <span className="flex items-center gap-2 flex-1 min-w-0">
-                                          <div
-                                            className="w-3 h-3 rounded-full flex-shrink-0 opacity-60"
-                                            style={{
-                                              backgroundColor:
-                                                role.color || "#5865f2",
-                                            }}
-                                          />
-                                          <span className="text-sm truncate">
-                                            {role.name}
-                                          </span>
+                                  .map((role) => (
+                                    <div
+                                      key={role.id}
+                                      className="flex items-center justify-between p-2 rounded-md cursor-pointer transition-all duration-200 ease-out bg-[#2f3136] hover:bg-[#36393f] border border-green-500/20 hover:translate-x-0.5"
+                                      onClick={() => handleRoleToggle(role.id)}
+                                    >
+                                      <span className="flex items-center gap-2 flex-1 min-w-0">
+                                        <div
+                                          className="w-3 h-3 rounded-full flex-shrink-0"
+                                          style={{
+                                            backgroundColor:
+                                              role.color || "#5865f2",
+                                          }}
+                                        />
+                                        <span className="text-sm text-white truncate">
+                                          {role.name}
                                         </span>
-                                        <span className="text-gray-600 text-xs ml-2 flex-shrink-0">
-                                          Click to join
-                                        </span>
-                                      </div>
-                                    ))}
-                                </div>
+                                      </span>
+                                      <FaCheckCircle className="text-green-400 w-4 h-4 ml-2 flex-shrink-0" />
+                                    </div>
+                                  ))}
                               </div>
-                            )}
-
-                            {/* Help text */}
-                            <div className="text-[10px] text-gray-500 px-1 pt-2 border-t border-gray-700">
-                              Click any role to add or remove it
                             </div>
-                          </>
-                        )}
-                      </div>
-                    )}
+                          )}
+
+                          {/* Available Roles Section */}
+                          {selfAssignableRoles.filter(
+                            (role) => !myRoles.some((r) => r.id === role.id)
+                          ).length > 0 && (
+                            <div>
+                              <div className="text-[10px] font-semibold uppercase text-gray-500 mb-1 px-1 flex items-center gap-1">
+                                <FaPlusCircle className="w-3 h-3 text-blue-400" />
+                                Available to Join (
+                                {
+                                  selfAssignableRoles.filter(
+                                    (role) => !myRoles.some((r) => r.id === role.id)
+                                  ).length
+                                }
+                                )
+                              </div>
+                              <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                                {selfAssignableRoles
+                                  .filter(
+                                    (role) => !myRoles.some((r) => r.id === role.id)
+                                  )
+                                  .map((role) => (
+                                    <div
+                                      key={role.id}
+                                      className="flex items-center justify-between p-2 rounded-md cursor-pointer transition-all duration-200 ease-out text-gray-400 hover:bg-[#2f3136] hover:text-white border border-transparent hover:border-gray-600 hover:translate-x-0.5"
+                                      onClick={() => handleRoleToggle(role.id)}
+                                    >
+                                      <span className="flex items-center gap-2 flex-1 min-w-0">
+                                        <div
+                                          className="w-3 h-3 rounded-full flex-shrink-0 opacity-60"
+                                          style={{
+                                            backgroundColor:
+                                              role.color || "#5865f2",
+                                          }}
+                                        />
+                                        <span className="text-sm truncate">
+                                          {role.name}
+                                        </span>
+                                      </span>
+                                      <FaPlusCircle className="text-blue-400 w-4 h-4 ml-2 flex-shrink-0" />
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Help text */}
+                          <div className="text-[10px] text-gray-500 px-1 pt-2 border-t border-gray-700">
+                            Click any role to add or remove it
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
                 <div className="px-2">
@@ -735,7 +785,7 @@ const showVoiceUI =
                         {channel.name}
                       </span>
                       {activeChannel?.id === channel.id &&
-                        viewMode === "chat" && <FaCog size={12} />}
+                        viewMode === "chat"}
                     </div>
                   ))}
                 </div>
@@ -850,9 +900,9 @@ const showVoiceUI =
                   </div>
                 )}
               </div>
-            )}
+            </div>
 
-            <div className="flex-1 relative text-white bg-[radial-gradient(ellipse_at_bottom,rgba(37,99,235,0.15)_0%,rgba(0,0,0,1)_85%)] flex flex-col">
+            <div className="flex-1 relative text-white bg-[radial-gradient(ellipse_at_top,rgba(59,130,246,0.12)_0%,rgba(0,0,0,1)_65%)] flex flex-col">
               <button
                 onClick={() => setIsChannelSidebarCollapsed((prev) => !prev)}
                 className={`absolute top-4 ${
@@ -894,9 +944,7 @@ const showVoiceUI =
                 </div>
               ) : activeChannel ? (
                 <>
-                  <h1 className="text-2xl font-bold mb-4 text-center pt-6">
-                    Welcome to #{activeChannel.name}
-                  </h1>
+                 
                   <div className="flex-1 overflow-y-auto px-6 pb-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 rounded-lg">
                     <div className="absolute top-4 right-6 z-30">
                       <NotificationBell
@@ -970,7 +1018,7 @@ const showVoiceUI =
               ) : (
                 <div className="flex flex-col items-center justify-center h-full">
                   <h2 className="text-2xl text-gray-400">
-                    Select a channel to start chatting
+                    
                   </h2>
                 </div>
               )}
@@ -989,7 +1037,7 @@ const ServersPage: React.FC = () => {
         <div className="flex h-screen bg-black items-center justify-center">
           <div className="text-white text-center">
             <div className="mx-auto mb-4 w-10 h-10 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
-            <p className="text-gray-400">Loading...</p>
+            
           </div>
         </div>
       }

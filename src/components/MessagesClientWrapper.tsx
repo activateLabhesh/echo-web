@@ -15,16 +15,7 @@ export default function MessagesClientWrapper() {
   return (
     <>
      
-      {showToast && (
-        <div className="fixed top-6 right-6 z-[9999]">
-          <Toast
-            message="Loading messages…"
-            type="info"
-            duration={3000}
-            onClose={() => setShowToast(false)}
-          />
-        </div>
-      )}
+    
 
       <Suspense fallback={null}>
         <MessagesPageContent />

@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { resetPassword } from '@/api';
 import { supabase } from '../../../lib/supabaseClient';
 import Link from 'next/link';
+import Loader from '@/components/Loader';
 
 function ResetPasswordContent() {
     const searchParams = useSearchParams();
@@ -99,10 +100,12 @@ function ResetPasswordContent() {
         }
     }
 
+   
+
     if (loading) {
         return (
-            <div className="flex h-screen bg-black font-sans items-center justify-center">
-                <div className="text-white">Loading...</div>
+            <div className="min-h-screen bg-black">
+                <Loader fullscreen text="Verifying reset link..." />
             </div>
         );
     }

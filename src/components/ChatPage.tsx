@@ -2,6 +2,7 @@
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { usePageReady } from '@/components/RouteChangeLoader';
 import { Bell, MoreVertical, Paperclip, Search, Send, Smile, X } from 'lucide-react';
 import { getUserDMs, uploaddm, markThreadAsRead } from '@/api/message.api'; 
 import { fetchUserProfile } from '@/api/profile.api'; 
@@ -490,6 +491,7 @@ function MessagesPageContentInner() {
     const [messages, setMessages] = useState<Map<string, DirectMessage[]>>(new Map());
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const pageReady = usePageReady();
 
 const socketRef = useRef<Socket | null>(null);
 
@@ -726,6 +728,7 @@ useEffect(() => {
                     setError("Failed to load conversations. Check console for details.");
                 } finally {
                     setIsLoading(false);
+                    pageReady();
                 }
             };
             fetchDms();
@@ -1024,12 +1027,7 @@ export default function MessagesPageContent() {
     type: "info" | "success" | "error";
   } | null>(null);
 
-  useEffect(() => {
-    setToast({
-      message: "Loading messages…",
-      type: "info",
-    });
-  }, []);
+
 
   return (
     <>

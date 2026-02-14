@@ -15,7 +15,7 @@ const sizeMap = {
 };
 
 const Loader: React.FC<LoaderProps> = ({
-  text = "Loading...",
+  text = "Loading",
   size = "md",
   fullscreen = false,
 }) => {

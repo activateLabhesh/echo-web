@@ -78,6 +78,7 @@ export const useTokenRefresh = () => {
         };
 
         const handleLogout = () => {
+            sessionStorage.setItem("skipGlobalLoader", "1");
             localStorage.removeItem("token");
             localStorage.removeItem("access_token");
             localStorage.removeItem("refresh_token");

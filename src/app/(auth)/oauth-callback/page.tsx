@@ -74,20 +74,7 @@ export default function OAuthCallback() {
 
     return (
       <>
-        {toast &&
-          (() => {
-            const { message: toastMessage, type } = toast;
-            return (
-              <div className="fixed top-6 right-6 z-[9999]">
-                <Toast
-                  message={toastMessage}
-                  type={type}
-                  duration={3000}
-                  onClose={() => setToast(null)}
-                />
-              </div>
-            );
-          })()}
+        
 
         <div className="flex h-screen bg-black font-sans items-center justify-center">
           <div className="text-center">

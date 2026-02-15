@@ -21,7 +21,7 @@ export default function NotificationBell({ className = "", onNavigateToMessage }
     <div className={`relative ${className}`}>
       <button
         onClick={handleBellClick}
-        className={`relative rounded-lg hover:bg-white/10 transition-colors ${
+        className={`relative p-2 rounded-full hover:bg-[#23272a] transition-colors ${
           unreadCount > 0 ? 'text-yellow-500' : 'text-gray-400 hover:text-white'
         }`}
         title="Notifications"

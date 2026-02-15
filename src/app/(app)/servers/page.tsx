@@ -431,7 +431,7 @@ const showVoiceUI =
     <>
       
 
-      <div className="relative flex h-screen bg-black select-none">
+      <div className="relative flex h-screen z-0 bg-black select-none">
         {/* Server Sidebar */}
         <div className="w-16 p-2 flex flex-col items-center bg-black space-y-3 relative">
           {loading ? (
@@ -600,25 +600,82 @@ const showVoiceUI =
               >
                 <div className="flex items-center justify-between px-2 mb-2">
                   <h2 className="text-xl font-bold">{selectedServerName}</h2>
-                  <button
-                    className="p-2 rounded-full hover:bg-[#23272a] transition"
-                    title="Server Settings"
-                    onClick={() => {
-                      if (selectedServerId) {
-                        localStorage.setItem(
-                          "currentServerId",
-                          selectedServerId
+                  <div className="flex items-center gap-2">
+                    <NotificationBell
+                      onNavigateToMessage={async (channelId, messageId) => {
+                        // Parent-level navigation handler
+                        // If target channel is different, switch to it
+                        const targetChannel = channels.find(
+                          (c) => c.id === channelId
                         );
-                        router.push(
-                          `/server-settings?serverId=${selectedServerId}`
-                        );
-                      } else {
-                        alert("Please select a server first");
-                      }
-                    }}
-                  >
-                    <FaCog className="w-5 h-5 text-[#b5bac1] hover:text-white" />
-                  </button>
+                        if (targetChannel) {
+                          setActiveChannel(targetChannel);
+                          setViewMode("chat");
+                        }
+
+                        // Wait a tick for chat window to mount and load initial messages
+                        await new Promise((r) => setTimeout(r, 250));
+
+                        // Try to scroll to message; if not found, paginate older messages up to a limit
+                        const MAX_PAGES = 8;
+                        let found = false;
+                        for (let i = 0; i <= MAX_PAGES && !found; i++) {
+                          // Attempt to scroll
+                          if (chatWindowRef.current) {
+                            const scrolled =
+                              await chatWindowRef.current.scrollToMessage(
+                                messageId
+                              );
+                            if (scrolled) {
+                              found = true;
+                              break;
+                            }
+                          }
+
+                          // If not found, load older messages if available
+                          if (chatWindowRef.current) {
+                            const loaded =
+                              await chatWindowRef.current.loadOlderPages(1);
+                            if (!loaded) break; // no more pages
+                          } else {
+                            break;
+                          }
+
+                          // small delay to allow DOM update
+                          await new Promise((r) => setTimeout(r, 200));
+                        }
+
+                        if (!found) {
+                          // fallback: open channel and scroll to bottom
+                          // ensure chat window is visible
+                          setViewMode("chat");
+                          setTimeout(() => {
+                            if (chatWindowRef.current)
+                              chatWindowRef.current.scrollToMessage("last");
+                          }, 300);
+                        }
+                      }}
+                    />
+                    <button
+                      className="p-2 rounded-full hover:bg-[#23272a] transition"
+                      title="Server Settings"
+                      onClick={() => {
+                        if (selectedServerId) {
+                          localStorage.setItem(
+                            "currentServerId",
+                            selectedServerId
+                          );
+                          router.push(
+                            `/server-settings?serverId=${selectedServerId}`
+                          );
+                        } else {
+                          alert("Please select a server first");
+                        }
+                      }}
+                    >
+                      <FaCog className="w-5 h-5 text-[#b5bac1] hover:text-white" />
+                    </button>
+                  </div>
                 </div>
                 {selfAssignableRoles.length > 0 && (
                   <div className="px-2 mt-4 transition-all duration-300 ease-out">
@@ -946,63 +1003,6 @@ const showVoiceUI =
                 <>
                  
                   <div className="flex-1 overflow-y-auto px-6 pb-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 rounded-lg">
-                    <div className="absolute top-4 right-6 z-30">
-                      <NotificationBell
-                        onNavigateToMessage={async (channelId, messageId) => {
-                          // Parent-level navigation handler
-                          // If target channel is different, switch to it
-                          const targetChannel = channels.find(
-                            (c) => c.id === channelId
-                          );
-                          if (targetChannel) {
-                            setActiveChannel(targetChannel);
-                            setViewMode("chat");
-                          }
-
-                          // Wait a tick for chat window to mount and load initial messages
-                          await new Promise((r) => setTimeout(r, 250));
-
-                          // Try to scroll to message; if not found, paginate older messages up to a limit
-                          const MAX_PAGES = 8;
-                          let found = false;
-                          for (let i = 0; i <= MAX_PAGES && !found; i++) {
-                            // Attempt to scroll
-                            if (chatWindowRef.current) {
-                              const scrolled =
-                                await chatWindowRef.current.scrollToMessage(
-                                  messageId
-                                );
-                              if (scrolled) {
-                                found = true;
-                                break;
-                              }
-                            }
-
-                            // If not found, load older messages if available
-                            if (chatWindowRef.current) {
-                              const loaded =
-                                await chatWindowRef.current.loadOlderPages(1);
-                              if (!loaded) break; // no more pages
-                            } else {
-                              break;
-                            }
-
-                            // small delay to allow DOM update
-                            await new Promise((r) => setTimeout(r, 200));
-                          }
-
-                          if (!found) {
-                            // fallback: open channel and scroll to bottom
-                            // ensure chat window is visible
-                            setViewMode("chat");
-                            setTimeout(() => {
-                              if (chatWindowRef.current)
-                                chatWindowRef.current.scrollToMessage("last");
-                            }, 300);
-                          }
-                        }}
-                      />
-                    </div>
 
                     <Chatwindow
                       ref={chatWindowRef}

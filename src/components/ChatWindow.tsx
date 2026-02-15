@@ -25,7 +25,8 @@ import { ChevronDown } from "lucide-react";
 import { getServerMembers } from "@/api/server.api";
 import { getAllRoles } from "@/api/roles.api";
 
-import { apiClient } from "@/utils/apiClient";
+import { apiClient as mentionsApiClient } from "@/utils/apiClient";
+import { apiClient as profileApiClient } from "@/api/axios";
 
 // Dynamic imports for heavy components that are conditionally rendered
 const VideoPanel = dynamic(() => import("./VideoPanel"), {
@@ -155,7 +156,7 @@ export default forwardRef(function ChatWindow(
 
   // Fetch unread mentions for a specific channel
   const fetchChannelUnreadMentions = async (chId: string, userId: string) => {
-    const response = await apiClient.get(
+    const response = await mentionsApiClient.get(
       `/api/mentions?userId=${userId}&unreadOnly=true&channelId=${chId}`
     );
     return response.data || [];
@@ -164,7 +165,7 @@ export default forwardRef(function ChatWindow(
   // Mark all mentions as read for a channel
   const markAllChannelMentionsAsRead = async (mentionIds: string[]) => {
     await Promise.all(
-      mentionIds.map((id) => apiClient.patch(`/api/mentions/${id}/read`))
+      mentionIds.map((id) => mentionsApiClient.patch(`/api/mentions/${id}/read`))
     );
   };
 
@@ -374,11 +375,14 @@ export default forwardRef(function ChatWindow(
 
   useEffect(() => {
     const loadCurrentUserAvatar = async () => {
-      try {
-        const user = await getUser();
-        if (!user?.avatar_url) return;
+      if (!currentUserId) return;
 
-        const freshUrl = `${user.avatar_url}?t=${Date.now()}`;
+      try {
+        const res = await profileApiClient.get("/api/profile/getProfile");
+        const profile = res.data?.user;
+        if (!profile?.avatar_url) return;
+
+        const freshUrl = `${profile.avatar_url}?t=${Date.now()}`;
 
         setCurrentUserAvatar(freshUrl);
 
@@ -399,39 +403,7 @@ export default forwardRef(function ChatWindow(
       }
     };
 
-    if (currentUserId) {
-      loadCurrentUserAvatar();
-    }
-  }, [currentUserId]);
-
-  useEffect(() => {
-    if (!currentUserId) return;
-
-    const syncMyAvatar = async () => {
-      try {
-        const user = await getUser();
-        if (!user?.avatar_url) return;
-
-        const freshUrl = `${user.avatar_url}?t=${Date.now()}`;
-
-        avatarCacheRef.current[currentUserId] = {
-          url: freshUrl,
-          updatedAt: Date.now(),
-        };
-
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.senderId === currentUserId
-              ? { ...msg, avatarUrl: freshUrl }
-              : msg
-          )
-        );
-      } catch (err) {
-        console.error("Failed to sync avatar", err);
-      }
-    };
-
-    syncMyAvatar();
+    loadCurrentUserAvatar();
   }, [currentUserId]);
 
   // Function to get user avatar with caching
@@ -457,6 +429,66 @@ export default forwardRef(function ChatWindow(
       return "/User_profil.png";
     }
   };
+
+  const resolveAvatarUrl = async (userId: string, raw?: any) => {
+    const directUrl =
+      raw?.avatar_url ||
+      raw?.users?.avatar_url ||
+      raw?.sender?.avatar_url ||
+      raw?.sender?.users?.avatar_url ||
+      raw?.sender?.profile?.avatar_url;
+
+    if (directUrl) {
+      return `${directUrl}?t=${Date.now()}`;
+    }
+
+    return getAvatarUrl(userId);
+  };
+
+  useEffect(() => {
+    const DEFAULT_AVATAR = "/User_profil.png";
+
+    const missingSenders = Array.from(
+      new Set(
+        messages
+          .filter(
+            (msg) =>
+              msg.senderId &&
+              msg.senderId !== currentUserId &&
+              (!msg.avatarUrl || msg.avatarUrl === DEFAULT_AVATAR)
+          )
+          .map((msg) => String(msg.senderId))
+      )
+    );
+
+    if (missingSenders.length === 0) return;
+
+    let cancelled = false;
+
+    const hydrateMissingAvatars = async () => {
+      for (const senderId of missingSenders) {
+        const avatarUrl = await getUserAvatar(senderId);
+        if (cancelled || !avatarUrl || avatarUrl === DEFAULT_AVATAR) {
+          continue;
+        }
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            String(msg.senderId) === senderId &&
+            (!msg.avatarUrl || msg.avatarUrl === DEFAULT_AVATAR)
+              ? { ...msg, avatarUrl }
+              : msg
+          )
+        );
+      }
+    };
+
+    hydrateMissingAvatars();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, currentUserId]);
 
   const [selectedUser, setSelectedUser] = useState<{
     id: string;
@@ -686,7 +718,7 @@ export default forwardRef(function ChatWindow(
         const formattedMessages: Message[] = await Promise.all(
           res.data.map(async (msg: any) => {
             const senderId = msg.sender_id || msg.senderId;
-            const avatarUrl = await getAvatarUrl(senderId);
+            const avatarUrl = await resolveAvatarUrl(senderId, msg);
 
 
             let replyTo = null;
@@ -1204,7 +1236,7 @@ const handleScroll = useCallback(() => {
             usernamesRef.current[senderId] ||
             "Unknown";
 
-      const avatarUrl = await getAvatarUrl(senderId);
+      const avatarUrl = await resolveAvatarUrl(senderId, saved);
 
       let replyTo = null;
       if (saved.reply_to_message) {
@@ -1411,6 +1443,9 @@ const handleScroll = useCallback(() => {
       currentUserAvatar ||
       "/User_profil.png";
 
+    const resolvedAvatarUrl =
+      typeof userAvatar === "string" ? userAvatar : userAvatar?.url;
+
     const tempId = `temp-${currentUserId}-${Date.now()}-${Math.random()
       .toString(36)
       .substr(2, 9)}`;
@@ -1420,7 +1455,7 @@ const handleScroll = useCallback(() => {
       content: file ? `${text} 📎 Uploading ${file.name}...` : text,
       senderId: currentUserId,
       timestamp: new Date().toISOString(),
-      avatarUrl: userAvatar?.url || "/User_profil.png",
+      avatarUrl: resolvedAvatarUrl || "/User_profil.png",
 
       username: "You",
       replyTo: replyingTo
@@ -1467,7 +1502,7 @@ const handleScroll = useCallback(() => {
 
       setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
     } catch (err: any) {
-      console.error("💔 Failed to upload message:", err);
+      console.error(" Failed to upload message:", err);
       const errorMessage =
         err?.response?.data?.error || err.message || "Unknown error";
 

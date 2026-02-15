@@ -56,9 +56,6 @@ interface Message {
     author: string;
     avatarUrl?: string;
   } | null;
-  // Optimistic UI fields
-  status?: "pending" | "sent" | "failed";
-  tempId?: string;
 }
 
 interface ChatWindowProps {
@@ -1266,66 +1263,6 @@ const handleScroll = useCallback(() => {
       }, 10 * 60 * 1000);
     };
 
-    // Handle message confirmation (for sender's optimistic UI)
-    const handleMessageConfirmed = async (saved: any) => {
-      const tempId = saved?.tempId;
-      const realId = saved?.id;
-
-      if (!tempId || !realId) {
-        console.warn("message_confirmed missing tempId or id:", saved);
-        return;
-      }
-
-      const senderId = saved?.sender_id || saved?.senderId || currentUserId;
-      const avatarUrl = await getAvatarUrl(senderId);
-
-      // Replace optimistic message with confirmed message
-      setMessages((prev) => {
-        const optimisticIndex = prev.findIndex((msg) => msg.tempId === tempId);
-
-        if (optimisticIndex === -1) {
-          console.log(`No optimistic message found for tempId ${tempId}`);
-          return prev;
-        }
-
-        const confirmedMessage: Message = {
-          id: realId,
-          content: saved?.content || prev[optimisticIndex].content,
-          senderId,
-          timestamp: saved?.timestamp || new Date().toISOString(),
-          avatarUrl,
-          username: "You",
-          mediaUrl: saved?.media_url || saved?.mediaUrl,
-          replyTo: prev[optimisticIndex].replyTo,
-          status: "sent",
-        };
-
-        const updated = [...prev];
-        updated[optimisticIndex] = confirmedMessage;
-        return updated;
-      });
-
-      // Mark as received to prevent duplicate from socket
-      receivedMessageIdsRef.current.add(realId);
-    };
-
-    // Handle message error (for sender's optimistic UI)
-    const handleMessageError = (error: any) => {
-      const tempId = error?.tempId;
-      const errorMsg = error?.error || error;
-
-      console.error("Message error:", errorMsg);
-
-      if (tempId) {
-        // Mark the optimistic message as failed
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.tempId === tempId ? { ...msg, status: "failed" as const } : msg
-          )
-        );
-      }
-    };
-
     socket.on("new_message", handleIncomingMessage);
     socket.on("reconnect", async () => {
       await loadMessages();
@@ -1376,8 +1313,8 @@ const handleScroll = useCallback(() => {
     return { valid: true };
   };
 
-  const handleSend = async (text: string, file: File | null) => {
-    if (text.trim() === "" && !file) return;
+  const handleSend = async (text: string, files: File[]) => {
+    if (text.trim() === "" && files.length === 0) return;
 
     if (channelPermissions && !channelPermissions.canSend) {
       let errorMsg =
@@ -1402,70 +1339,33 @@ const handleScroll = useCallback(() => {
     const userValidation = validateUserMentions(text);
 
     if (!userValidation.valid) {
+      alert(`User "${userValidation.invalidUser}" does not exist in this server.`);
+      setIsSending(false);
+      return;
     }
 
     setIsSending(true);
 
-    const userAvatar =
-      avatarCacheRef.current[currentUserId] ||
-      currentUserAvatar ||
-      "/User_profil.png";
-
-    const tempId = `temp-${currentUserId}-${Date.now()}-${Math.random()
-      .toString(36)
-      .substr(2, 9)}`;
-
-    const optimisticMessage: Message = {
-      id: tempId,
-      content: file ? `${text} 📎 Uploading ${file.name}...` : text,
-      senderId: currentUserId,
-      timestamp: new Date().toISOString(),
-      avatarUrl: userAvatar?.url || "/User_profil.png",
-
-      username: "You",
-      replyTo: replyingTo
-        ? {
-            id: replyingTo.id,
-            content: replyingTo.content,
-            author: (replyingTo as any).username || "User",
-            avatarUrl: replyingTo.avatarUrl || "/User_profil.png",
-          }
-        : null,
-    };
-
-    setMessages((prev) => {
-      const hasSimilarRecent = prev.some(
-        (msg) =>
-          msg.senderId === currentUserId &&
-          msg.content === optimisticMessage.content &&
-          Math.abs(
-            new Date(msg.timestamp).getTime() -
-              new Date(optimisticMessage.timestamp).getTime()
-          ) < 2000
-      );
-
-      if (hasSimilarRecent) {
-        console.log(
-          "Similar message already exists, not adding optimistic duplicate"
-        );
-        return prev;
-      }
-
-      return [...prev, optimisticMessage];
-    });
-
     try {
-      const response = await uploadMessage({
+      const firstFile = files.length > 0 ? files[0] : undefined;
+      await uploadMessage({
         content: text.trim(),
         channel_id: channelId,
         sender_id: currentUserId,
         reply_to: replyingTo?.id,
-        file: file || undefined,
+        file: firstFile,
       });
-      setReplyingTo(null);
-      console.log("[Upload Message] Response:", response);
 
-      setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
+      for (let i = 1; i < files.length; i++) {
+        await uploadMessage({
+          content: "",
+          channel_id: channelId,
+          sender_id: currentUserId,
+          file: files[i],
+        });
+      }
+
+      setReplyingTo(null);
     } catch (err: any) {
       console.error("💔 Failed to upload message:", err);
       const errorMessage =
@@ -1477,8 +1377,6 @@ const handleScroll = useCallback(() => {
       } else {
         alert(`Upload failed: ${errorMessage}`);
       }
-
-      setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
     } finally {
       setIsSending(false);
     }

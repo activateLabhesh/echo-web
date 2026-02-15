@@ -20,87 +20,132 @@ interface MentionNotification {
   isRead?: boolean;
 }
 
-export function useNotifications() {
-  const [notifications, setNotifications] = useState<MentionNotification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [socket, setSocket] = useState<Socket | null>(null);
+interface NotificationsState {
+  notifications: MentionNotification[];
+  unreadCount: number;
+}
 
-  // Connect to socket
-  useEffect(() => {
-    let socketInstance: Socket | null = null;
+let sharedState: NotificationsState = { notifications: [], unreadCount: 0 };
+const subscribers = new Set<(state: NotificationsState) => void>();
+let sharedSocket: Socket | null = null;
+let socketRefCount = 0;
+let socketInitPromise: Promise<void> | null = null;
+let initialUnreadPromise: Promise<void> | null = null;
+let permissionRequested = false;
 
-    const initializeSocket = async () => {
+const notifySubscribers = () => {
+  subscribers.forEach((listener) => listener(sharedState));
+};
+
+const setSharedNotifications = (
+  updater: ((prev: MentionNotification[]) => MentionNotification[]) | MentionNotification[]
+) => {
+  const next = typeof updater === 'function' ? updater(sharedState.notifications) : updater;
+  sharedState = { ...sharedState, notifications: next };
+  notifySubscribers();
+};
+
+const setSharedUnreadCount = (
+  updater: ((prev: number) => number) | number
+) => {
+  const next = typeof updater === 'function' ? updater(sharedState.unreadCount) : updater;
+  sharedState = { ...sharedState, unreadCount: Math.max(0, next) };
+  notifySubscribers();
+};
+
+const ensureSocket = async () => {
+  if (socketInitPromise) return socketInitPromise;
+
+  socketInitPromise = (async () => {
+    const user = await getUser();
+    if (!user?.id) {
+      socketInitPromise = null;
+      return;
+    }
+
+    sharedSocket = createAuthSocket(user.id);
+
+    sharedSocket.on('mention_notification', (notification: MentionNotification) => {
+      setSharedNotifications((prev) => [notification, ...prev.slice(0, 49)]);
+      setSharedUnreadCount((prev) => prev + 1);
+
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(`${notification.senderUsername} mentioned you`, {
+          body: `"${notification.content.substring(0, 100)}..."`,
+          icon: notification.senderAvatar || '/avatar.png',
+          tag: notification.id,
+        });
+      }
+    });
+
+    sharedSocket.on('mention_marked_read', (notificationId: string) => {
+      setSharedNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
+      );
+      setSharedUnreadCount((prev) => Math.max(0, prev - 1));
+    });
+  })();
+
+  return socketInitPromise;
+};
+
+const ensureInitialUnread = async () => {
+  if (initialUnreadPromise) return initialUnreadPromise;
+
+  initialUnreadPromise = (async () => {
+    try {
       const user = await getUser();
       if (!user?.id) return;
 
-      // Use createAuthSocket to properly register userId with backend
-      socketInstance = createAuthSocket(user.id);
-      setSocket(socketInstance);
+      const response = await apiClient.get(`/api/mentions?userId=${user.id}&unreadOnly=true`);
+      if (response.data) {
+        const data = response.data;
+        setSharedUnreadCount(Array.isArray(data) ? data.length : 0);
+      }
+    } catch (error) {
+      // Silently ignore errors - notifications will load when user is authenticated
+    }
+  })();
 
-      // Listen for mention notifications
-      socketInstance.on('mention_notification', (notification: MentionNotification) => {
-        // console.log('Received mention notification:', notification);
-        
-        setNotifications(prev => [notification, ...prev.slice(0, 49)]); // Keep last 50
-        setUnreadCount(prev => prev + 1);
+  return initialUnreadPromise;
+};
 
-        // Optional: Show browser notification
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification(`${notification.senderUsername} mentioned you`, {
-            body: `"${notification.content.substring(0, 100)}..."`,
-            icon: notification.senderAvatar || '/avatar.png',
-            tag: notification.id
-          });
-        }
-      });
+export function useNotifications() {
+  const [notifications, setNotifications] = useState<MentionNotification[]>(sharedState.notifications);
+  const [unreadCount, setUnreadCountState] = useState(sharedState.unreadCount);
 
-      // Listen for mention read confirmations
-      socketInstance.on('mention_marked_read', (notificationId: string) => {
-        setNotifications(prev =>
-          prev.map(n => 
-            n.id === notificationId ? { ...n, isRead: true } : n
-          )
-        );
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      });
+  useEffect(() => {
+    const handleUpdate = (state: NotificationsState) => {
+      setNotifications(state.notifications);
+      setUnreadCountState(state.unreadCount);
     };
 
-    initializeSocket();
+    subscribers.add(handleUpdate);
+    handleUpdate(sharedState);
+
+    socketRefCount += 1;
+    ensureSocket();
+    ensureInitialUnread();
 
     return () => {
-      if (socketInstance) {
-        socketInstance.disconnect();
+      subscribers.delete(handleUpdate);
+      socketRefCount = Math.max(0, socketRefCount - 1);
+
+      if (socketRefCount === 0 && sharedSocket) {
+        sharedSocket.disconnect();
+        sharedSocket = null;
+        socketInitPromise = null;
       }
     };
   }, []);
 
-  // Request notification permission on mount
   useEffect(() => {
+    if (permissionRequested) return;
+    permissionRequested = true;
+
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
-  }, []);
-
-  // Fetch initial unread count on mount
-  useEffect(() => {
-    const fetchInitialUnreadCount = async () => {
-      try {
-        const user = await getUser();
-        if (!user?.id) return;
-
-        // Use apiClient to make authenticated request directly to backend
-        const response = await apiClient.get(`/api/mentions?userId=${user.id}&unreadOnly=true`);
-        
-        if (response.data) {
-          const data = response.data;
-          setUnreadCount(Array.isArray(data) ? data.length : 0);
-        }
-      } catch (error) {
-        // Silently ignore errors - notifications will load when user is authenticated
-      }
-    };
-
-    fetchInitialUnreadCount();
   }, []);
 
   const markAsRead = useCallback(async (notificationId: string) => {
@@ -108,19 +153,17 @@ export function useNotifications() {
       // Use apiClient for authenticated request
       await apiClient.patch(`/api/mentions/${notificationId}/read`);
       
-      if (socket) {
-        socket.emit('mention_read', notificationId);
+      if (sharedSocket) {
+        sharedSocket.emit('mention_read', notificationId);
       }
-      setNotifications(prev =>
-        prev.map(n => 
-          n.id === notificationId ? { ...n, isRead: true } : n
-        )
+      setSharedNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
       );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      setSharedUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
     }
-  }, [socket]);
+  }, []);
 
   const markAllAsRead = useCallback(async () => {
     try {
@@ -129,13 +172,12 @@ export function useNotifications() {
       const result = response.data;
       
       // Update local state
-      setNotifications(prev =>
-        prev.map(n => ({ ...n, isRead: true }))
-      );
-      setUnreadCount(0);
+      setSharedNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setSharedUnreadCount(0);
 
       // Emit socket events for each marked notification
-      if (socket && result.markedIds) {
+      const socket = sharedSocket;
+      if (socket && Array.isArray(result.markedIds)) {
         result.markedIds.forEach((id: string) => {
           socket.emit('mention_read', id);
         });
@@ -143,7 +185,14 @@ export function useNotifications() {
     } catch (error) {
       console.error('Failed to mark all as read:', error);
     }
-  }, [socket]);
+  }, []);
+
+  const setUnreadCount = useCallback<React.Dispatch<React.SetStateAction<number>>>(
+    (value) => {
+      setSharedUnreadCount(value);
+    },
+    []
+  );
 
   return {
     notifications,

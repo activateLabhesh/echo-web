@@ -153,7 +153,7 @@ export default function ProfilePage() {
 
       <div className="w-full max-w-6xl mx-auto grid md:grid-cols-2 gap-16">
         {/* LEFT — Identity / Hero */}
-        <div className="space-y-12">
+        <div className="space-y-12 h-full flex flex-col">
           <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-white/10">
             <div
               className="absolute inset-0 bg-cover bg-center scale-110"
@@ -193,7 +193,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div>
+          <div className="flex-1 flex flex-col">
             <div className="flex justify-between items-center mb-3">
               <span className="text-xs uppercase tracking-wider text-gray-400">
                 About
@@ -225,7 +225,7 @@ export default function ProfilePage() {
                   setEditing((p) => ({ ...p, about: false }));
                 }
               }}
-              className="w-full h-40 p-5 rounded-2xl bg-[#1f2937] text-white border border-white/20 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              className="w-full flex-1 resize-none p-5 rounded-2xl bg-[#1f2937] text-white border border-white/20 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             />
           </div>
         </div>

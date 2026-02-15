@@ -1502,7 +1502,7 @@ const handleScroll = useCallback(() => {
 
       setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
     } catch (err: any) {
-      console.error(" Failed to upload message:", err);
+      console.error("💔 Failed to upload message:", err);
       const errorMessage =
         err?.response?.data?.error || err.message || "Unknown error";
 

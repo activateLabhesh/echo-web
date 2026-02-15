@@ -188,14 +188,14 @@ interface ChatWindowProps {
     currentUser: User | null;
     partnerId: string | null;
     allUsers: User[];
-    onSendMessage: (message: string, file: File | null) => void;
+    onSendMessage: (message: string, files: File[]) => void;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ activeUser, messages, currentUser, partnerId, allUsers, onSendMessage }) => {
     const [draft, setDraft] = useState('');
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const emojiPickerRef = useRef<HTMLDivElement>(null);
-    const [file, setFile] = useState<File | null>(null);
+    const [files, setFiles] = useState<File[]>([]);
     const bottomRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -254,15 +254,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ activeUser, messages, currentUs
     }, [messages, currentUser?.id, partnerId, allUsers, dayFormatter, timeFormatter]);
 
     const handleSend = (value: string) => {
-        if (value.length === 0 && !file) return; // ← NO trim
-        onSendMessage(value, file);
+        if (value.length === 0 && files.length === 0) return; // ← NO trim
+        onSendMessage(value, files);
         setDraft('');
-        setFile(null);
+        setFiles([]);
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (event.target.files && event.target.files[0]) {
-            setFile(event.target.files[0]);
+        const selected = Array.from(event.target.files || []);
+        if (selected.length > 0) {
+            setFiles((prev) => [...prev, ...selected]);
+        }
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
         }
     };
 
@@ -382,20 +386,29 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ activeUser, messages, currentUs
             </div>
 
             <footer className="relative border-t border-slate-800/80 bg-slate-900/70 px-6 py-5">
-                {file && (
-                    <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-800/70 bg-slate-900/60 px-4 py-3 text-sm text-slate-200">
-                        <div className="flex items-center gap-3">
-                            <Paperclip className="h-4 w-4 text-indigo-300" />
-                            <span className="truncate max-w-[220px]">{file.name}</span>
-                            <span className="text-xs text-slate-400">{Math.round(file.size / 1024)} KB</span>
-                        </div>
-                        <button
-                            onClick={() => setFile(null)}
-                            className="rounded-full border border-slate-800/70 p-1 text-slate-400 transition-colors hover:border-rose-500/50 hover:text-rose-300"
-                            aria-label="Remove attachment"
-                        >
-                            <X className="h-4 w-4" />
-                        </button>
+                {files.length > 0 && (
+                    <div className="mb-3 space-y-2">
+                        {files.map((file, index) => (
+                            <div
+                                key={`${file.name}-${file.lastModified}-${index}`}
+                                className="flex items-center justify-between rounded-xl border border-slate-800/70 bg-slate-900/60 px-4 py-3 text-sm text-slate-200"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Paperclip className="h-4 w-4 text-indigo-300" />
+                                    <span className="truncate max-w-[220px]">{file.name}</span>
+                                    <span className="text-xs text-slate-400">{Math.round(file.size / 1024)} KB</span>
+                                </div>
+                                <button
+                                    onClick={() =>
+                                        setFiles((prev) => prev.filter((_, fileIndex) => fileIndex !== index))
+                                    }
+                                    className="rounded-full border border-slate-800/70 p-1 text-slate-400 transition-colors hover:border-rose-500/50 hover:text-rose-300"
+                                    aria-label="Remove attachment"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ))}
                     </div>
                 )}
 
@@ -403,6 +416,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ activeUser, messages, currentUs
                     <input
                         type="file"
                         ref={fileInputRef}
+                        multiple
                         onChange={handleFileChange}
                         className="hidden"
                     />
@@ -788,68 +802,82 @@ useEffect(() => {
 // Empty dependency array is okay here due to the functional updates.
     // Effect for handling incoming socket events
 
-    const handleSendMessage = async (content: string, file: File | null) => {
+    const handleSendMessage = async (content: string, files: File[]) => {
         if (!currentUser || !activeDmId) return;
-        if (!content.trim() && !file) return; // allow media-only messages
+        if (!content.trim() && files.length === 0) return;
 
-        // Optimistic update
-        const tempId = `temp-${Date.now()}`;
-        const tempMessage: DirectMessage = {
-            id: tempId,
-            content: content,        
-            sender_id: currentUser.id,
-            receiver_id: activeDmId,
-            timestamp: new Date().toISOString(),
-        };
+        const uploads = (files.length > 0 ? files : [null]).map((file, index) => {
+            const contentForFile = index === 0 ? content : "";
+
+            return {
+                file,
+            content: contentForFile,
+            tempId: `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            optimisticContent: contentForFile
+            };
+        });
 
         setMessages(prev => {
             const newMap = new Map(prev);
             const list = newMap.get(activeDmId) || [];
-            const updated = [...list, tempMessage]; // keep arrival order
+            const updated = [...list];
+
+            uploads.forEach(upload => {
+                updated.push({
+                    id: upload.tempId,
+                    content: upload.optimisticContent,
+                    sender_id: currentUser.id,
+                    receiver_id: activeDmId,
+                    timestamp: new Date().toISOString(),
+                });
+            });
+
             newMap.set(activeDmId, updated);
             return newMap;
         });
 
         // Send via API route only; backend will broadcast via socket
         try {
-            const dmPayload = {
-                sender_id: currentUser.id,
-                receiver_id: activeDmId,
-                message: content,
-                mediaurl: file ?? undefined,
-            };
+            for (const upload of uploads) {
+                const dmPayload = {
+                    sender_id: currentUser.id,
+                    receiver_id: activeDmId,
+                    message: upload.content,
+                    mediaurl: upload.file ?? undefined,
+                };
 
-
-            const saved = await uploaddm(dmPayload);
-            if (!saved) {
-                console.warn("DM upload returned no data");
-            }
-            // Optionally reconcile temp message with saved (id/media_url) if backend doesn't echo quickly
-            if (saved && (saved.id || saved.media_url)) {
-                setMessages(prev => {
-                    const newMap = new Map(prev);
-                    const list = newMap.get(activeDmId) || [];
-                    const idx = list.findIndex(m => m.id === tempId);
-                    if (idx !== -1) {
-                        const next = [...list];
-                        next[idx] = {
-                            ...next[idx],
-                            id: String(saved.id ?? tempId),
-                            media_url: saved.media_url ?? next[idx].media_url ?? null,
-                            content: saved.content ?? saved.message ?? next[idx].content,
-                            timestamp: String(saved.timestamp ?? next[idx].timestamp),
-                        } as DirectMessage;
-                        newMap.set(activeDmId, next);
-                    }
-                    return newMap;
-                });
+                const saved = await uploaddm(dmPayload);
+                if (!saved) {
+                    console.warn("DM upload returned no data");
+                }
+                // Optionally reconcile temp message with saved (id/media_url) if backend doesn't echo quickly
+                if (saved && (saved.id || saved.media_url)) {
+                    setMessages(prev => {
+                        const newMap = new Map(prev);
+                        const list = newMap.get(activeDmId) || [];
+                        const idx = list.findIndex(m => m.id === upload.tempId);
+                        if (idx !== -1) {
+                            const next = [...list];
+                            next[idx] = {
+                                ...next[idx],
+                                id: String(saved.id ?? upload.tempId),
+                                media_url: saved.media_url ?? next[idx].media_url ?? null,
+                                content: saved.content ?? saved.message ?? next[idx].content,
+                                timestamp: String(saved.timestamp ?? next[idx].timestamp),
+                            } as DirectMessage;
+                            newMap.set(activeDmId, next);
+                        }
+                        return newMap;
+                    });
+                }
             }
         } catch (e) {
             console.error("Failed to send DM via API:", e);
-            // Roll back optimistic message on error
+            // Roll back optimistic messages on error
             setMessages(prev => {
                 const newMap = new Map(prev);
-                const list = (newMap.get(activeDmId) || []).filter(m => m.id !== tempId);
+                const tempIds = new Set(uploads.map(upload => upload.tempId));
+                const list = (newMap.get(activeDmId) || []).filter(m => !tempIds.has(m.id));
                 newMap.set(activeDmId, list);
                 return newMap;
             });

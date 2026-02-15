@@ -5,7 +5,7 @@ import { Smile, Send, Paperclip, X } from "lucide-react";
 import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
 
 interface MessageInputProps {
-  sendMessage: (text: string, file: File | null) => void;
+  sendMessage: (text: string, files: File[]) => void;
   isSending: boolean;
 }
 
@@ -14,7 +14,7 @@ export default function MessageInput({
   isSending,
 }: MessageInputProps) {
   const [text, setText] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -39,18 +39,23 @@ export default function MessageInput({
 
   /* -------------------- FILE -------------------- */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (selected) setFile(selected);
+    const selected = Array.from(e.target.files || []);
+    if (selected.length > 0) {
+      setFiles((prev) => [...prev, ...selected]);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   /* -------------------- SEND -------------------- */
   const handleSend = () => {
-    if (!text.trim() && !file) return;
+    if (!text.trim() && files.length === 0) return;
 
-    sendMessage(text.trim(), file);
+    sendMessage(text.trim(), files);
 
     setText("");
-    setFile(null);
+    setFiles([]);
     setShowEmojiPicker(false);
 
     requestAnimationFrame(() => {
@@ -123,18 +128,27 @@ export default function MessageInput({
       )}
 
       {/* File Preview */}
-      {file && (
-        <div className="mb-2 flex items-center bg-white/10 backdrop-blur-md p-2 rounded-lg">
-          <Paperclip className="h-4 w-4 mr-2 text-gray-400" />
-          <span className="text-sm text-white truncate flex-1">
-            {file.name}
-          </span>
-          <button
-            onClick={() => setFile(null)}
-            className="ml-2 text-gray-400 hover:text-white transition"
-          >
-            <X className="h-4 w-4" />
-          </button>
+      {files.length > 0 && (
+        <div className="mb-2 space-y-2">
+          {files.map((file, index) => (
+            <div
+              key={`${file.name}-${file.lastModified}-${index}`}
+              className="flex items-center bg-white/10 backdrop-blur-md p-2 rounded-lg"
+            >
+              <Paperclip className="h-4 w-4 mr-2 text-gray-400" />
+              <span className="text-sm text-white truncate flex-1">
+                {file.name}
+              </span>
+              <button
+                onClick={() =>
+                  setFiles((prev) => prev.filter((_, fileIndex) => fileIndex !== index))
+                }
+                className="ml-2 text-gray-400 hover:text-white transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -147,6 +161,7 @@ export default function MessageInput({
         <input
           ref={fileInputRef}
           type="file"
+          multiple
           className="hidden"
           onChange={handleFileChange}
         />
@@ -187,7 +202,7 @@ export default function MessageInput({
         {/* Send */}
         <button
           onClick={handleSend}
-          disabled={isSending || (!text.trim() && !file)}
+          disabled={isSending || (!text.trim() && files.length === 0)}
           className="bg-blue-600 hover:bg-blue-700 
                      active:scale-95 transition 
                      p-2 rounded-full disabled:opacity-40"

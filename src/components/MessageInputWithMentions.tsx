@@ -39,6 +39,30 @@ interface MessageInputWithMentionsProps {
 }
 
 /* -------------------- COMPONENT -------------------- */
+const UserMentionAvatar: React.FC<{
+  username: string;
+  avatarUrl?: string;
+}> = ({ username, avatarUrl }) => {
+  const [hasError, setHasError] = useState(false);
+  const initials = username?.slice(0, 2).toUpperCase() || "??";
+
+  return (
+    <div className="w-8 h-8 flex-shrink-0 rounded-full overflow-hidden bg-slate-700 border border-slate-600 flex items-center justify-center">
+      {avatarUrl && !hasError ? (
+        <img
+          src={avatarUrl}
+          alt={username}
+          className="w-full h-full object-cover"
+          onError={() => setHasError(true)}
+        />
+      ) : (
+        <span className="text-xs font-semibold uppercase text-slate-300">
+          {initials}
+        </span>
+      )}
+    </div>
+  );
+};
 
 export default function MessageInputWithMentions({
   sendMessage,
@@ -379,17 +403,10 @@ export default function MessageInputWithMentions({
                     }`}
                     onClick={() => insertMention("user", user.username)}
                   >
-                    {user.avatar_url ? (
-                      <img
-                        src={user.avatar_url}
-                        alt={user.username}
-                        className="w-8 h-8 flex-shrink-0 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 flex-shrink-0 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                        {user.username[0].toUpperCase()}
-                      </div>
-                    )}
+                    <UserMentionAvatar
+                      username={user.username}
+                      avatarUrl={user.avatar_url}
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="text-white text-sm font-medium truncate">
                         {user.fullname || user.username}
@@ -404,7 +421,6 @@ export default function MessageInputWithMentions({
                   </div>
                 );
               })}
-
               <div className="px-3 py-1 text-xs text-red-400">Special</div>
               <div
                 className={`px-3 py-3 cursor-pointer flex items-center space-x-3 transition-colors ${
@@ -447,7 +463,9 @@ export default function MessageInputWithMentions({
               </span>
               <button
                 onClick={() =>
-                  setFiles((prev) => prev.filter((_, fileIndex) => fileIndex !== index))
+                  setFiles((prev) =>
+                    prev.filter((_, fileIndex) => fileIndex !== index)
+                  )
                 }
                 className="text-red-400 ml-2"
               >

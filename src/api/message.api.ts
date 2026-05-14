@@ -3,6 +3,21 @@ import {Message} from "./types/message.types";
 import {ApiResponse} from "./types/common.types";
 import {getUser} from "./profile.api"
 
+const DM_CACHE_TTL_MS = 2 * 60 * 1000;
+
+type CachedDmResponse = {
+  data: any;
+  success: boolean;
+};
+
+type CachedDmEntry = {
+  fetchedAt: number;
+  response: CachedDmResponse;
+};
+
+const userDmCache = new Map<string, CachedDmEntry>();
+const userDmInFlight = new Map<string, Promise<CachedDmResponse>>();
+
 //Uploads messages in the channel
 export const uploadMessage = async (payload: {
   file?: File;
@@ -126,19 +141,47 @@ export const fetchMessages = async (
 
 
 //Fetches the DM of the users
-export const getUserDMs = async (): Promise<any> => {
+export const getUserDMs = async (options: { forceRefresh?: boolean; cacheTtlMs?: number } = {}): Promise<any> => {
+  const { forceRefresh = false, cacheTtlMs = DM_CACHE_TTL_MS } = options;
+  let userId: string | null = null;
+
   try {
     const user = await getUser();
     if (!user || !user.id) {
       throw new Error('User not authenticated');
     }
 
-    const response = await apiClient.get(`/api/message/${user.id}/getDms`);
-    
-    return {
-      data: response.data,
-      success: true
-    };
+    userId = user.id;
+
+    const cached = userDmCache.get(userId);
+    if (!forceRefresh && cached && Date.now() - cached.fetchedAt < cacheTtlMs) {
+      return cached.response;
+    }
+
+    const inFlight = userDmInFlight.get(userId);
+    if (!forceRefresh && inFlight) {
+      return inFlight;
+    }
+
+    const request = (async () => {
+      const response = await apiClient.get(`/api/message/${userId}/getDms`);
+
+      const payload = {
+        data: response.data,
+        success: true,
+      };
+
+      userDmCache.set(userId!, {
+        fetchedAt: Date.now(),
+        response: payload,
+      });
+
+      return payload;
+    })();
+
+    userDmInFlight.set(user.id, request);
+
+    return await request;
   } catch (error: any) {
     if (error?.code === "ECONNABORTED") {
       console.error(" Request timed out");
@@ -152,6 +195,10 @@ export const getUserDMs = async (): Promise<any> => {
 
     console.error("Error fetching DMs:", error.message || error);
     throw new Error("Failed to fetch messages. Please try again later.");
+  } finally {
+    if (userId) {
+      userDmInFlight.delete(userId);
+    }
   }
 };
 

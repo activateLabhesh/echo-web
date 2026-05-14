@@ -111,7 +111,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           `}
         >
           {/* Message text */}
-          <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+          <div className="text-sm leading-relaxed whitespace-pre-wrap break-all">
             {messageRenderer
               ? messageRenderer(message.content)
               : message.content}

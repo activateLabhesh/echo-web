@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Smile, Send, Paperclip, X } from "lucide-react";
 import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
+import { useToast } from "@/contexts/ToastContext";
+
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
 interface MessageInputProps {
   sendMessage: (text: string, files: File[]) => void;
@@ -13,6 +16,7 @@ export default function MessageInput({
   sendMessage,
   isSending,
 }: MessageInputProps) {
+  const { showToast } = useToast();
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -40,8 +44,20 @@ export default function MessageInput({
   /* -------------------- FILE -------------------- */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
-    if (selected.length > 0) {
-      setFiles((prev) => [...prev, ...selected]);
+    const validFiles = selected.filter((file) => file.size <= MAX_FILE_SIZE_BYTES);
+    const oversizedFiles = selected.filter(
+      (file) => file.size > MAX_FILE_SIZE_BYTES
+    );
+
+    if (oversizedFiles.length > 0) {
+      showToast(
+        `${oversizedFiles.length} file(s) not added. Max size is 25MB.`,
+        "error"
+      );
+    }
+
+    if (validFiles.length > 0) {
+      setFiles((prev) => [...prev, ...validFiles]);
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";

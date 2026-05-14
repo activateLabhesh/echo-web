@@ -590,7 +590,7 @@ const showVoiceUI =
           <>
             {/* Channel List */}
             <div
-              className={`h-auto overflow-y-auto text-white border-r border-gray-800 bg-black/95 backdrop-blur-[2px] scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-800 overflow-hidden transition-all duration-500 ease-in-out ${
+              className={`h-auto shrink-0 overflow-y-auto text-white border-r border-gray-800 bg-black/95 backdrop-blur-[2px] scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-800 overflow-hidden transition-all duration-500 ease-in-out ${
                 isChannelSidebarCollapsed ? "w-0" : "w-72"
               }`}
             >
@@ -826,7 +826,7 @@ const showVoiceUI =
                   {textChannels.map((channel) => (
                     <div
                       key={channel.id}
-                      className={`flex items-center justify-between p-2 text-sm rounded-md cursor-pointer transition-all ${
+                      className={`flex items-center justify-between p-2 text-sm rounded-md cursor-pointer transition-all min-w-0 ${
                         activeChannel?.id === channel.id && viewMode === "chat"
                           ? "bg-[#2f3136] text-white"
                           : "text-gray-400 hover:bg-[#2f3136] hover:text-white"
@@ -836,7 +836,7 @@ const showVoiceUI =
                         setViewMode("chat");
                       }}
                     >
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-2 flex-1 min-w-0">
                         {channel.is_private ? (
                           <div className="relative w-4 h-4">
                             <FaHashtag size={12} className="absolute inset-0" />
@@ -848,7 +848,9 @@ const showVoiceUI =
                         ) : (
                           <FaHashtag size={12} />
                         )}
-                        {channel.name}
+                        <span className="block min-w-0 break-all whitespace-pre-wrap [overflow-wrap:anywhere] leading-tight">
+                          {channel.name}
+                        </span>
                       </span>
                       {activeChannel?.id === channel.id && viewMode === "chat"}
                     </div>
@@ -967,7 +969,7 @@ const showVoiceUI =
               </div>
             </div>
 
-            <div className="flex-1 relative text-white bg-[radial-gradient(ellipse_at_top,rgba(59,130,246,0.12)_0%,rgba(0,0,0,1)_65%)] flex flex-col">
+            <div className="flex-1 min-w-0 relative text-white bg-[radial-gradient(ellipse_at_top,rgba(59,130,246,0.12)_0%,rgba(0,0,0,1)_65%)] flex flex-col">
               <button
                 onClick={() => setIsChannelSidebarCollapsed((prev) => !prev)}
                 className={`absolute top-4 ${

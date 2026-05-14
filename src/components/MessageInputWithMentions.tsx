@@ -6,6 +6,9 @@ import dynamic from "next/dynamic";
 import type { EmojiClickData } from "emoji-picker-react";
 import { Theme } from "emoji-picker-react";
 import { apiClient } from "@/utils/apiClient";
+import { useToast } from "@/contexts/ToastContext";
+
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
 
 const EmojiPicker = dynamic(
@@ -43,6 +46,7 @@ export default function MessageInputWithMentions({
   serverId,
   serverRoles,
 }: MessageInputWithMentionsProps) {
+  const { showToast } = useToast();
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -132,8 +136,20 @@ export default function MessageInputWithMentions({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
-    if (selected.length > 0) {
-      setFiles((prev) => [...prev, ...selected]);
+    const validFiles = selected.filter((file) => file.size <= MAX_FILE_SIZE_BYTES);
+    const oversizedFiles = selected.filter(
+      (file) => file.size > MAX_FILE_SIZE_BYTES
+    );
+
+    if (oversizedFiles.length > 0) {
+      showToast(
+        `${oversizedFiles.length} file(s) not added. Max size is 25MB.`,
+        "error"
+      );
+    }
+
+    if (validFiles.length > 0) {
+      setFiles((prev) => [...prev, ...validFiles]);
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";

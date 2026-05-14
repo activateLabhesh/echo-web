@@ -173,7 +173,7 @@ export default function NotificationDropdown({
         ref={dropdownRef}
         onClick={(e) => e.stopPropagation()}
         style={dropdownStyle}
-        className={`fixed w-[min(92vw,680px)] max-h-[75vh] flex flex-col bg-[#111214] border border-gray-800 rounded-2xl shadow-2xl transition-all duration-200 ${
+        className={`fixed w-[min(92vw,680px)] max-h-[75vh] min-h-0 flex flex-col bg-[#111214] border border-gray-800 rounded-2xl shadow-2xl transition-all duration-200 ${
           mounted ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
         }`}
       >
@@ -206,7 +206,7 @@ export default function NotificationDropdown({
         </div>
 
         {/* Notifications List */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {loading ? (
             <div className="p-6 text-center text-gray-400">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-500 mx-auto mb-2"></div>

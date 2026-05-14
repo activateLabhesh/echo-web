@@ -13,6 +13,7 @@ import MessageAttachment from './MessageAttachment';
 import Loader from "@/components/Loader";
 import { useMessageNotifications } from '@/contexts/MessageNotificationContext';
 import Toast from "@/components/Toast";
+import { useToast } from "@/contexts/ToastContext";
 import dynamic from "next/dynamic";
 import { Theme } from "emoji-picker-react";
 
@@ -21,6 +22,8 @@ const EmojiPicker = dynamic(
   () => import("emoji-picker-react"),
   { ssr: false }
 );
+
+const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;
 
 
 interface User {
@@ -61,22 +64,6 @@ type GroupedSection = {
         messages: Array<DirectMessage & { timeLabel: string }>;
     }>;
 };
-const MAX_FILE_SIZE_MB = 25;
-const ALLOWED_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "video/mp4",
-  "video/webm",
-  "video/quicktime",
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "text/plain",
-];
 // 1. ChatList Component (Updated to show errors)
 
 interface ChatListProps {
@@ -235,6 +222,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   onSendMessage,
   onFileError,
 }) => {
+  const { showToast } = useToast();
   const [draft, setDraft] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -285,7 +273,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       const avatarUrl = isSender
         ? currentUser?.avatar_url
         : partner?.avatar_url;
-
       let group = section.groups[section.groups.length - 1];
       if (!group || group.senderId !== senderId) {
         group = {
@@ -366,7 +353,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       }
     });
 
-    if (errors.length > 0) onFileError(errors.join("\n"));
+    if (errors.length > 0) {
+      onFileError(errors.join("\n"));
+      showToast(`${errors.length} file(s) not added. Max size is 25MB.`, "error");
+    }
     if (valid.length > 0) setFiles((prev) => [...prev, ...valid]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };

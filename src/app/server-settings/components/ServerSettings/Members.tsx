@@ -10,6 +10,7 @@ import {   getServerMembers,
 import {ServerMember} from "@/api/types/server.types";
 import {SearchUser} from "@/api/types/user.types";
 import {Role} from "@/api/types/roles.types";
+import { useToast } from "@/contexts/ToastContext";
 
 
 
@@ -29,6 +30,7 @@ interface MembersProps {
 }
 
 export default function Members({ serverId, isOwner = false, isAdmin = false }: MembersProps) {
+  const { showToast } = useToast();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
@@ -157,9 +159,10 @@ export default function Members({ serverId, isOwner = false, isAdmin = false }: 
     try {
       await banMember(serverId, memberId, reason);
       setMembers(members.filter((m) => m.id !== memberId));
+      showToast(`${memberUsername} has been banned from the server.`, "success");
     } catch (error) {
       console.error('Failed to ban member:', error);
-      alert('Failed to ban member. Please try again.');
+      showToast('Failed to ban member. Please try again.', "error");
     }
   };
 

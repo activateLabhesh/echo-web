@@ -44,11 +44,9 @@ export default function NotificationBell({ className = "", onNavigateToMessage }
 
     updateAnchor();
     window.addEventListener('resize', updateAnchor);
-    window.addEventListener('scroll', updateAnchor, true);
 
     return () => {
       window.removeEventListener('resize', updateAnchor);
-      window.removeEventListener('scroll', updateAnchor, true);
     };
   }, [showDropdown]);
 

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import { X, Check, CheckCheck, Bell } from 'lucide-react';
 import { getUser } from '@/api';
 import { useNotifications } from '../hooks/useNotifications';
@@ -49,6 +50,7 @@ export default function NotificationDropdown({
   onNavigateToMessage,
   anchorRect
 }: NotificationDropdownProps) {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -303,7 +305,13 @@ export default function NotificationDropdown({
         {/* Footer */}
         {notifications.length > 0 && (
           <div className="p-3 border-t border-gray-800 text-center bg-[#0f1012]">
-            <button className="text-gray-300 hover:text-white text-sm">
+            <button
+              onClick={() => {
+                onClose();
+                router.push('/notifications');
+              }}
+              className="text-gray-300 hover:text-white text-sm"
+            >
               View all notifications
             </button>
           </div>

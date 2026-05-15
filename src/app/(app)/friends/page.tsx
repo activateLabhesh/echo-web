@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { usePageReady } from "@/components/RouteChangeLoader";
 import { FaUserFriends, FaPlus, FaSearch, FaCommentAlt } from "react-icons/fa";
 import { useRouter } from "next/navigation";
@@ -11,7 +11,9 @@ import {
   respondToFriendRequest,
   searchUsers
 } from "@/api";
+import { fetchUserProfile } from "@/api/profile.api";
 import Loader from "@/components/Loader";
+import UserProfileModal from "@/components/UserProfileModal";
 import { useFriendNotifications } from "@/contexts/FriendNotificationContext";
 import {SearchUserResult} from "@/api/types/user.types";
 
@@ -46,6 +48,15 @@ export default function FriendsPage() {
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>();
+  const [selectedUser, setSelectedUser] = useState<{
+    id: string;
+    username: string;
+    avatarUrl: string;
+    about?: string;
+    roles?: string[];
+  } | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([loadFriends(), loadRequests()]).finally(() => {
@@ -53,6 +64,62 @@ export default function FriendsPage() {
       pageReady();
     });
   }, [pageReady]);
+
+  useEffect(() => {
+    const userItem = localStorage.getItem("user");
+    if (!userItem) return;
+    try {
+      const parsed = JSON.parse(userItem);
+      setCurrentUserId(parsed?.id);
+    } catch {
+      setCurrentUserId(undefined);
+    }
+  }, []);
+
+  const openUserProfile = useCallback(
+    async (userId: string, fallbackName?: string, fallbackAvatar?: string) => {
+      if (!userId) return;
+
+      setSelectedUser({
+        id: userId,
+        username: fallbackName || "Unknown User",
+        avatarUrl: fallbackAvatar || "/User_profil.png",
+        about: "Loading bio...",
+        roles: [],
+      });
+      setIsProfileOpen(true);
+
+      try {
+        const profile = await fetchUserProfile(userId);
+        if (!profile) return;
+
+        setSelectedUser((prev) => {
+          if (!prev || prev.id !== userId) return prev;
+          return {
+            id: userId,
+            username:
+              profile.username ||
+              profile.fullname ||
+              fallbackName ||
+              "Unknown User",
+            avatarUrl:
+              profile.avatar_url || fallbackAvatar || "/User_profil.png",
+            about: profile.bio || "No bio yet...",
+            roles: Array.isArray(profile.roles)
+              ? profile.roles
+                  .map((role: any) =>
+                    typeof role === "string" ? role : role?.name
+                  )
+                  .filter(Boolean)
+              : [],
+          };
+        });
+      } catch (profileError) {
+        console.error("Failed to open friend profile:", profileError);
+      }
+    },
+    []
+  );
 
   const loadFriends = async () => {
     try {
@@ -201,7 +268,12 @@ export default function FriendsPage() {
                       key={user.id}
                       className="flex items-center justify-between gap-2 border-b border-gray-800 p-2 last:border-b-0 hover:bg-gray-800"
                     >
-                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <div
+                        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
+                        onClick={() =>
+                          openUserProfile(user.id, user.username, user.avatar_url)
+                        }
+                      >
                         <img
                           src={user.avatar_url || "/avatar.png"}
                           alt={user.username}
@@ -270,7 +342,16 @@ export default function FriendsPage() {
                   key={req.friends_id}
                   className="mt-2 rounded-xl border border-gray-800 bg-gray-900/60 p-3"
                 >
-                  <div className="mb-3 flex items-center gap-2">
+                  <div
+                    className="mb-3 flex cursor-pointer items-center gap-2"
+                    onClick={() =>
+                      openUserProfile(
+                        req.user1_id,
+                        req.user1.username,
+                        req.user1.avatar_url
+                      )
+                    }
+                  >
                     <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-full bg-gray-800 border border-gray-700">
                       {req.user1.avatar_url ? (
                         <img
@@ -346,13 +427,21 @@ export default function FriendsPage() {
                     <img
                       src={f.avatar_url}
                       alt={f.username}
-                      className="h-12 w-12 rounded-xl bg-gray-700 object-cover"
+                      className="h-12 w-12 cursor-pointer rounded-xl bg-gray-700 object-cover"
+                      onClick={() =>
+                        openUserProfile(f.id, f.username, f.avatar_url)
+                      }
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = "/avatar.png";
                       }}
                     />
-                    <div className="min-w-0 flex-1">
+                    <div
+                      className="min-w-0 flex-1 cursor-pointer"
+                      onClick={() =>
+                        openUserProfile(f.id, f.username, f.avatar_url)
+                      }
+                    >
                       <div className="truncate text-base font-semibold">
                         {f.username}
                       </div>
@@ -386,6 +475,13 @@ export default function FriendsPage() {
           )}
         </div>
       </div>
+
+      <UserProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        user={selectedUser}
+        currentUserId={currentUserId}
+      />
     </div>
   );
 }

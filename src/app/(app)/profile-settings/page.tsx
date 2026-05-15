@@ -8,6 +8,8 @@ import { apiClient } from "@/api/axios";
 import { useUser } from "@/components/UserContext";
 import Loader from "@/components/Loader";
 
+const BIO_MAX_LENGTH = 100;
+
 export default function ProfilePage() {
   const router = useRouter();
   const { setUser } = useUser();
@@ -29,6 +31,7 @@ export default function ProfilePage() {
 
   const [changed, setChanged] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [lastBioLimitToastAt, setLastBioLimitToastAt] = useState(0);
 
 
   const avatarInput = useRef<HTMLInputElement | null>(null);
@@ -39,6 +42,13 @@ export default function ProfilePage() {
   const showToast = (message: string) => {
     setToast(message);
     setTimeout(() => setToast(null), 2500);
+  };
+
+  const showBioLimitToast = () => {
+    const now = Date.now();
+    if (now - lastBioLimitToastAt < 1200) return;
+    setLastBioLimitToastAt(now);
+    showToast("Bio cannot exceed 100 characters.");
   };
 
 
@@ -52,7 +62,7 @@ export default function ProfilePage() {
 
        setDisplayName(profile.fullname || "");
        setUsername(profile.username || "");
-       setAbout(profile.bio || "");
+      setAbout((profile.bio || "").slice(0, BIO_MAX_LENGTH));
        setEmail(profile.email || "");
        setAvatar(profile.avatar_url || "/User_profil.png");
 
@@ -68,8 +78,6 @@ export default function ProfilePage() {
    fetchProfile();
  }, [setUser]);
 
-
-  /* ================= TRACK CHANGES ================= */
   useEffect(() => {
     if (!loading) setChanged(true);
   }, [displayName, about, avatarFile, loading]);
@@ -106,7 +114,7 @@ export default function ProfilePage() {
    try {
      const formData = new FormData();
      formData.append("fullname", displayName);
-     formData.append("bio", about);
+    formData.append("bio", about.slice(0, BIO_MAX_LENGTH));
      if (avatarFile) formData.append("avatar", avatarFile);
 
      const res = await apiClient.patch("/api/profile/updateProfile", formData, {
@@ -154,7 +162,6 @@ export default function ProfilePage() {
       )}
 
       <div className="w-full max-w-6xl mx-auto grid md:grid-cols-2 gap-16">
-        {/* LEFT — Identity / Hero */}
         <div className="space-y-12 h-full flex flex-col">
           <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-white/10">
             <div
@@ -221,20 +228,38 @@ export default function ProfilePage() {
               ref={aboutTextareaRef}
               value={about}
               readOnly={!editing.about}
-              onChange={(e) => setAbout(e.target.value)}
-              onBlur={() => setEditing((p) => ({ ...p, about: false }))}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (next.length > BIO_MAX_LENGTH) {
+                  showBioLimitToast();
+                  setAbout(next.slice(0, BIO_MAX_LENGTH));
+                  return;
+                }
+                setAbout(next);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
                   setAbout(prevAbout);
                   setEditing((p) => ({ ...p, about: false }));
+                  return;
+                }
+
+                const isModifier = e.ctrlKey || e.metaKey || e.altKey;
+                const isSingleCharKey = e.key.length === 1;
+                if (!isModifier && isSingleCharKey && about.length >= BIO_MAX_LENGTH) {
+                  e.preventDefault();
+                  showBioLimitToast();
                 }
               }}
+              onBlur={() => setEditing((p) => ({ ...p, about: false }))}
               className="w-full flex-1 resize-none p-5 rounded-2xl bg-[#1f2937] text-white border border-white/20 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             />
+            <div className="mt-2 text-right text-xs text-gray-400">
+              {about.length}/{BIO_MAX_LENGTH}
+            </div>
           </div>
         </div>
 
-        {/* RIGHT — Settings Panel */}
         <div className="relative rounded-3xl bg-white/5 border border-white/10 backdrop-blur-xl p-10 shadow-xl space-y-12">
           <div>
             <div className="flex justify-between items-center">

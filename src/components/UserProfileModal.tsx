@@ -25,6 +25,7 @@ export default function UserProfileModal({
   currentUserId,
 }: UserProfileModalProps) {
   const router = useRouter();
+  const bioText = (user?.about || "No bio yet...").slice(0, 100);
 
   // console.log("UserProfileModal render:", { isOpen, user, currentUserId });
 
@@ -82,7 +83,7 @@ export default function UserProfileModal({
     </h3>
 
     <p className="text-sm text-gray-300 text-center break-words max-h-24 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600">
-      {user.about || "No bio yet..."}
+      {bioText}
     </p>
   </div>
 

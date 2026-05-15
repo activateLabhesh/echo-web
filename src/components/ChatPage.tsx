@@ -16,6 +16,7 @@ import Toast from "@/components/Toast";
 import { useToast } from "@/contexts/ToastContext";
 import dynamic from "next/dynamic";
 import { Theme } from "emoji-picker-react";
+import UserProfileModal from "./UserProfileModal";
 
 
 const EmojiPicker = dynamic(
@@ -211,6 +212,7 @@ interface ChatWindowProps {
   allUsers: User[];
   onSendMessage: (message: string, files: File[]) => void;
   onFileError: (msg: string) => void;
+  onOpenProfile: (userId: string, fallbackName?: string, fallbackAvatar?: string) => void;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -221,6 +223,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   allUsers,
   onSendMessage,
   onFileError,
+  onOpenProfile,
 }) => {
   const { showToast } = useToast();
   const [draft, setDraft] = useState("");
@@ -411,16 +414,41 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
               <img
                 src={activeUser.avatar_url}
                 alt={activeUser.fullname}
-                className="h-full w-full object-cover"
+                className="h-full w-full cursor-pointer object-cover"
+                onClick={() =>
+                  onOpenProfile(
+                    activeUser.id,
+                    activeUser.fullname,
+                    activeUser.avatar_url
+                  )
+                }
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-sm font-semibold uppercase text-slate-200">
+              <div
+                onClick={() =>
+                  onOpenProfile(
+                    activeUser.id,
+                    activeUser.fullname,
+                    activeUser.avatar_url
+                  )
+                }
+                className="flex h-full w-full cursor-pointer items-center justify-center text-sm font-semibold uppercase text-slate-200"
+              >
                 {getInitials(activeUser.fullname)}
               </div>
             )}
           </div>
           <div>
-            <h3 className="text-base font-semibold text-slate-100">
+            <h3
+              onClick={() =>
+                onOpenProfile(
+                  activeUser.id,
+                  activeUser.fullname,
+                  activeUser.avatar_url
+                )
+              }
+              className="text-base font-semibold text-slate-100 cursor-pointer hover:text-white"
+            >
               {activeUser.fullname}
             </h3>
             <p className="text-xs text-slate-400">
@@ -473,6 +501,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                             : undefined
                         }
                         avatarUrl={group.avatarUrl}
+                        onProfileClick={
+                          group.isSender
+                            ? undefined
+                            : () =>
+                                onOpenProfile(
+                                  group.senderId,
+                                  group.name,
+                                  group.avatarUrl
+                                )
+                        }
                       >
                         {msg.media_url && (
                           <MessageAttachment media_url={msg.media_url} />
@@ -600,6 +638,14 @@ function MessagesPageContentInner() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
       const [fileError, setFileError] = useState<string | null>(null);
+    const [selectedUser, setSelectedUser] = useState<{
+      id: string;
+      username: string;
+      avatarUrl: string;
+      about?: string;
+      roles?: string[];
+    } | null>(null);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
     const pageReady = usePageReady();
 
 const socketRef = useRef<Socket | null>(null);
@@ -1038,6 +1084,49 @@ useEffect(() => {
         setActiveDmId(userId);
         router.push(`/messages?dm=${userId}`);
     }, [router]);
+
+    const openUserProfile = useCallback(
+      async (userId: string, fallbackName?: string, fallbackAvatar?: string) => {
+        if (!userId) return;
+
+        setSelectedUser({
+          id: userId,
+          username: fallbackName || "Unknown User",
+          avatarUrl: fallbackAvatar || "/User_profil.png",
+          about: "Loading bio...",
+          roles: [],
+        });
+        setIsProfileOpen(true);
+
+        try {
+          const profile = await fetchUserProfile(userId);
+          if (!profile) return;
+
+          setSelectedUser((prev) => {
+            if (!prev || prev.id !== userId) return prev;
+            return {
+              id: userId,
+              username:
+                profile.username ||
+                profile.fullname ||
+                fallbackName ||
+                "Unknown User",
+              avatarUrl:
+                profile.avatar_url || fallbackAvatar || "/User_profil.png",
+              about: profile.bio || "No bio yet...",
+              roles: Array.isArray(profile.roles)
+                ? profile.roles.map((role: any) =>
+                    typeof role === "string" ? role : role?.name
+                  ).filter(Boolean)
+                : [],
+            };
+          });
+        } catch (profileError) {
+          console.error("Failed to open DM user profile:", profileError);
+        }
+      },
+      []
+    );
     
     // Mark thread as read when user opens a DM
     useEffect(() => {
@@ -1175,9 +1264,17 @@ useEffect(() => {
               allUsers={allUsers}
               onSendMessage={handleSendMessage}
               onFileError={(msg) => setFileError(msg)}
+              onOpenProfile={openUserProfile}
             />
           </div>
         </div>
+
+        <UserProfileModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          user={selectedUser}
+          currentUserId={currentUser?.id}
+        />
       </div>
     );
 }

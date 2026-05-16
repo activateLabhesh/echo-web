@@ -266,9 +266,10 @@ export default forwardRef(function ChatWindow(
     if (!container) return;
 
     // Check if user is at bottom (within 150px)
-    const isNearBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight <
-      150;
+   const replyBarHeight = replyingTo ? 52 : 0;
+   const isNearBottom =
+     container.scrollHeight - container.scrollTop - container.clientHeight <
+     150 + replyBarHeight;
 
     // Only auto-scroll if user is already at bottom
     if (isNearBottom) {
@@ -276,7 +277,7 @@ export default forwardRef(function ChatWindow(
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       });
     }
-  }, [messages, loadingMessages]);
+  }, [messages, loadingMessages,replyingTo]);
 
   // Seed valid usernames for mention validation
   useEffect(() => {
@@ -1495,6 +1496,9 @@ const handleScroll = useCallback(() => {
         file: file || undefined,
       });
       setReplyingTo(null);
+       requestAnimationFrame(() => {
+         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+       });
       console.log("[Upload Message] Response:", response);
 
       setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
@@ -1580,7 +1584,6 @@ const handleScroll = useCallback(() => {
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
               <div className="mx-auto mb-4 w-8 h-8 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
-            
             </div>
           </div>
         ) : isInitialLoadDone && !loadingMessages && messages.length === 0 ? (
@@ -1696,7 +1699,14 @@ const handleScroll = useCallback(() => {
               : <span className="italic">{replyingTo.content}</span>
             </div>
             <button
-              onClick={() => setReplyingTo(null)}
+              onClick={() => {
+                setReplyingTo(null);
+                requestAnimationFrame(() => {
+                  messagesEndRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                  });
+                });
+              }}
               className="ml-3 text-slate-400 hover:text-white"
             >
               ✕

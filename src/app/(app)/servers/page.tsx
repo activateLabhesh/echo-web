@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect, Suspense, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { usePageReady } from "@/components/RouteChangeLoader";

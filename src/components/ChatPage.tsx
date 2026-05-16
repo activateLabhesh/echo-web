@@ -43,6 +43,7 @@ interface DirectMessage {
     timestamp: string;
     thread_id?: string;
     media_url?: string | null;
+    media_type?: string;
 }
 
 const getInitials = (name: string = "") => {
@@ -513,7 +514,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                         }
                       >
                         {msg.media_url && (
-                          <MessageAttachment media_url={msg.media_url} />
+                          <MessageAttachment media_url={msg.media_url} media_type={msg.media_type} />
                         )}
                       </MessageBubble>
                     ))}
@@ -705,6 +706,7 @@ useEffect(() => {
             receiver_id: receiver,
             timestamp: String(incoming.timestamp ?? new Date().toISOString()),
             media_url: incoming.media_url ?? incoming.mediaUrl ?? null,
+            media_type: incoming.media_type,
             };
 
             const selfId = currentUser?.id;
@@ -872,7 +874,8 @@ useEffect(() => {
                                         receiver_id: String(m.receiver_id ?? m.receiverId ?? other.id),
                                         timestamp: String(m.timestamp ?? new Date().toISOString()),
                                         thread_id: m.thread_id,
-                                        media_url: m.media_url ?? null,
+                                        media_url: m.media_url ?? m.mediaUrl ?? null,
+                                        media_type: m.media_type,
                                     }))
                                     .sort((a: DirectMessage, b: DirectMessage) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
                                 messagesMap.set(String(other.id), sorted);
@@ -890,7 +893,8 @@ useEffect(() => {
                                         receiver_id: String(m.receiver_id ?? m.receiverId ?? rid),
                                         timestamp: String(m.timestamp ?? new Date().toISOString()),
                                         thread_id: m.thread_id,
-                                        media_url: m.media_url ?? null,
+                                        media_url: m.media_url ?? m.mediaUrl ?? null,
+                                        media_type: m.media_type,
                                     }))
                                     .sort((a: DirectMessage, b: DirectMessage) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
                                 messagesMap.set(rid, sorted);
@@ -1023,7 +1027,8 @@ useEffect(() => {
                 timestamp: new Date().toISOString(),
                 media_url: upload.file
                   ? URL.createObjectURL(upload.file)
-                  : null, 
+                  : null,
+                media_type: upload.file?.type || undefined,
               });
             });
 
@@ -1047,7 +1052,7 @@ useEffect(() => {
                 }
                 invalidateDmCacheForCurrentUser();
                 // Optionally reconcile temp message with saved (id/media_url) if backend doesn't echo quickly
-                if (saved && (saved.id || saved.media_url)) {
+                if (saved && (saved.id || saved.media_url || saved.mediaUrl)) {
                     setMessages(prev => {
                         const newMap = new Map(prev);
                         const list = newMap.get(activeDmId) || [];
@@ -1057,7 +1062,8 @@ useEffect(() => {
                             next[idx] = {
                                 ...next[idx],
                                 id: String(saved.id ?? upload.tempId),
-                                media_url: saved.media_url ?? next[idx].media_url ?? null,
+                                media_url: saved.media_url ?? saved.mediaUrl ?? next[idx].media_url ?? null,
+                                media_type: saved.media_type ?? next[idx].media_type,
                                 content: saved.content ?? saved.message ?? next[idx].content,
                                 timestamp: String(saved.timestamp ?? next[idx].timestamp),
                             } as DirectMessage;

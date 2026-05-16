@@ -164,12 +164,12 @@ export default function Sidebar() {
     >
       {/* Background */}
       <div
-  className="absolute inset-0 z-0 bg-no-repeat bg-cover opacity-90 border-r border-gray-800"
-/>
+        className="absolute inset-0 z-0 bg-no-repeat bg-cover opacity-90 border-r border-gray-800 pointer-events-none"
+      />
 
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col h-full justify-between">
+      <div className="relative flex flex-col h-full justify-between">
         {/* Top Section */}
         <div>
           <div className="flex items-center justify-between p-4">

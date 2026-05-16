@@ -1,52 +1,41 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useImageModal } from '@/contexts/ImageModalContext';
 
 interface MessageAttachmentProps {
   media_url: string;
+  media_type?: string;
 }
 
-export default function MessageAttachment({ media_url }: MessageAttachmentProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+export default function MessageAttachment({ media_url, media_type }: MessageAttachmentProps) {
+  const { openImage } = useImageModal();
 
   if (!media_url) return null;
 
-  // Extract file extension from URL (remove query params first)
+  // Check if it's a blob URL (from local file uploads) or has image extension
+  const isBlobUrl = media_url.startsWith('blob:');
   const ext = media_url.split('?')[0].split('.').pop()?.toLowerCase() || '';
   const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
   
-  if (imageExts.includes(ext)) {
+  // Determine if this is an image
+  const isImage = isBlobUrl || imageExts.includes(ext) || (media_type && media_type.startsWith('image/'));
+  
+  if (isImage) {
     return (
       <>
+        {/* Thumbnail - Square constrained display like WhatsApp */}
         <img 
           src={media_url} 
           alt="attachment" 
-          className="max-w-60 rounded-lg object-cover border border-white/20 cursor-pointer"
+          className="w-40 h-40 rounded-lg object-cover border border-white/20 cursor-pointer hover:opacity-90 transition-opacity"
           loading="lazy"
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => openImage(media_url)}
           onError={(e) => {
             console.error('Failed to load image:', media_url);
             e.currentTarget.style.display = 'none';
           }}
         />
-        {isModalOpen && (
-          <div 
-            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center"
-            onClick={() => setIsModalOpen(false)}
-          >
-            <img 
-              src={media_url} 
-              alt="attachment full-size" 
-              className="max-w-[95vw] max-h-[95vh] object-contain"
-            />
-            <button 
-              className="absolute top-4 right-4 text-white text-2xl font-bold"
-              onClick={() => setIsModalOpen(false)}
-            >
-              &times;
-            </button>
-          </div>
-        )}
       </>
     );
   }

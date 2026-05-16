@@ -135,7 +135,7 @@ api.interceptors.response.use(
       localStorage.removeItem("tokenExpiry");
       localStorage.removeItem("user");
       sessionStorage.setItem("skipGlobalLoader", "1");
-      window.location.href = "/login";
+      window.location.href = "/";
       
       return Promise.reject(refreshError);
     } finally {

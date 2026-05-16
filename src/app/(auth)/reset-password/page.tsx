@@ -94,7 +94,7 @@ function ResetPasswordContent() {
             // Sign out to clear the recovery session
             await supabase.auth.signOut();
             
-            setTimeout(() => router.push('/login'), 2000);
+            setTimeout(() => router.push('/'), 2000);
         } catch (err: any) {
             setMessage(err?.response?.data?.message || 'Reset failed. Try again.');
         }
@@ -188,7 +188,7 @@ function ResetPasswordContent() {
                     )}
 
                     <div className="mt-6 text-center">
-                        <Link href="/login" className="text-[#FFC341] text-sm hover:underline">
+                        <Link href="/" className="text-[#FFC341] text-sm hover:underline">
                             Back to Login
                         </Link>
                     </div>

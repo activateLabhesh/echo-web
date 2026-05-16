@@ -110,6 +110,11 @@ export default forwardRef(function ChatWindow(
   const [micOn, setMicOn] = useState<boolean>(true);
   const [camOn, setCamOn] = useState<boolean>(true);
   const [isSending, setIsSending] = useState(false);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "info" | "success" | "error";
+    key: number;
+  } | null>(null);
   const [currentUserAvatar, setCurrentUserAvatar] =
     useState<string>("/User_profil.png");
   const isLoadingMoreRef = useRef(false);
@@ -1510,13 +1515,37 @@ const handleScroll = useCallback(() => {
       if (err?.response?.status === 403) {
         setPermissionError(errorMessage);
         setTimeout(() => setPermissionError(null), 5000);
-      } else {
-        alert(`Upload failed: ${errorMessage}`);
+      }  else {
+        setToast({
+          message: `Upload failed: size exceeded`,
+          type: "error",
+          key: Date.now(),
+        });
       }
 
       setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
     }
   };
+
+  const MAX_FILE_SIZE_MB = 25;
+  const ALLOWED_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "video/mp4",
+    "video/webm",
+    "video/quicktime",
+    "video/x-msvideo",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/plain",
+    "text/csv",
+  ];
 
   const handleSend = async (text: string, files: File[]) => {
     const normalizedText = text.trim();
@@ -1524,15 +1553,41 @@ const handleScroll = useCallback(() => {
 
     if (!normalizedText && fileList.length === 0) return;
 
+    const annotated = fileList.map((file) => {
+      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024)
+        return {
+          file,
+          valid: false,
+          errorReason: `Too large (max ${MAX_FILE_SIZE_MB} MB)`,
+        };
+      if (!ALLOWED_TYPES.includes(file.type))
+        return { file, valid: false, errorReason: "Unsupported file type" };
+      return { file, valid: true, errorReason: undefined };
+    });
+
+    const invalid = annotated.filter((f) => !f.valid);
+    if (invalid.length > 0) {
+      setToast({
+        message: invalid
+          .map((f) => `"${f.file.name}": ${f.errorReason}`)
+          .join("\n"),
+        type: "error",
+        key: Date.now(),
+      });
+    }
+
+    const validFiles = annotated.filter((f) => f.valid).map((f) => f.file);
+    if (!normalizedText && validFiles.length === 0) return;
+
     setIsSending(true);
 
     try {
-      if (fileList.length === 0) {
+      if (validFiles.length === 0) {
         await sendSingleMessage(normalizedText, null);
         return;
       }
 
-      const [firstFile, ...restFiles] = fileList;
+      const [firstFile, ...restFiles] = validFiles;
       await sendSingleMessage(normalizedText, firstFile);
 
       for (const file of restFiles) {
@@ -1542,9 +1597,19 @@ const handleScroll = useCallback(() => {
       setIsSending(false);
     }
   };
-
   return (
     <div className="flex flex-col flex-1 h-full w-full overflow-hidden">
+      {toast && (
+        <div className="fixed top-6 right-6 z-[9999]">
+          <Toast
+            key={toast.key}
+            message={toast.message}
+            type={toast.type}
+            duration={4000}
+            onClose={() => setToast(null)}
+          />
+        </div>
+      )}
       {(localStream || (remoteStreams && remoteStreams.length > 0)) && (
         <div className="p-4 pb-0 h-96 flex-shrink-0">
           <div className="relative w-full h-full">

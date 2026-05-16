@@ -158,27 +158,50 @@ export default function MessageInputWithMentions({
 
   
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files || []);
-    const validFiles = selected.filter((file) => file.size <= MAX_FILE_SIZE_BYTES);
-    const oversizedFiles = selected.filter(
-      (file) => file.size > MAX_FILE_SIZE_BYTES
-    );
+ const ALLOWED_TYPES = [
+   "image/jpeg",
+   "image/png",
+   "image/gif",
+   "image/webp",
+   "image/svg+xml",
+   "video/mp4",
+   "video/webm",
+   "video/quicktime",
+   "video/x-msvideo",
+   "application/pdf",
+   "application/msword",
+   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+   "application/vnd.ms-excel",
+   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+   "text/plain",
+   "text/csv",
+ ];
 
-    if (oversizedFiles.length > 0) {
-      showToast(
-        `${oversizedFiles.length} file(s) not added. Max size is 25MB.`,
-        "error"
-      );
-    }
+ const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+   const selected = Array.from(e.target.files || []);
+   const annotated = selected.map((file) => {
+     if (file.size > MAX_FILE_SIZE_BYTES)
+       return { file, valid: false, errorReason: "Too large (max 25 MB)" };
+     if (!ALLOWED_TYPES.includes(file.type))
+       return { file, valid: false, errorReason: "Unsupported file type" };
+     return { file, valid: true, errorReason: undefined };
+   });
 
-    if (validFiles.length > 0) {
-      setFiles((prev) => [...prev, ...validFiles]);
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
+   const invalid = annotated.filter((f) => !f.valid);
+   if (invalid.length > 0) {
+     showToast(
+       invalid.map((f) => `"${f.file.name}": ${f.errorReason}`).join("\n"),
+       "error"
+     );
+   }
+
+   setFiles((prev) => [
+     ...prev,
+     ...annotated.filter((f) => f.valid).map((f) => f.file),
+   ]);
+
+   if (fileInputRef.current) fileInputRef.current.value = "";
+ };
 
   const validateRoleMentions = (message: string) => {
     const roleMentionRegex = /@&([a-zA-Z0-9_ ]+?)(?=\s|$)/g;
@@ -218,6 +241,7 @@ export default function MessageInputWithMentions({
 
  
 };
+
   
 
   const searchMentionable = async (query: string) => {
@@ -492,6 +516,7 @@ export default function MessageInputWithMentions({
           type="file"
           multiple
           className="hidden"
+          accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,video/mp4,video/webm,video/quicktime,video/x-msvideo,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
           onChange={handleFileChange}
         />
 

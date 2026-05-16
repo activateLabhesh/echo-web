@@ -45,6 +45,11 @@ interface DirectMessage {
     media_url?: string | null;
     media_type?: string;
 }
+interface SelectedFile {
+  file: File;
+  valid: boolean;
+  errorReason?: string;
+}
 
 const getInitials = (name: string = "") => {
     return name
@@ -230,7 +235,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [draft, setDraft] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
-  const [files, setFiles] = useState<File[]>([]);
+  interface SelectedFile {
+    file: File;
+    valid: boolean;
+    errorReason?: string;
+  }
+  const [files, setFiles] = useState<SelectedFile[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -309,13 +319,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     dayFormatter,
     timeFormatter,
   ]);
-
-  const handleSend = (value: string) => {
-    if (value.length === 0 && files.length === 0) return; // ← NO trim
-    onSendMessage(value, files);
-    setDraft("");
-    setFiles([]);
-  };
+const canSend = draft.length > 0 || files.some((f) => f.valid);
+ const handleSend = (value: string) => {
+   const validFiles = files.filter((f) => f.valid).map((f) => f.file);
+   if (value.length === 0 && validFiles.length === 0) return;
+   onSendMessage(value, validFiles);
+   setDraft("");
+   setFiles([]);
+ };
 
   const MAX_FILE_SIZE_MB = 25;
   const ALLOWED_TYPES = [
@@ -342,26 +353,25 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(event.target.files || []);
-    const valid: File[] = [];
-    const errors: string[] = [];
-
-    selected.forEach((file) => {
-      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-        errors.push(
-          `"${file.name}" is too large (max ${MAX_FILE_SIZE_MB} MB).`
-        );
-      } else if (!ALLOWED_TYPES.includes(file.type)) {
-        errors.push(`"${file.name}" — unsupported type. ${ALLOWED_LABEL}.`);
-      } else {
-        valid.push(file);
-      }
+    const annotated: SelectedFile[] = selected.map((file) => {
+      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024)
+        return {
+          file,
+          valid: false,
+          errorReason: `Too large (max ${MAX_FILE_SIZE_MB} MB)`,
+        };
+      if (!ALLOWED_TYPES.includes(file.type))
+        return { file, valid: false, errorReason: "Unsupported file type" };
+      return { file, valid: true };
     });
-
-    if (errors.length > 0) {
-      onFileError(errors.join("\n"));
-      showToast(`${errors.length} file(s) not added. Max size is 25MB.`, "error");
+    const invalid = annotated.filter((f) => !f.valid);
+    if (invalid.length > 0) {
+      showToast(
+        invalid.map((f) => `"${f.file.name}": ${f.errorReason}`).join("\n"),
+        "error"
+      );
     }
-    if (valid.length > 0) setFiles((prev) => [...prev, ...valid]);
+    setFiles((prev) => [...prev, ...annotated]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
   useEffect(() => {
@@ -530,25 +540,35 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       <footer className="relative border-t border-slate-800/80 bg-slate-900/70 px-6 py-5">
         {files.length > 0 && (
           <div className="mb-3 space-y-2">
-            {files.map((file, index) => (
+            {files.map((entry, index) => (
               <div
-                key={`${file.name}-${file.lastModified}-${index}`}
-                className="flex items-center justify-between rounded-xl border border-slate-800/70 bg-slate-900/60 px-4 py-3 text-sm text-slate-200"
+                key={`${entry.file.name}-${entry.file.lastModified}-${index}`}
+                className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm ${
+                  entry.valid
+                    ? "border-slate-800/70 bg-slate-900/60 text-slate-200"
+                    : "border-rose-500/30 bg-rose-950/30 text-slate-500 opacity-60"
+                }`}
               >
                 <div className="flex items-center gap-3">
-                  <Paperclip className="h-4 w-4 text-indigo-300" />
-                  <span className="truncate max-w-[220px]">{file.name}</span>
-                  <span className="text-xs text-slate-400">
-                    {Math.round(file.size / 1024)} KB
+                  <Paperclip
+                    className={`h-4 w-4 ${
+                      entry.valid ? "text-indigo-300" : "text-slate-600"
+                    }`}
+                  />
+                  <span className="truncate max-w-[220px]">
+                    {entry.file.name}
+                  </span>
+                  <span className="text-xs">
+                    {entry.valid
+                      ? `${Math.round(entry.file.size / 1024)} KB`
+                      : entry.errorReason}
                   </span>
                 </div>
                 <button
                   onClick={() =>
-                    setFiles((prev) =>
-                      prev.filter((_, fileIndex) => fileIndex !== index)
-                    )
+                    setFiles((prev) => prev.filter((_, i) => i !== index))
                   }
-                  className="rounded-full border border-slate-800/70 p-1 text-slate-400 transition-colors hover:border-rose-500/50 hover:text-rose-300"
+                  className="rounded-full border border-slate-800/70 p1 text-slate-400 transition-colors hover:border-rose-500/50 hover:text-rose-300"
                   aria-label="Remove attachment"
                 >
                   <X className="h-4 w-4" />
@@ -612,7 +632,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
           <button
             onClick={() => handleSend(draft)}
-            className="flex items-center gap-2 rounded-full bg-indigo-500/90 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-400"
+            disabled={!canSend}
+            className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white transition ${
+              canSend
+                ? "bg-indigo-500/90 hover:bg-indigo-400"
+                : "bg-slate-700/50 text-slate-500 cursor-not-allowed"
+            }`}
           >
             <span>Send</span>
             <Send className="h-4 w-4" />

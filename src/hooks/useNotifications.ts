@@ -89,6 +89,15 @@ const ensureSocket = async () => {
       }
     });
 
+    sharedSocket.on('new_notification', (data?: { count?: number }) => {
+      if (data?.count !== undefined) {
+        setSharedUnreadCount(data.count);
+      } else {
+        setSharedUnreadCount((prev) => prev + 1);
+      }
+      void fetchUnreadCountFromServer();
+    });
+
     sharedSocket.on('mention_marked_read', (notificationId: string) => {
       setSharedNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))

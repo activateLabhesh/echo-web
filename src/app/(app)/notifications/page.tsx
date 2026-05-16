@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePageReady } from "@/components/RouteChangeLoader";
 import { Bell, CheckCheck, Check } from 'lucide-react';
 import { getUser } from '@/api';
@@ -40,7 +40,8 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
-  const { markAsRead, markAllAsRead } = useNotifications();
+  const { notifications: realtimeNotifications, unreadCount: realtimeUnreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const lastRealtimeNotificationCountRef = useRef(0);
   const [toast, setToast] = useState<{
     message: string;
     type: "info" | "success" | "error";
@@ -50,6 +51,13 @@ export default function NotificationsPage() {
   useEffect(() => {
     loadNotifications();
   }, []);
+
+  useEffect(() => {
+    if (realtimeNotifications.length > lastRealtimeNotificationCountRef.current) {
+      void loadNotifications();
+    }
+    lastRealtimeNotificationCountRef.current = realtimeNotifications.length;
+  }, [realtimeNotifications.length]);
 
   const loadNotifications = async () => {
     try {
@@ -141,7 +149,10 @@ export default function NotificationsPage() {
       ? notifications.filter((n) => !n.is_read)
       : notifications;
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const unreadCount = Math.max(
+    notifications.filter((n) => !n.is_read).length,
+    realtimeUnreadCount
+  );
 
 
 

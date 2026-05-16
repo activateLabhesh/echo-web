@@ -24,7 +24,6 @@ import { useEffect, useState } from "react";
 import { useNotifications } from "../hooks/useNotifications";
 import { useFriendNotifications } from "../contexts/FriendNotificationContext";
 import { useMessageNotifications } from "../contexts/MessageNotificationContext";
-import { createAuthSocket } from "@/socket";
 
 const navItems = [
   { label: "Servers", icon: Users, path: "/servers" },
@@ -42,7 +41,7 @@ export default function Sidebar() {
   const [error, setError] = useState<string | null>(null);
 
   // ✅ Get values directly from hooks (no refreshCount needed)
-  const { unreadCount, setUnreadCount } = useNotifications();
+  const { unreadCount } = useNotifications();
   const { friendRequestCount, refreshCount: refreshFriendCount } =
     useFriendNotifications();
   const { unreadMessageCount, refreshCount: refreshMessageCount } =
@@ -57,51 +56,6 @@ export default function Sidebar() {
     }
     // Notifications page will handle its own refresh
   };
-
-  // ✅ WebSocket-based real-time updates
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const socket = createAuthSocket(user.id);
-
-    // Listen for real-time notification events
-    socket.on("new_notification", (data?: { count?: number }) => {
-      console.log("📬 New notification received", data);
-
-      // If backend sends the new count, use it
-      if (data?.count !== undefined) {
-        setUnreadCount(data.count);
-      } else {
-        // Otherwise increment locally
-        setUnreadCount((prev) => prev + 1);
-      }
-    });
-
-    socket.on("new_message", () => {
-      console.log("💬 New message received");
-      // Message notifications context will handle its own update
-      refreshMessageCount?.();
-    });
-
-    socket.on("friend_request", () => {
-      console.log("👋 New friend request received");
-      refreshFriendCount?.();
-    });
-
-    socket.on("friend_request_accepted", () => {
-      console.log("✅ Friend request accepted");
-      refreshFriendCount?.();
-    });
-
-    // Cleanup on unmount
-    return () => {
-      socket.off("new_notification");
-      socket.off("new_message");
-      socket.off("friend_request");
-      socket.off("friend_request_accepted");
-      socket.disconnect();
-    };
-  }, [user?.id, setUnreadCount, refreshFriendCount, refreshMessageCount]);
 
   // ✅ Refresh counts when window regains focus
   useEffect(() => {
@@ -164,12 +118,12 @@ export default function Sidebar() {
     >
       {/* Background */}
       <div
-        className="absolute inset-0 z-0 bg-no-repeat bg-cover opacity-90 border-r border-gray-800 pointer-events-none"
-      />
+  className="absolute inset-0 z-0 bg-no-repeat bg-cover opacity-90 border-r border-gray-800"
+/>
 
 
       {/* Content */}
-      <div className="relative flex flex-col h-full justify-between">
+      <div className="relative z-10 flex flex-col h-full justify-between">
         {/* Top Section */}
         <div>
           <div className="flex items-center justify-between p-4">
@@ -199,7 +153,6 @@ export default function Sidebar() {
             {navItems.map((item) => {
               const isActive = pathname === item.path;
               let notificationCount = 0;
-              const showDotOnly = item.label === "Notifications";
               if (item.label === "Notifications") {
                 notificationCount = unreadCount;
               } else if (item.label === "Messages") {
@@ -224,9 +177,7 @@ export default function Sidebar() {
                     <div className="relative">
                       <item.icon className="w-5 h-5" />
                       {/* Show notification badge with animation */}
-                      {notificationCount > 0 && showDotOnly ? (
-                        <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[#111214] animate-pulse" />
-                      ) : notificationCount > 0 && (
+                      {notificationCount > 0 && (
                         <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1 font-bold animate-pulse">
                           {notificationCount > 99 ? "99+" : notificationCount}
                         </span>
@@ -239,7 +190,7 @@ export default function Sidebar() {
                   {collapsed && (
                     <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-20 px-3 py-1 text-sm text-white bg-black rounded shadow-lg opacity-0 group-hover:opacity-100 transition">
                       {item.label}
-                      {notificationCount > 0 && !showDotOnly && ` (${notificationCount})`}
+                      {notificationCount > 0 && ` (${notificationCount})`}
                     </div>
                   )}
                 </div>

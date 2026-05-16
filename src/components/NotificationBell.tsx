@@ -61,8 +61,12 @@ export default function NotificationBell({ className = "", onNavigateToMessage }
         title="Notifications"
       >
         <Bell size={20} />
+        
+        {/* Unread Count Badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[#111214]" />
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
         )}
       </button>
 

@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, X, Check, User, Users, AtSign } from 'lucide-react';
-import { useMentionNotifications } from '@/hooks/useMentionNotifications';
 
 interface MentionNotification {
   id: string;
@@ -39,16 +38,9 @@ export default function MentionNotifications({
   const [mentions, setMentions] = useState<MentionNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread'>('unread');
-  const {
-    fetchUnreadCount,
-    markMentionAsRead,
-    markAllMentionsAsRead,
-    socket,
-    unreadMentionsCount,
-  } = useMentionNotifications();
 
   // Fetch mentions
-  const fetchMentions = useCallback(async () => {
+  const fetchMentions = async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/mentions?unreadOnly=${filter === 'unread'}`, {
@@ -64,7 +56,7 @@ export default function MentionNotifications({
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  };
 
   // Mark mention as read
   const markAsRead = async (mentionId: string) => {
@@ -82,7 +74,6 @@ export default function MentionNotifications({
               : mention
           )
         );
-        await markMentionAsRead();
       }
     } catch (error) {
       console.error('Failed to mark mention as read:', error);
@@ -96,8 +87,6 @@ export default function MentionNotifications({
     for (const mention of unreadMentions) {
       await markAsRead(mention.id);
     }
-
-    await markAllMentionsAsRead();
   };
 
  
@@ -110,28 +99,8 @@ export default function MentionNotifications({
   useEffect(() => {
     if (isOpen) {
       fetchMentions();
-      void fetchUnreadCount();
     }
-  }, [isOpen, filter, fetchMentions, fetchUnreadCount]);
-
-  useEffect(() => {
-    if (!socket) return;
-
-    const refreshMentions = () => {
-      if (isOpen) {
-        fetchMentions();
-        void fetchUnreadCount();
-      }
-    };
-
-    socket.on('mention_notification', refreshMentions);
-    socket.on('mention_marked_read', refreshMentions);
-
-    return () => {
-      socket.off('mention_notification', refreshMentions);
-      socket.off('mention_marked_read', refreshMentions);
-    };
-  }, [socket, isOpen, fetchMentions, fetchUnreadCount]);
+  }, [isOpen, filter]);
 
   const getMentionIcon = (type: string) => {
     switch (type) {
@@ -166,8 +135,10 @@ export default function MentionNotifications({
           <div className="flex items-center space-x-3">
             <Bell className="text-blue-400" size={24} />
             <h2 className="text-xl font-semibold text-white">Mentions</h2>
-            {unreadMentionsCount > 0 && (
-              <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+            {mentions.filter(m => !m.is_read).length > 0 && (
+              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                {mentions.filter(m => !m.is_read).length}
+              </span>
             )}
           </div>
           

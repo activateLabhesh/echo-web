@@ -130,7 +130,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         {/* Message Bubble */}
         <div
           className={`
-            px-4 py-2.5 w-fit max-w-full
+            px-4 py-2.5 w-fit max-w-72
             ${bubbleStyles}
             rounded-lg
             ${

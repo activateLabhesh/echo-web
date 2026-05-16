@@ -1,6 +1,9 @@
 "use client";
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
+import { Socket } from 'socket.io-client';
 import { getUnreadMessageCounts } from '@/api';
+import { getUser } from '@/api';
+import { createAuthSocket } from '@/socket';
 
 interface MessageNotificationContextType {
   unreadMessageCount: number;
@@ -20,8 +23,12 @@ export function MessageNotificationProvider({ children }: { children: ReactNode 
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [unreadPerThread, setUnreadPerThread] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const socketRef = useRef<Socket | null>(null);
+  const refreshInFlightRef = useRef(false);
 
   const refreshCount = useCallback(async () => {
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
     try {
       const { unreadCounts, totalUnread } = await getUnreadMessageCounts();
       setUnreadMessageCount(totalUnread);
@@ -32,12 +39,58 @@ export function MessageNotificationProvider({ children }: { children: ReactNode 
       setUnreadPerThread({});
     } finally {
       setLoading(false);
+      refreshInFlightRef.current = false;
     }
   }, []);
 
   useEffect(() => {
     // Only fetch once on mount, no polling
     refreshCount();
+  }, [refreshCount]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const setupSocket = async () => {
+      try {
+        const user = await getUser();
+        if (!mounted || !user?.id) return;
+
+        const socket = createAuthSocket(user.id);
+        socketRef.current = socket;
+
+        const handleDmEvent = () => {
+          void refreshCount();
+        };
+
+        socket.on('new_message', handleDmEvent);
+        socket.on('receive_dm', handleDmEvent);
+        socket.on('dm_sent_confirmation', handleDmEvent);
+
+        return () => {
+          socket.off('new_message', handleDmEvent);
+          socket.off('receive_dm', handleDmEvent);
+          socket.off('dm_sent_confirmation', handleDmEvent);
+          socket.disconnect();
+          if (socketRef.current === socket) {
+            socketRef.current = null;
+          }
+        };
+      } catch (error) {
+        console.error('Failed to initialize DM notification socket:', error);
+      }
+    };
+
+    const cleanupPromise = setupSocket();
+
+    return () => {
+      mounted = false;
+      cleanupPromise.then((cleanup) => {
+        if (typeof cleanup === 'function') {
+          cleanup();
+        }
+      });
+    };
   }, [refreshCount]);
 
   const contextValue = useMemo(

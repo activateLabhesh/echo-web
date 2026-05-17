@@ -191,16 +191,19 @@ const showVoiceUI =
        setServers(data);
 
        if (data.length > 0) {
-         if (serverIdFromQuery) {
-           const targetServer = data.find(
-             (s: any) => s.id === serverIdFromQuery
-           );
-           setSelectedServerId(targetServer?.id || data[0].id);
-           setSelectedServerName(targetServer?.name || data[0].name);
-         } else {
-           setSelectedServerId(data[0].id);
-           setSelectedServerName(data[0].name);
-         }
+         const cachedServerId = localStorage.getItem("currentServerId");
+
+         const preferredServer =
+           (serverIdFromQuery
+             ? data.find((s: any) => s.id === serverIdFromQuery)
+             : null) ||
+           (cachedServerId
+             ? data.find((s: any) => s.id === cachedServerId)
+             : null) ||
+           data[0];
+
+         setSelectedServerId(preferredServer.id);
+         setSelectedServerName(preferredServer.name);
        }
 
        setToast(null);
@@ -339,6 +342,7 @@ const showVoiceUI =
   // Update localStorage with current viewed server ID (for FloatingVoiceWindow)
   useEffect(() => {
     if (selectedServerId) {
+      localStorage.setItem("currentServerId", selectedServerId);
       localStorage.setItem("currentViewedServerId", selectedServerId);
     }
     return () => {

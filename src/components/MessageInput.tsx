@@ -10,11 +10,12 @@ const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 interface MessageInputProps {
   sendMessage: (text: string, files: File[]) => void;
   isSending: boolean;
+  onToast?: (msg: string, type: "info" | "success" | "error") => void;
 }
-
 export default function MessageInput({
   sendMessage,
   isSending,
+  onToast,
 }: MessageInputProps) {
   const { showToast } = useToast();
   const [text, setText] = useState("");
@@ -42,28 +43,51 @@ export default function MessageInput({
   };
 
   /* -------------------- FILE -------------------- */
+  const ALLOWED_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "video/mp4",
+    "video/webm",
+    "video/quicktime",
+    "video/x-msvideo",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/plain",
+    "text/csv",
+  ];
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
-    const validFiles = selected.filter((file) => file.size <= MAX_FILE_SIZE_BYTES);
-    const oversizedFiles = selected.filter(
-      (file) => file.size > MAX_FILE_SIZE_BYTES
-    );
+    const annotated = selected.map((file) => {
+      if (file.size > MAX_FILE_SIZE_BYTES)
+        return { file, valid: false, errorReason: `Too large (max 25 MB)` };
+      if (!ALLOWED_TYPES.includes(file.type))
+        return { file, valid: false, errorReason: "Unsupported file type" };
+      return { file, valid: true, errorReason: undefined };
+    });
 
-    if (oversizedFiles.length > 0) {
-      showToast(
-        `${oversizedFiles.length} file(s) not added. Max size is 25MB.`,
-        "error"
-      );
-    }
+    const invalid = annotated.filter((f) => !f.valid);
+   if (invalid.length > 0) {
+     const msg = invalid
+       .map((f) => `"${f.file.name}": ${f.errorReason}`)
+       .join("\n");
+     if (onToast) onToast(msg, "error");
+     else showToast(msg, "error");
+   }
 
-    if (validFiles.length > 0) {
-      setFiles((prev) => [...prev, ...validFiles]);
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    setFiles((prev) => [
+      ...prev,
+      ...annotated.filter((f) => f.valid).map((f) => f.file),
+    ]);
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
-
   /* -------------------- SEND -------------------- */
   const handleSend = () => {
     if (!text.trim() && files.length === 0) return;
@@ -157,7 +181,9 @@ export default function MessageInput({
               </span>
               <button
                 onClick={() =>
-                  setFiles((prev) => prev.filter((_, fileIndex) => fileIndex !== index))
+                  setFiles((prev) =>
+                    prev.filter((_, fileIndex) => fileIndex !== index)
+                  )
                 }
                 className="ml-2 text-gray-400 hover:text-white transition"
               >
@@ -167,7 +193,6 @@ export default function MessageInput({
           ))}
         </div>
       )}
-
       {/* Input Bar */}
       <div
         className="bg-white/10 backdrop-blur-lg border border-white/20 
@@ -179,6 +204,7 @@ export default function MessageInput({
           type="file"
           multiple
           className="hidden"
+          accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,video/mp4,video/webm,video/quicktime,video/x-msvideo,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
           onChange={handleFileChange}
         />
 

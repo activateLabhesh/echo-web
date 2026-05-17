@@ -10,11 +10,12 @@ const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 interface MessageInputProps {
   sendMessage: (text: string, files: File[]) => void;
   isSending: boolean;
+  onToast?: (msg: string, type: "info" | "success" | "error") => void;
 }
-
 export default function MessageInput({
   sendMessage,
   isSending,
+  onToast,
 }: MessageInputProps) {
   const { showToast } = useToast();
   const [text, setText] = useState("");
@@ -72,12 +73,13 @@ export default function MessageInput({
     });
 
     const invalid = annotated.filter((f) => !f.valid);
-    if (invalid.length > 0) {
-      showToast(
-        invalid.map((f) => `"${f.file.name}": ${f.errorReason}`).join("\n"),
-        "error"
-      );
-    }
+   if (invalid.length > 0) {
+     const msg = invalid
+       .map((f) => `"${f.file.name}": ${f.errorReason}`)
+       .join("\n");
+     if (onToast) onToast(msg, "error");
+     else showToast(msg, "error");
+   }
 
     setFiles((prev) => [
       ...prev,

@@ -166,7 +166,7 @@ export default function MessageContentWithMentions({
         parts.push(content.substring(lastIndex, mention.start));
       }
 
-      // ✅ NEW: Handle URL rendering
+      
       if (mention.type === "url") {
         parts.push(
           <a

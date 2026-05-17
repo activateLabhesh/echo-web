@@ -1820,7 +1820,13 @@ const handleScroll = useCallback(() => {
             serverRoles={serverRoles}
           />
         ) : (
-          <MessageInput sendMessage={handleSend} isSending={isSending} />
+          <MessageInput
+            sendMessage={handleSend}
+            isSending={isSending}
+            onToast={(msg, type) =>
+              setToast({ message: msg, type, key: Date.now() })
+            }
+          />
         )}
       </div>
 

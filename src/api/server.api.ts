@@ -27,12 +27,22 @@ export const updateServer = async (serverId: string, data: { name?: string }, ic
     if (data.name) formData.append('name', data.name);
     if (iconFile) formData.append('icon', iconFile);
 
-    const response = await apiClient.put(`/api/newserver/${serverId}`, formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data',
-        },
-    });
-    return response.data.server;
+  const [response, user] = await Promise.all([
+    apiClient.put(`/api/newserver/${serverId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }),
+    getUser(),
+  ]);
+
+  const updatedServer = response.data.server;
+  const isOwner = user?.id === updatedServer.owner_id;
+
+  return {
+    ...updatedServer,
+    isOwner,
+  };
 };
 
 

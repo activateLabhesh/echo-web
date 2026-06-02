@@ -70,7 +70,7 @@ function AuthCallbackContent() {
       } catch (error) {
         console.error("Auth callback error:", error);
         setStatus("error");
-        setMessage("An error occurred. Redirecting to login...");
+        setMessage("An error occurred. Redirecting to signin...");
         setTimeout(() => router.push("/"), 3000);
       }
     };

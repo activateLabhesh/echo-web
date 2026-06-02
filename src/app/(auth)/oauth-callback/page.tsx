@@ -125,7 +125,7 @@ export default function OAuthCallback() {
 
             {error && (
               <p className="text-gray-400 mt-2 text-sm">
-                Redirecting to login page...
+                Redirecting to signin page...
               </p>
             )}
           </div>

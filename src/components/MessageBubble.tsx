@@ -76,12 +76,96 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   messageRenderer,
   isMentioned = false,
 }) => {
+  const [copiedBlockIndex, setCopiedBlockIndex] = useState<number | null>(null);
   const isPending = message.status === "pending";
   const isFailed = message.status === "failed";
 
   const bubbleStyles = isSender
     ? "bg-[#3a3c43] text-[#dbdee1]"
     : "bg-[#2b2d31] text-[#dbdee1]";
+
+  const copyCodeBlock = async (code: string, blockIndex: number) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedBlockIndex(blockIndex);
+      window.setTimeout(() => {
+        setCopiedBlockIndex((current) =>
+          current === blockIndex ? null : current
+        );
+      }, 1500);
+    } catch (error) {
+      console.error("Failed to copy code block:", error);
+    }
+  };
+
+  const renderPlainContent = (content: string) => {
+    if (!content) return null;
+
+    const codeFenceRegex = /```([\s\S]*?)```/g;
+    const segments: Array<{ type: "text" | "code"; value: string }> = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = codeFenceRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        segments.push({
+          type: "text",
+          value: content.slice(lastIndex, match.index),
+        });
+      }
+
+      segments.push({
+        type: "code",
+        value: match[1].replace(/^\n/, "").replace(/\n$/, ""),
+      });
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < content.length) {
+      segments.push({ type: "text", value: content.slice(lastIndex) });
+    }
+
+    if (segments.length === 0) {
+      return content;
+    }
+
+    return segments.map((segment, segmentIndex) => {
+      if (segment.type === "text") {
+        return (
+          <React.Fragment key={`text-${segmentIndex}`}>
+            {segment.value}
+          </React.Fragment>
+        );
+      }
+
+      const isCopied = copiedBlockIndex === segmentIndex;
+
+      return (
+        <div
+          key={`code-${segmentIndex}`}
+          className="my-2 overflow-hidden rounded-lg border border-slate-600 bg-[#1e1f22] text-left"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-slate-700 px-3 py-2 text-[11px] text-slate-400">
+            <span>Code</span>
+            <button
+              type="button"
+              onClick={() => copyCodeBlock(segment.value, segmentIndex)}
+              className="rounded-md border border-slate-600 px-2 py-1 text-slate-200 transition hover:bg-slate-700"
+            >
+              {isCopied ? "Copied" : "Copy"}
+            </button>
+          </div>
+          <pre className="overflow-x-auto p-3 text-sm leading-6 text-slate-100">
+            <code className="font-mono whitespace-pre-wrap break-words">
+              {segment.value}
+            </code>
+          </pre>
+        </div>
+      );
+    });
+  };
 
   return (
     <div
@@ -144,7 +228,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           <div className="text-sm leading-relaxed whitespace-normal break-words text-left">
             {messageRenderer
               ? messageRenderer(message.content)
-              : message.content}
+              : renderPlainContent(message.content)}
           </div>
 
           {children && <div className="mt-3">{children}</div>}

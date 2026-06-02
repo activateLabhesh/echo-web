@@ -6,7 +6,6 @@ export interface ServerDetails {
     icon_url?: string;
     owner_id: string;
     region?: string;
-    created_at: string;
     isOwner?: boolean;
 }
 export interface Server {
@@ -39,7 +38,6 @@ export interface ServerInvite {
     expiry: string | null;
     people_joined: number;
     is_valid: boolean;
-    created_at: string;
     users: {
         username: string;
         fullname: string;

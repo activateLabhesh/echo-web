@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 
 
 
@@ -33,14 +33,28 @@ export default function MessageContentWithMentions({
   onMentionClick,
   onRoleMentionClick,
 }: MentionContentProps) {
-  const renderContent = () => {
-    if (!content) return null;
+  const [copiedBlockIndex, setCopiedBlockIndex] = useState<number | null>(null);
+
+  const copyCodeBlock = async (code: string, blockIndex: number) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedBlockIndex(blockIndex);
+      window.setTimeout(() => {
+        setCopiedBlockIndex((current) =>
+          current === blockIndex ? null : current
+        );
+      }, 1500);
+    } catch (error) {
+      console.error("Failed to copy code block:", error);
+    }
+  };
+
+  const renderTextSegment = (segmentContent: string) => {
+    if (!segmentContent) return null;
 
     const everyoneMentionRegex = /@(everyone|here)\b/g;
     const roleMentionRegex = /@&([a-zA-Z_][a-zA-Z0-9_\s]*)\b/g;
     const userMentionRegex = /@([a-zA-Z_][a-zA-Z0-9_]*)\b/g;
-
-    
     const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+\.[a-zA-Z]{2,})/g;
 
     const parts: (string | JSX.Element)[] = [];
@@ -50,15 +64,15 @@ export default function MessageContentWithMentions({
     const mentions: Array<{
       start: number;
       end: number;
-      type: "user" | "role" | "everyone" | "url"; 
+      type: "user" | "role" | "everyone" | "url";
       match: string;
       displayText: string;
-      url?: string; 
+      url?: string;
     }> = [];
 
     const usedPositions = new Set<number>();
 
-    Array.from(content.matchAll(everyoneMentionRegex)).forEach((match) => {
+    Array.from(segmentContent.matchAll(everyoneMentionRegex)).forEach((match) => {
       mentions.push({
         start: match.index!,
         end: match.index! + match[0].length,
@@ -72,7 +86,7 @@ export default function MessageContentWithMentions({
       }
     });
 
-    Array.from(content.matchAll(roleMentionRegex)).forEach((match) => {
+    Array.from(segmentContent.matchAll(roleMentionRegex)).forEach((match) => {
       const roleName = match[1].trim();
 
       const role = serverRoles.find(
@@ -92,8 +106,8 @@ export default function MessageContentWithMentions({
         start: match.index!,
         end: match.index! + match[0].length,
         type: "role",
-        match: match[0], 
-        displayText: `@${role.name}`, 
+        match: match[0],
+        displayText: `@${role.name}`,
       });
 
       for (let i = match.index!; i < match.index! + match[0].length; i++) {
@@ -101,7 +115,7 @@ export default function MessageContentWithMentions({
       }
     });
 
-    Array.from(content.matchAll(userMentionRegex)).forEach((match) => {
+    Array.from(segmentContent.matchAll(userMentionRegex)).forEach((match) => {
       const username = match[1];
       if (username === "everyone" || username === "here") return;
 
@@ -111,11 +125,13 @@ export default function MessageContentWithMentions({
       ).some((pos) => usedPositions.has(pos));
 
       if (isOverlapping) return;
-      const mentionText = match[0]; 
+
+      const mentionText = match[0];
 
       if (!isValidUsernameMention(mentionText)) {
         return;
       }
+
       mentions.push({
         start: match.index!,
         end: match.index! + match[0].length,
@@ -129,8 +145,7 @@ export default function MessageContentWithMentions({
       }
     });
 
-    
-    Array.from(content.matchAll(urlRegex)).forEach((match) => {
+    Array.from(segmentContent.matchAll(urlRegex)).forEach((match) => {
       const isOverlapping = Array.from(
         { length: match[0].length },
         (_, i) => match.index! + i
@@ -138,7 +153,6 @@ export default function MessageContentWithMentions({
 
       if (isOverlapping) return;
 
-      // Prepare the full URL with protocol
       let fullUrl = match[0];
       if (match[0].startsWith("www.")) {
         fullUrl = `https://${match[0]}`;
@@ -160,13 +174,11 @@ export default function MessageContentWithMentions({
 
     mentions.sort((a, b) => a.start - b.start);
 
-    /* -------------------- RENDER -------------------- */
     mentions.forEach((mention) => {
       if (mention.start > lastIndex) {
-        parts.push(content.substring(lastIndex, mention.start));
+        parts.push(segmentContent.substring(lastIndex, mention.start));
       }
 
-      
       if (mention.type === "url") {
         parts.push(
           <a
@@ -184,7 +196,6 @@ export default function MessageContentWithMentions({
         return;
       }
 
-      // Existing mention rendering logic
       const username = mention.match.substring(1);
       const roleName =
         mention.type === "role" ? mention.match.substring(2) : "";
@@ -252,11 +263,80 @@ export default function MessageContentWithMentions({
       lastIndex = mention.end;
     });
 
-    if (lastIndex < content.length) {
-      parts.push(content.substring(lastIndex));
+    if (lastIndex < segmentContent.length) {
+      parts.push(segmentContent.substring(lastIndex));
     }
 
     return parts;
+  };
+
+  const renderContent = () => {
+    if (!content) return null;
+
+    const codeFenceRegex = /```([\s\S]*?)```/g;
+    const segments: Array<{ type: "text" | "code"; value: string }> = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = codeFenceRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        segments.push({
+          type: "text",
+          value: content.slice(lastIndex, match.index),
+        });
+      }
+
+      segments.push({
+        type: "code",
+        value: match[1].replace(/^\n/, "").replace(/\n$/, ""),
+      });
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < content.length) {
+      segments.push({ type: "text", value: content.slice(lastIndex) });
+    }
+
+    if (segments.length === 0) {
+      return renderTextSegment(content);
+    }
+
+    return segments.map((segment, segmentIndex) => {
+      if (segment.type === "text") {
+        return (
+          <React.Fragment key={`text-${segmentIndex}`}>
+            {renderTextSegment(segment.value)}
+          </React.Fragment>
+        );
+      }
+
+      const isCopied = copiedBlockIndex === segmentIndex;
+
+      return (
+        <div
+          key={`code-${segmentIndex}`}
+          className="my-2 overflow-hidden rounded-lg border border-slate-600 bg-[#1e1f22] text-left"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-slate-700 px-3 py-2 text-[11px] text-slate-400">
+            <span>Code</span>
+            <button
+              type="button"
+              onClick={() => copyCodeBlock(segment.value, segmentIndex)}
+              className="rounded-md border border-slate-600 px-2 py-1 text-slate-200 transition hover:bg-slate-700"
+            >
+              {isCopied ? "Copied" : "Copy"}
+            </button>
+          </div>
+          <pre className="overflow-x-auto p-3 text-sm leading-6 text-slate-100">
+            <code className="font-mono whitespace-pre-wrap break-words">
+              {segment.value}
+            </code>
+          </pre>
+        </div>
+      );
+    });
   };
 
   return (
@@ -265,3 +345,5 @@ export default function MessageContentWithMentions({
     </div>
   );
 }
+
+

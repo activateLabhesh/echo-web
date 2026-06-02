@@ -268,9 +268,6 @@ export default function InvitePeople({ serverId }: InvitePeopleProps) {
                   <div className="text-sm font-medium">
                     Invite #{invite.id.slice(-6)}
                   </div>
-                  <div className="text-xs text-[#b5bac1] mt-1">
-                    Created: {new Date(invite.created_at).toLocaleDateString()}
-                  </div>
                   <div className="text-xs text-[#b5bac1]">
                     Uses: {invite.people_joined}
                     {invite.use_limit ? ` / ${invite.use_limit}` : " / unlimited"}

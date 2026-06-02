@@ -37,6 +37,7 @@ import { useToast } from "@/contexts/ToastContext";
 import dynamic from "next/dynamic";
 import { Theme } from "emoji-picker-react";
 import UserProfileModal from "./UserProfileModal";
+import { useMessageReactions } from "@/hooks/useMessageReactions";
 
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 
@@ -259,6 +260,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   onToast,
   onOpenProfile,
 }) => {
+  const reactionStorageKey = useMemo(() => {
+    if (!currentUser?.id || !partnerId) return null;
+    const sortedIds = [currentUser.id, partnerId].sort().join("_");
+    return `dm-reactions:${sortedIds}`;
+  }, [currentUser?.id, partnerId]);
+
+  const { getReactionsForMessage, toggleReaction } = useMessageReactions(
+    reactionStorageKey,
+    currentUser?.id ?? null
+  );
+
   const { showToast } = useToast();
   const [draft, setDraft] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -533,6 +545,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                         key={msg.id}
                         isSender={group.isSender}
                         message={msg}
+                        reactions={getReactionsForMessage(msg.id)}
+                        onReact={(emoji) =>
+                          currentUser?.id &&
+                          toggleReaction(msg.id, emoji, currentUser.id)
+                        }
                         timestamp={msg.timeLabel}
                         name={
                           !group.isSender && index === 0

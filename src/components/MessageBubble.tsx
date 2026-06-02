@@ -1,4 +1,11 @@
-import React, { memo, useState } from "react";
+"use client";
+
+import React, { memo, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
+import type { EmojiClickData } from "emoji-picker-react";
+import { Theme } from "emoji-picker-react";
+import { Smile } from "lucide-react";
 
 /* -------------------- TYPES -------------------- */
 
@@ -13,6 +20,16 @@ export interface ChatMessage {
   status?: "pending" | "sent" | "failed";
 }
 
+export interface MessageReactionSummary {
+  emoji: string;
+  count: number;
+  reactedByMe?: boolean;
+}
+
+const EmojiPicker = dynamic(() => import("emoji-picker-react"), {
+  ssr: false,
+});
+
 interface MessageBubbleProps {
   message: ChatMessage;
   name?: string;
@@ -22,6 +39,8 @@ interface MessageBubbleProps {
   onProfileClick?: () => void;
   onReply?: () => void;
   onRetry?: () => void;
+  onReact?: (emoji: string) => void;
+  reactions?: MessageReactionSummary[];
   children?: React.ReactNode;
   messageRenderer?: (content: string) => React.ReactNode;
   isMentioned?: boolean;
@@ -72,12 +91,91 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   onProfileClick,
   onReply,
   onRetry,
+  onReact,
+  reactions = [],
   children,
   messageRenderer,
   isMentioned = false,
 }) => {
   const isPending = message.status === "pending";
   const isFailed = message.status === "failed";
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [reactionPickerPosition, setReactionPickerPosition] = useState<{
+    top: number;
+    left: number;
+    placement: "above" | "below";
+  } | null>(null);
+  const reactionPickerRef = useRef<HTMLDivElement>(null);
+  const reactionButtonRef = useRef<HTMLButtonElement>(null);
+  const quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏", "👏"];
+
+  useEffect(() => {
+    if (!showReactionPicker) return;
+
+    const updatePosition = () => {
+      const button = reactionButtonRef.current;
+      if (!button) return;
+
+      const rect = button.getBoundingClientRect();
+      const pickerWidth = 352;
+      const pickerHeight = 438;
+      const gap = 8;
+
+      const leftBase = isSender ? rect.right - pickerWidth : rect.left;
+      const left = Math.max(
+        8,
+        Math.min(leftBase, window.innerWidth - pickerWidth - 8)
+      );
+
+      const spaceBelow = window.innerHeight - rect.bottom - gap;
+      const spaceAbove = rect.top - gap;
+      const placement =
+        spaceBelow >= pickerHeight || spaceBelow >= spaceAbove
+          ? "below"
+          : "above";
+
+      const top =
+        placement === "below"
+          ? rect.bottom + gap
+          : Math.max(8, rect.top - pickerHeight - gap);
+
+      setReactionPickerPosition({ top, left, placement });
+    };
+
+    updatePosition();
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        reactionPickerRef.current &&
+        !reactionPickerRef.current.contains(target) &&
+        reactionButtonRef.current &&
+        !reactionButtonRef.current.contains(target)
+      ) {
+        setShowReactionPicker(false);
+      }
+    };
+
+    const handleReposition = () => updatePosition();
+
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("resize", handleReposition);
+    window.addEventListener("scroll", handleReposition, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("resize", handleReposition);
+      window.removeEventListener("scroll", handleReposition, true);
+    };
+  }, [showReactionPicker, isSender]);
+
+  const handleReactionPick = (emojiData: EmojiClickData) => {
+    onReact?.(emojiData.emoji);
+    setShowReactionPicker(false);
+  };
+
+  const handleQuickReaction = (emoji: string) => {
+    onReact?.(emoji);
+  };
 
   const bubbleStyles = isSender
     ? "bg-[#3a3c43] text-[#dbdee1]"
@@ -86,7 +184,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   return (
     <div
       data-message-id={message.id}
-      className={`flex mb-3 ${isSender ? "justify-end" : "justify-start"} ${
+      className={`group flex mb-3 ${isSender ? "justify-end" : "justify-start"} ${
         isPending ? "opacity-70" : ""
       }`}
     >
@@ -157,12 +255,62 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 aria-label="Reply"
                 title="Reply"
               >
-              
-                <svg className="w-3 h-3 mt-0.5" viewBox="0 0 640 640" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                  <path d="M268.2 82.4C280.2 87.4 288 99 288 112L288 192L400 192C497.2 192 576 270.8 576 368C576 481.3 494.5 531.9 475.8 542.1C473.3 543.5 470.5 544 467.7 544C456.8 544 448 535.1 448 524.3C448 516.8 452.3 509.9 457.8 504.8C467.2 496 480 478.4 480 448.1C480 395.1 437 352.1 384 352.1L288 352.1L288 432.1C288 445 280.2 456.7 268.2 461.7C256.2 466.7 242.5 463.9 233.3 454.8L73.3 294.8C60.8 282.3 60.8 262 73.3 249.5L233.3 89.5C242.5 80.3 256.2 77.6 268.2 82.6z" fill="currentColor" />
+                <svg
+                  className="w-3 h-3 mt-0.5"
+                  viewBox="0 0 640 640"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden
+                >
+                  <path
+                    d="M268.2 82.4C280.2 87.4 288 99 288 112L288 192L400 192C497.2 192 576 270.8 576 368C576 481.3 494.5 531.9 475.8 542.1C473.3 543.5 470.5 544 467.7 544C456.8 544 448 535.1 448 524.3C448 516.8 452.3 509.9 457.8 504.8C467.2 496 480 478.4 480 448.1C480 395.1 437 352.1 384 352.1L288 352.1L288 432.1C288 445 280.2 456.7 268.2 461.7C256.2 466.7 242.5 463.9 233.3 454.8L73.3 294.8C60.8 282.3 60.8 262 73.3 249.5L233.3 89.5C242.5 80.3 256.2 77.6 268.2 82.6z"
+                    fill="currentColor"
+                  />
                 </svg>
                 <span>Reply</span>
               </button>
+            )}
+            {reactions.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1">
+                {reactions.map((reaction) => (
+                  <button
+                    key={`${message.id}-${reaction.emoji}`}
+                    type="button"
+                    onClick={() => handleQuickReaction(reaction.emoji)}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition ${
+                      reaction.reactedByMe
+                        ? "border-indigo-500/60 bg-slate-800 text-slate-100 hover:bg-slate-700/90"
+                        : "border-slate-700/80 bg-slate-900/90 text-slate-200 hover:border-slate-600 hover:bg-slate-800"
+                    }`}
+                    aria-label={
+                      reaction.reactedByMe
+                        ? `Remove reaction ${reaction.emoji}`
+                        : `React with ${reaction.emoji}`
+                    }
+                    title={
+                      reaction.reactedByMe
+                        ? `Remove reaction ${reaction.emoji}`
+                        : `React with ${reaction.emoji}`
+                    }
+                  >
+                    <span>{reaction.emoji}</span>
+                    {reaction.count > 1 && <span>{reaction.count}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {onReact && (
+              <div ref={reactionPickerRef} className="relative">
+                <button
+                  ref={reactionButtonRef}
+                  type="button"
+                  onClick={() => setShowReactionPicker((value) => !value)}
+                  className="text-xs text-[#949ba4] hover:text-[#dbdee1] flex items-center gap-1"
+                  aria-label="Add reaction"
+                  title="Add reaction"
+                >
+                  <Smile className="h-3 w-3 mt-0.5" />
+                </button>
+              </div>
             )}
             {isFailed && onRetry && (
               <button
@@ -206,6 +354,25 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             <span className="text-[10px] text-red-400">Not delivered</span>
           )}
         </div>
+
+        {showReactionPicker && reactionPickerPosition && typeof document !== "undefined"
+          ? createPortal(
+              <div
+                ref={reactionPickerRef}
+                className="fixed z-[9999]"
+                style={{
+                  top: reactionPickerPosition.top,
+                  left: reactionPickerPosition.left,
+                }}
+              >
+                <EmojiPicker
+                  theme={Theme.DARK}
+                  onEmojiClick={handleReactionPick}
+                />
+              </div>,
+              document.body
+            )
+          : null}
       </div>
 
       {/* Right Avatar (sender) */}

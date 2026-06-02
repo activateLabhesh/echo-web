@@ -25,6 +25,7 @@ import { ChevronDown } from "lucide-react";
 import { getServerMembers } from "@/api/server.api";
 import { getAllRoles } from "@/api/roles.api";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useMessageReactions } from "@/hooks/useMessageReactions";
 
 import { apiClient as mentionsApiClient } from "@/utils/apiClient";
 import { apiClient as profileApiClient } from "@/api/axios";
@@ -161,6 +162,17 @@ export default forwardRef(function ChatWindow(
     notifications: mentionNotifications,
     markAsRead: markMentionAsRead,
   } = useNotifications();
+
+  const reactionStorageKey = useMemo(() => {
+    if (!currentUserId || !channelId) return null;
+    const scope = serverId ? `server:${serverId}` : "global";
+    return `channel-reactions:${scope}:${channelId}:${currentUserId}`;
+  }, [channelId, currentUserId, serverId]);
+
+  const { getReactionsForMessage, toggleReaction } = useMessageReactions(
+    reactionStorageKey,
+    currentUserId
+  );
 
   const unreadMentionsForChannel = useMemo(
     () =>
@@ -1708,6 +1720,10 @@ const handleScroll = useCallback(() => {
                         content: msg.content,
                         replyTo: msg.replyTo || null,
                       }}
+                      reactions={getReactionsForMessage(msg.id)}
+                      onReact={(emoji) =>
+                        toggleReaction(msg.id, emoji, currentUserId)
+                      }
                       avatarUrl={msg.avatarUrl}
                       isSender={msg.senderId === currentUserId}
                       timestamp={new Date(msg.timestamp).toLocaleTimeString(

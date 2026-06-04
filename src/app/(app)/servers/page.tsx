@@ -26,6 +26,10 @@ import {
   FaAngleRight,
   FaTrash,
   FaTimes,
+  FaVolumeUp,
+  FaMicrophone,
+  FaMicrophoneSlash,
+  FaVideoSlash,
 } from "react-icons/fa";
 import VoiceChannel from "@/components/EnhancedVoiceChannel";
 import {
@@ -125,6 +129,7 @@ const ServersPageContent: React.FC = () => {
     localVideoTileId,
     videoTiles,
     manager,
+    joinCall,
     leaveCall,
     permissionError,
     connectionError,
@@ -400,10 +405,52 @@ const showVoiceUI =
     [channels]
   );
 
+  const voiceChannels = useMemo(
+    () => channels.filter((c) => c.type === "voice"),
+    [channels]
+  );
+
+  const voiceMembers = useMemo(
+    () =>
+      participants.map((member) => ({
+        id: member.attendeeId,
+        username:
+          member.name ||
+          member.oduserId ||
+          `User ${member.attendeeId.slice(0, 8)}`,
+        muted: member.muted,
+        video: member.video,
+      })),
+    [participants]
+  );
+
   // Handle hang up
   const handleHangUp = () => {
     leaveCall();
     setViewMode("chat"); // Switch back to chat view after hanging up
+  };
+
+  const handleJoinVoiceChannel = async (channel: Channel) => {
+    if (!selectedServerId) return;
+
+    try {
+      setActiveChannel(channel);
+      setViewMode("voice");
+      await joinCall(
+        channel.id,
+        channel.name,
+        selectedServerId,
+        selectedServerName || "Server"
+      );
+    } catch (err: any) {
+      console.error("Error joining voice channel:", err);
+      setViewMode("chat");
+      setToast({
+        message:
+          err?.message || "Failed to join voice channel. Please try again.",
+        type: "error",
+      });
+    }
   };
 
   // Handle role toggle (assign/unassign)
@@ -1089,7 +1136,7 @@ const showVoiceUI =
                   ))}
                 </div>
 
-                {/*   <div className="px-2">
+                  <div className="px-2">
                 <h3 className="text-xs font-bold uppercase text-gray-400 mt-4 mb-2">
                   Voice Channels
                 </h3>
@@ -1162,7 +1209,7 @@ const showVoiceUI =
   );
 })}
               </div>
-*/}
+
 
                 {isVoiceActiveForCurrentServer && activeCall && (
                   <div className="mt-auto p-2">

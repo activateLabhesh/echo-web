@@ -33,7 +33,7 @@ const ownerMenuItems = [
   "Invite people",
   "Add Channel",
   "Leave",
-  "Ownership",
+  // "Ownership",
 ];
 
 export default function Sidebar({ selected, onSelect, isOwner = false, isAdmin = false }: SidebarProps) {

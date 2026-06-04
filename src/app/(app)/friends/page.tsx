@@ -2,12 +2,13 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { usePageReady } from "@/components/RouteChangeLoader";
-import { FaUserFriends, FaPlus, FaSearch, FaCommentAlt } from "react-icons/fa";
+import { FaUserFriends, FaPlus, FaSearch, FaCommentAlt, FaUserMinus } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import {
   fetchAllFriends,
   fetchFriendRequests,
   addFriend,
+  removeFriend,
   respondToFriendRequest,
   searchUsers
 } from "@/api";
@@ -16,6 +17,8 @@ import Loader from "@/components/Loader";
 import UserProfileModal from "@/components/UserProfileModal";
 import { useFriendNotifications } from "@/contexts/FriendNotificationContext";
 import {SearchUserResult} from "@/api/types/user.types";
+
+type RelationshipStatus = SearchUserResult["relationshipStatus"];
 
 interface FriendRequestData {
   friends_id: string;
@@ -46,6 +49,7 @@ export default function FriendsPage() {
   const [searchResults, setSearchResults] = useState<SearchUserResult[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [removingFriendId, setRemovingFriendId] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
@@ -198,6 +202,29 @@ export default function FriendsPage() {
     router.push(`/messages?dm=${friendId}`);
   };
 
+  const handleRemoveFriend = async (friendId: string) => {
+    if (!friendId || removingFriendId) return;
+
+    setRemovingFriendId(friendId);
+    setError("");
+    try {
+      await removeFriend(friendId);
+      setFriends((prev) => prev.filter((friend) => friend.id !== friendId));
+      setSearchResults((prev) =>
+        prev.map((user) =>
+          user.id === friendId
+            ? { ...user, relationshipStatus: "none" as const }
+            : user
+        )
+      );
+    } catch (err: any) {
+      console.error("Error removing friend:", err);
+      setError(err?.response?.data?.message || "Failed to remove friend");
+    } finally {
+      setRemovingFriendId(null);
+    }
+  };
+
   const handleAccept = async (requestId: string) => {
     try {
       await respondToFriendRequest(requestId, "accepted");
@@ -223,8 +250,26 @@ export default function FriendsPage() {
     }
   };
 
+  const getProfileRelationshipStatus = (
+    userId?: string
+  ): RelationshipStatus | undefined => {
+    if (!userId || userId === currentUserId) return undefined;
 
+    const searchMatch = searchResults.find((user) => user.id === userId);
+    if (searchMatch) return searchMatch.relationshipStatus;
 
+    if (friends.some((friend) => friend.id === userId)) return "accepted";
+    if (requests.some((request) => request.user1_id === userId)) return "pending";
+
+    return "none";
+  };
+
+  const selectedUserRelationshipStatus = getProfileRelationshipStatus(
+    selectedUser?.id
+  );
+  const selectedUserActionLoading =
+    Boolean(selectedUser?.id && removingFriendId === selectedUser.id) ||
+    loading;
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -468,6 +513,14 @@ export default function FriendsPage() {
                     >
                       <FaCommentAlt className="h-4 w-4" />
                     </button>
+                    <button
+                      onClick={() => handleRemoveFriend(f.id)}
+                      disabled={removingFriendId === f.id}
+                      className="rounded-full border border-red-500/30 bg-red-500/10 p-2 text-red-200 shadow-lg transition hover:border-red-400/50 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      title="Unfriend"
+                    >
+                      <FaUserMinus className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -481,6 +534,10 @@ export default function FriendsPage() {
         onClose={() => setIsProfileOpen(false)}
         user={selectedUser}
         currentUserId={currentUserId}
+        relationshipStatus={selectedUserRelationshipStatus}
+        friendActionLoading={selectedUserActionLoading}
+        onAddFriend={handleAddFriend}
+        onRemoveFriend={handleRemoveFriend}
       />
     </div>
   );

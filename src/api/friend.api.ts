@@ -13,7 +13,6 @@ export const addFriend = async (user2_id: string): Promise<FriendRequest> => {
   }
 };
 
-
 export const fetchFriendRequests = async (): Promise<FriendRequest[]> => {
   try {
     const response = await apiClient.get<FriendRequest[]>(
@@ -28,7 +27,24 @@ export const fetchFriendRequests = async (): Promise<FriendRequest[]> => {
     throw error;
   }
 };
+export const removeFriend = async (
+  friendId: string
+): Promise<{ message: string }> => {
+  try {
+    if (!friendId) {
+      throw new Error("Missing friend ID");
+    }
 
+    const response = await apiClient.delete(
+      `/api/friends/${friendId}`
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Error removing friend:", error);
+    throw error;
+  }
+};
 
 export const respondToFriendRequest = async (
   requestId: string,

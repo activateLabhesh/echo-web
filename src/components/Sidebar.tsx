@@ -90,9 +90,7 @@ export default function Sidebar() {
   if (error) return <div className="text-red-500">{error}</div>;
   if (!user) {
     return (
-      <aside className="w-64 h-screen bg-black flex items-center justify-center text-white">
-       
-      </aside>
+      <aside className="w-64 h-screen bg-black flex items-center justify-center text-white"></aside>
     );
   }
 
@@ -117,10 +115,7 @@ export default function Sidebar() {
       )}
     >
       {/* Background */}
-      <div
-  className="absolute inset-0 z-0 bg-no-repeat bg-cover opacity-90 border-r border-gray-800"
-/>
-
+      <div className="absolute inset-0 z-0 bg-no-repeat bg-cover opacity-90 border-r border-gray-800" />
 
       {/* Content */}
       <div className="relative z-10 flex flex-col h-full justify-between">

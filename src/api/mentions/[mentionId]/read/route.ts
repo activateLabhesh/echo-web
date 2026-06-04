@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
 // Force dynamic rendering for this route
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 // Mark mention as read
 export async function PATCH(
@@ -14,17 +14,18 @@ export async function PATCH(
     // console.log('Frontend API: Marking mention as read:', mentionId);
 
     // Get the backend URL from environment or default to localhost
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const backendUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
     const url = `${backendUrl}/api/mentions/${mentionId}/read`;
-    
+
     // console.log('Frontend API: Fetching from backend:', url);
 
     // Forward the request to the backend
     const response = await fetch(url, {
-      method: 'PATCH',
+      method: "PATCH",
       headers: {
-        'Cookie': request.headers.get('cookie') || '',
-        'Content-Type': 'application/json',
+        Cookie: request.headers.get("cookie") || "",
+        "Content-Type": "application/json",
       },
     });
 
@@ -32,9 +33,9 @@ export async function PATCH(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Frontend API: Backend error:', response.status, errorText);
+      console.error("Frontend API: Backend error:", response.status, errorText);
       return NextResponse.json(
-        { error: 'Failed to mark mention as read' },
+        { error: "Failed to mark mention as read" },
         { status: response.status }
       );
     }
@@ -44,9 +45,9 @@ export async function PATCH(
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Frontend API: Error marking mention as read:', error);
+    console.error("Frontend API: Error marking mention as read:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

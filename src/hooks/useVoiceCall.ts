@@ -3,9 +3,14 @@
 
 "use client";
 
-import { useEffect, useCallback, useState, useRef } from 'react';
-import { callStateManager, ActiveCallState } from '@/lib/CallStateManager';
-import { VoiceVideoManager, VoiceRosterMember, VideoTileInfo, MediaState } from '@/lib/VoiceVideoManager';
+import { useEffect, useCallback, useState, useRef } from "react";
+import { callStateManager, ActiveCallState } from "@/lib/CallStateManager";
+import {
+  VoiceVideoManager,
+  VoiceRosterMember,
+  VideoTileInfo,
+  MediaState,
+} from "@/lib/VoiceVideoManager";
 
 interface UseVoiceCallOptions {
   userId: string;
@@ -18,44 +23,44 @@ interface UseVoiceCallOptions {
 interface UseVoiceCallReturn {
   // Manager instance
   manager: VoiceVideoManager | null;
-  
+
   // Connection state
   isConnected: boolean;
   isConnecting: boolean;
-  
+
   // Call state
   isInCall: boolean;
   isMinimized: boolean;
   callState: ActiveCallState | null;
-  
+
   // Participants
   roster: VoiceRosterMember[];
   videoTiles: VideoTileInfo[];
-  
+
   // Media state
   mediaState: MediaState | null;
-  
+
   // Actions
-  joinCall: (callType?: 'voice' | 'video') => Promise<void>;
+  joinCall: (callType?: "voice" | "video") => Promise<void>;
   leaveCall: () => void;
   minimizeCall: () => void;
   maximizeCall: () => void;
-  
+
   // Media controls
   toggleMute: () => void;
   toggleVideo: () => Promise<void>;
   toggleScreenShare: () => Promise<void>;
-  
+
   // Error state
   error: string | null;
 }
 
-export function useVoiceCall({ 
-  userId, 
-  username, 
-  channelId, 
-  serverId, 
-  channelName 
+export function useVoiceCall({
+  userId,
+  username,
+  channelId,
+  serverId,
+  channelName,
 }: UseVoiceCallOptions): UseVoiceCallReturn {
   const [manager, setManager] = useState<VoiceVideoManager | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -65,7 +70,7 @@ export function useVoiceCall({
   const [callState, setCallState] = useState<ActiveCallState | null>(null);
   const [mediaState, setMediaState] = useState<MediaState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Track if we've set up listeners for this manager instance
   const listenersSetup = useRef(false);
 
@@ -77,14 +82,14 @@ export function useVoiceCall({
   // Set up event listeners when manager changes
   const setupListeners = useCallback((voiceManager: VoiceVideoManager) => {
     if (listenersSetup.current) return;
-    
+
     voiceManager.onVoiceRoster((members) => {
       setRoster(members);
     });
 
     voiceManager.onVideoTileUpdated((tile) => {
-      setVideoTiles(prev => {
-        const existing = prev.findIndex(t => t.tileId === tile.tileId);
+      setVideoTiles((prev) => {
+        const existing = prev.findIndex((t) => t.tileId === tile.tileId);
         if (existing >= 0) {
           const updated = [...prev];
           updated[existing] = tile;
@@ -95,7 +100,7 @@ export function useVoiceCall({
     });
 
     voiceManager.onVideoTileRemoved((tileId) => {
-      setVideoTiles(prev => prev.filter(t => t.tileId !== tileId));
+      setVideoTiles((prev) => prev.filter((t) => t.tileId !== tileId));
     });
 
     voiceManager.onConnectionStateChange((connected) => {
@@ -114,61 +119,67 @@ export function useVoiceCall({
   }, []);
 
   // Join the call
-  const joinCall = useCallback(async (callType: 'voice' | 'video' = 'voice') => {
-    setError(null);
-    
-    // Check if already in this channel
-    if (callStateManager.isInChannel(channelId)) {
-      // Already connected, just maximize
-      callStateManager.maximizeCall();
-      const existingManager = callStateManager.getManager();
-      if (existingManager) {
-        setManager(existingManager);
-        setRoster(existingManager.getRoster());
-        setMediaState(existingManager.getMediaState());
-        setIsConnected(existingManager.isConnected());
+  const joinCall = useCallback(
+    async (callType: "voice" | "video" = "voice") => {
+      setError(null);
+
+      // Check if already in this channel
+      if (callStateManager.isInChannel(channelId)) {
+        // Already connected, just maximize
+        callStateManager.maximizeCall();
+        const existingManager = callStateManager.getManager();
+        if (existingManager) {
+          setManager(existingManager);
+          setRoster(existingManager.getRoster());
+          setMediaState(existingManager.getMediaState());
+          setIsConnected(existingManager.isConnected());
+        }
+        return;
       }
-      return;
-    }
 
-    // If in a different call, end it first
-    if (callStateManager.hasActiveCall()) {
-      callStateManager.endCall();
-      // Reset local state
-      setRoster([]);
-      setVideoTiles([]);
-      listenersSetup.current = false;
-    }
+      // If in a different call, end it first
+      if (callStateManager.hasActiveCall()) {
+        callStateManager.endCall();
+        // Reset local state
+        setRoster([]);
+        setVideoTiles([]);
+        listenersSetup.current = false;
+      }
 
-    setIsConnecting(true);
+      setIsConnecting(true);
 
-    try {
-      // Get or create manager
-      const voiceManager = callStateManager.getOrCreateManager(userId, username);
-      
-      // Set up event listeners
-      setupListeners(voiceManager);
-      
-      // Initialize and join
-      await voiceManager.initialize(callType === 'video', true);
-      await voiceManager.joinVoiceChannel(channelId);
+      try {
+        // Get or create manager
+        const voiceManager = callStateManager.getOrCreateManager(
+          userId,
+          username
+        );
 
-      // Track the call
-      callStateManager.startCall(channelId, serverId, channelName, callType);
-      
-      setManager(voiceManager);
-      setMediaState(voiceManager.getMediaState());
-      setIsConnected(true);
-      setIsConnecting(false);
-      
-      console.log('[useVoiceCall] Successfully joined call');
-    } catch (err) {
-      console.error('[useVoiceCall] Failed to join call:', err);
-      setError(err instanceof Error ? err.message : 'Failed to join call');
-      setIsConnecting(false);
-      callStateManager.endCall();
-    }
-  }, [userId, username, channelId, serverId, channelName, setupListeners]);
+        // Set up event listeners
+        setupListeners(voiceManager);
+
+        // Initialize and join
+        await voiceManager.initialize(callType === "video", true);
+        await voiceManager.joinVoiceChannel(channelId);
+
+        // Track the call
+        callStateManager.startCall(channelId, serverId, channelName, callType);
+
+        setManager(voiceManager);
+        setMediaState(voiceManager.getMediaState());
+        setIsConnected(true);
+        setIsConnecting(false);
+
+        console.log("[useVoiceCall] Successfully joined call");
+      } catch (err) {
+        console.error("[useVoiceCall] Failed to join call:", err);
+        setError(err instanceof Error ? err.message : "Failed to join call");
+        setIsConnecting(false);
+        callStateManager.endCall();
+      }
+    },
+    [userId, username, channelId, serverId, channelName, setupListeners]
+  );
 
   // Leave the call
   const leaveCall = useCallback(() => {
@@ -209,10 +220,10 @@ export function useVoiceCall({
       const currentState = currentManager.getMediaState();
       await currentManager.toggleVideo(!currentState.video);
       setMediaState(currentManager.getMediaState());
-      
+
       // Update call type if video is enabled
       if (!currentState.video) {
-        callStateManager.updateCallType('video');
+        callStateManager.updateCallType("video");
       }
     }
   }, [manager]);
@@ -240,10 +251,10 @@ export function useVoiceCall({
         setIsConnected(existingManager.isConnected());
         setRoster(existingManager.getRoster());
         setMediaState(existingManager.getMediaState());
-        
+
         // Set up listeners if not already done
         setupListeners(existingManager);
-        
+
         // Maximize if it was minimized
         callStateManager.maximizeCall();
       }

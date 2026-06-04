@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { leaveServer } from "@/api";
-import {ServerDetails} from "@/api/types/server.types"; 
+import { ServerDetails } from "@/api/types/server.types";
 import Toast from "@/components/Loader";
 
 interface LeaveProps {
@@ -16,7 +16,7 @@ export default function Leave({ serverId, serverDetails }: LeaveProps) {
   const [isLeaving, setIsLeaving] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-const [showToast, setShowToast] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
   const serverName = serverDetails?.name || "Unknown Server";
 
@@ -37,10 +37,8 @@ const [showToast, setShowToast] = useState(false);
       await leaveServer(serverId);
       localStorage.removeItem("currentServerId");
 
-
       setShowToast(true);
 
-      
       setTimeout(() => {
         router.push("/servers");
       }, 2000);
@@ -61,13 +59,11 @@ const [showToast, setShowToast] = useState(false);
   return (
     <div className="max-w-lg mx-auto p-8 text-white">
       <h1 className="text-2xl font-bold mb-8">Leave Server</h1>
-      
+
       {error && (
-        <div className="bg-red-500 text-white p-3 rounded mb-4">
-          {error}
-        </div>
+        <div className="bg-red-500 text-white p-3 rounded mb-4">{error}</div>
       )}
-      
+
       <div className="flex items-center gap-4 mb-8 bg-[#23272a] p-4 rounded">
         <span className="text-3xl">⚠️</span>
         <div>
@@ -89,8 +85,12 @@ const [showToast, setShowToast] = useState(false);
             backgroundPosition: "left center",
             transition: "background-position 0.5s, transform 0.2s",
           }}
-          onMouseEnter={e => (e.currentTarget.style.backgroundPosition = "right center")}
-          onMouseLeave={e => (e.currentTarget.style.backgroundPosition = "left center")}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.backgroundPosition = "right center")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.backgroundPosition = "left center")
+          }
           onClick={() => setShowConfirm(true)}
           disabled={isLeaving}
         >
@@ -104,7 +104,7 @@ const [showToast, setShowToast] = useState(false);
           <input
             className="w-full bg-black text-white border-2 border-[#72767d] rounded px-4 py-3 mb-4 focus:border-[#b5bac1] focus:outline-none transition-all duration-200 transform hover:-translate-y-1 focus:-translate-y-1"
             value={input}
-            onChange={e => setInput(e.target.value)}
+            onChange={(e) => setInput(e.target.value)}
             placeholder={serverName}
             disabled={isLeaving}
           />
@@ -117,8 +117,12 @@ const [showToast, setShowToast] = useState(false);
                 backgroundPosition: "left center",
                 transition: "background-position 0.5s, transform 0.2s",
               }}
-              onMouseEnter={e => (e.currentTarget.style.backgroundPosition = "right center")}
-              onMouseLeave={e => (e.currentTarget.style.backgroundPosition = "left center")}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.backgroundPosition = "right center")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.backgroundPosition = "left center")
+              }
               onClick={handleLeaveServer}
               disabled={isLeaving || input !== serverName}
             >

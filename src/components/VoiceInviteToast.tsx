@@ -4,9 +4,9 @@
 // Toast notification component for incoming voice channel invites
 // Displays at bottom-right of screen, similar to Discord's incoming call notification
 
-import React, { useEffect, useState } from 'react';
-import { Phone, PhoneOff, X } from 'lucide-react';
-import { VoiceInvite } from '@/hooks/useVoiceInviteNotifications';
+import React, { useEffect, useState } from "react";
+import { Phone, PhoneOff, X } from "lucide-react";
+import { VoiceInvite } from "@/hooks/useVoiceInviteNotifications";
 
 // ==================== TYPES ====================
 
@@ -86,7 +86,7 @@ const SingleInviteToast: React.FC<SingleInviteToastProps> = ({
       className={`
         bg-[#2b2d31] rounded-lg shadow-2xl border border-gray-700 overflow-hidden
         transform transition-all duration-300 ease-out
-        ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
+        ${isVisible ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"}
       `}
     >
       {/* Progress bar at top */}
@@ -125,9 +125,7 @@ const SingleInviteToast: React.FC<SingleInviteToastProps> = ({
               <p className="text-white font-medium text-sm">
                 {invite.inviterUsername}
               </p>
-              <p className="text-gray-400 text-xs">
-                invites you to voice
-              </p>
+              <p className="text-gray-400 text-xs">invites you to voice</p>
             </div>
           </div>
 
@@ -144,7 +142,9 @@ const SingleInviteToast: React.FC<SingleInviteToastProps> = ({
           <div className="flex items-center gap-2">
             <Phone className="w-4 h-4 text-green-400" />
             <div>
-              <p className="text-white text-sm font-medium">{invite.channelName}</p>
+              <p className="text-white text-sm font-medium">
+                {invite.channelName}
+              </p>
               <p className="text-gray-400 text-xs">{invite.serverName}</p>
             </div>
           </div>

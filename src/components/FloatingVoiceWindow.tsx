@@ -24,7 +24,6 @@ interface UIParticipant extends VoiceRosterMember {
   tileId?: number;
 }
 
-
 interface Position {
   x: number;
   y: number;
@@ -115,53 +114,47 @@ const FloatingVoiceWindow: React.FC<FloatingVoiceWindowProps> = ({
 
   /* ---------------- SAFE ACTIVE SPEAKER ---------------- */
 
-const focusedParticipant = useMemo<UIParticipant | null>(() => {
-  const safeParticipants: UIParticipant[] = participants.map(p => ({
-    ...p,
-    muted: p.muted ?? false,
-    speaking: p.speaking ?? false,
-    video: p.video ?? false,
-    screenSharing: p.screenSharing ?? false,
-    tileId: (p as any).tileId, // temporary until you wire tiles properly
-    username: p.attendeeId
-  }));
+  const focusedParticipant = useMemo<UIParticipant | null>(() => {
+    const safeParticipants: UIParticipant[] = participants.map((p) => ({
+      ...p,
+      muted: p.muted ?? false,
+      speaking: p.speaking ?? false,
+      video: p.video ?? false,
+      screenSharing: p.screenSharing ?? false,
+      tileId: (p as any).tileId, // temporary until you wire tiles properly
+      username: p.attendeeId,
+    }));
 
-  // Prefer participant with video
-  const withVideo = safeParticipants.find(p => p.video && p.tileId);
-  if (withVideo) return withVideo;
+    // Prefer participant with video
+    const withVideo = safeParticipants.find((p) => p.video && p.tileId);
+    if (withVideo) return withVideo;
 
-  // Otherwise last speaker
-  const lastSpeaker = [...safeParticipants]
-    .reverse()
-    .find(p => p.speaking && p.tileId);
+    // Otherwise last speaker
+    const lastSpeaker = [...safeParticipants]
+      .reverse()
+      .find((p) => p.speaking && p.tileId);
 
-  return lastSpeaker || null;
-}, [participants]);
-
+    return lastSpeaker || null;
+  }, [participants]);
 
   /* ---------------- VIDEO BINDING ---------------- */
 
-useEffect(() => {
-  const videoEl = videoRef.current;
-  if (!videoEl) return;
-  if (!isVisible) return;
-  if (!focusedParticipant?.tileId) return;
-  if (!focusedParticipant.video) return;
+  useEffect(() => {
+    const videoEl = videoRef.current;
+    if (!videoEl) return;
+    if (!isVisible) return;
+    if (!focusedParticipant?.tileId) return;
+    if (!focusedParticipant.video) return;
 
-  const tileId = focusedParticipant.tileId;
+    const tileId = focusedParticipant.tileId;
 
-  bindVideoElement(tileId, videoEl);
-  videoEl.play().catch(() => {});
+    bindVideoElement(tileId, videoEl);
+    videoEl.play().catch(() => {});
 
-  return () => {
-    unbindVideoElement(tileId);
-  };
-}, [
-  focusedParticipant?.tileId,
-  focusedParticipant?.video,
-  isVisible,
-]);
-
+    return () => {
+      unbindVideoElement(tileId);
+    };
+  }, [focusedParticipant?.tileId, focusedParticipant?.video, isVisible]);
 
   /* ---------------- exit guards ---------------- */
 
@@ -172,13 +165,13 @@ useEffect(() => {
   /* ---------------- render ---------------- */
 
   return (
-<DragWrapper
-    nodeRef={nodeRef}
-    defaultPosition={position}
-    onStop={handleDragStop}
-    bounds="parent"
-    handle=".drag-handle"
-  >
+    <DragWrapper
+      nodeRef={nodeRef}
+      defaultPosition={position}
+      onStop={handleDragStop}
+      bounds="parent"
+      handle=".drag-handle"
+    >
       <div
         ref={nodeRef}
         className="fixed bottom-6 right-6 z-50 select-none"
@@ -218,16 +211,15 @@ useEffect(() => {
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gray-800">
-  <div className="text-center">
-    <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center mx-auto mb-1">
-      <span className="text-lg font-bold text-white">
-        {(focusedParticipant?.username || "U")[0].toUpperCase()}
-      </span>
-    </div>
-    <p className="text-gray-400 text-xs">Camera off</p>
-  </div>
-</div>
-
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center mx-auto mb-1">
+                    <span className="text-lg font-bold text-white">
+                      {(focusedParticipant?.username || "U")[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="text-gray-400 text-xs">Camera off</p>
+                </div>
+              </div>
             )}
 
             {localMediaState.muted && (

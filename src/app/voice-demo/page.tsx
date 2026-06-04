@@ -2,14 +2,14 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import EnhancedVoiceChannel from '@/components/EnhancedVoiceChannel';
-import VoiceNotifications from '@/components/VoiceNotifications';
+import React, { useState, useEffect } from "react";
+import EnhancedVoiceChannel from "@/components/EnhancedVoiceChannel";
+import VoiceNotifications from "@/components/VoiceNotifications";
 
 const VoiceDemoPage = () => {
   const [isInCall, setIsInCall] = useState(false);
-  const [channelId, setChannelId] = useState('demo-channel-123');
-  const [userId, setUserId] = useState('');
+  const [channelId, setChannelId] = useState("demo-channel-123");
+  const [userId, setUserId] = useState("");
 
   const handleStartCall = () => {
     setIsInCall(true);
@@ -21,11 +21,11 @@ const VoiceDemoPage = () => {
 
   // Generate user ID on client side only
   useEffect(() => {
-    setUserId('demo-user-' + Math.random().toString(36).substr(2, 9));
+    setUserId("demo-user-" + Math.random().toString(36).substr(2, 9));
   }, []);
 
   const currentUser = {
-    username: 'Demo User'
+    username: "Demo User",
   };
 
   if (isInCall) {
@@ -37,16 +37,16 @@ const VoiceDemoPage = () => {
           onHangUp={handleEndCall}
           currentUser={currentUser}
           onLocalStreamChange={(stream) => {
-            console.log('Local stream changed:', stream);
+            console.log("Local stream changed:", stream);
           }}
           onRemoteStreamAdded={(id, stream, type) => {
-            console.log('Remote stream added:', id, type);
+            console.log("Remote stream added:", id, type);
           }}
           onRemoteStreamRemoved={(id) => {
-            console.log('Remote stream removed:', id);
+            console.log("Remote stream removed:", id);
           }}
           onVoiceRoster={(members) => {
-            console.log('Voice roster updated:', members);
+            console.log("Voice roster updated:", members);
           }}
         />
         <VoiceNotifications />
@@ -62,7 +62,8 @@ const VoiceDemoPage = () => {
             🎯 Enhanced Voice/Video Demo
           </h1>
           <p className="text-xl text-gray-300 mb-8">
-            Experience the full power of voice and video communication with advanced features
+            Experience the full power of voice and video communication with
+            advanced features
           </p>
         </div>
 
@@ -120,7 +121,7 @@ const VoiceDemoPage = () => {
         {/* Demo Controls */}
         <div className="bg-gray-800 rounded-lg p-8 border border-gray-700">
           <h2 className="text-2xl font-bold mb-6">Start Demo</h2>
-          
+
           <div className="space-y-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -144,7 +145,7 @@ const VoiceDemoPage = () => {
               </label>
               <input
                 type="text"
-                value={userId || 'Loading...'}
+                value={userId || "Loading..."}
                 readOnly
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-gray-400"
               />
@@ -179,7 +180,9 @@ const VoiceDemoPage = () => {
         {/* Technical Features */}
         <div className="mt-8 grid md:grid-cols-2 gap-6">
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-lg font-semibold mb-4">🔧 Technical Features</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              🔧 Technical Features
+            </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• WebRTC peer-to-peer connections</li>
               <li>• Socket.io real-time signaling</li>
@@ -203,7 +206,7 @@ const VoiceDemoPage = () => {
           </div>
         </div>
       </div>
-      
+
       <VoiceNotifications />
     </div>
   );

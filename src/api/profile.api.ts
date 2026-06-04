@@ -1,5 +1,5 @@
-import {apiClient} from "./axios";
-import {profile} from "./types/profile.types";
+import { apiClient } from "./axios";
+import { profile } from "./types/profile.types";
 
 export const fetchProfile = async (): Promise<profile> => {
   if (typeof window === "undefined") throw new Error("Client only");
@@ -20,15 +20,14 @@ export const fetchUserProfile = async (userId: string): Promise<any> => {
 };
 
 export async function getUser(): Promise<profile | null> {
-    if (typeof window !== "undefined") {
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-            return JSON.parse(storedUser) as profile;
-        }
+  if (typeof window !== "undefined") {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      return JSON.parse(storedUser) as profile;
     }
-    return null;
+  }
+  return null;
 }
-
 
 const userProfileCache = new Map<string, any>();
 const inflight = new Map<string, Promise<any>>();

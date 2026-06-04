@@ -8,8 +8,8 @@ interface SidebarProps {
 // Items visible to everyone
 const memberMenuItems = [
   "Overview",
-  "Role",      // Members see self-assignable roles view
-  "Members",   // Members can view the member list
+  "Role", // Members see self-assignable roles view
+  "Members", // Members can view the member list
   "Leave",
 ];
 
@@ -36,10 +36,15 @@ const ownerMenuItems = [
   // "Ownership",
 ];
 
-export default function Sidebar({ selected, onSelect, isOwner = false, isAdmin = false }: SidebarProps) {
+export default function Sidebar({
+  selected,
+  onSelect,
+  isOwner = false,
+  isAdmin = false,
+}: SidebarProps) {
   // Determine which menu items to show based on role
   let menuItems: string[];
-  
+
   if (isOwner) {
     menuItems = ownerMenuItems;
   } else if (isAdmin) {
@@ -50,7 +55,9 @@ export default function Sidebar({ selected, onSelect, isOwner = false, isAdmin =
 
   return (
     <nav className="w-64 min-h-screen bg-[#18191c] p-6 flex flex-col border-r border-[#23272a]">
-      <h2 className="text-2xl font-extrabold mb-8 text-white tracking-wide">Server Settings</h2>
+      <h2 className="text-2xl font-extrabold mb-8 text-white tracking-wide">
+        Server Settings
+      </h2>
       <ul className="flex flex-col gap-1">
         {menuItems.map((item) => (
           <li
@@ -71,4 +78,3 @@ export default function Sidebar({ selected, onSelect, isOwner = false, isAdmin =
     </nav>
   );
 }
- 

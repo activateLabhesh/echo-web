@@ -22,8 +22,8 @@ const processQueue = (error: Error | null, token: string | null = null) => {
 };
 
 export const api = axios.create({
-    baseURL: API_BASE_URL,
-    withCredentials: true,
+  baseURL: API_BASE_URL,
+  withCredentials: true,
 });
 
 export const apiClient = api;
@@ -46,7 +46,9 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
 
     // Only handle 401 errors in browser environment
     if (typeof window === "undefined" || error.response?.status !== 401) {
@@ -54,7 +56,10 @@ api.interceptors.response.use(
     }
 
     // Don't retry if this is already a retry attempt or if it's the refresh endpoint itself
-    if (originalRequest._retry || originalRequest.url?.includes('/api/auth/refresh')) {
+    if (
+      originalRequest._retry ||
+      originalRequest.url?.includes("/api/auth/refresh")
+    ) {
       // Refresh failed or already retried, clear storage and redirect to home
       localStorage.removeItem("token");
       localStorage.removeItem("access_token");
@@ -86,7 +91,7 @@ api.interceptors.response.use(
     try {
       // Get refresh token from localStorage
       const refreshToken = localStorage.getItem("refresh_token");
-      
+
       if (!refreshToken) {
         throw new Error("No refresh token available");
       }
@@ -95,25 +100,29 @@ api.interceptors.response.use(
       const response = await axios.post(
         `${API_BASE_URL}/api/auth/refresh`,
         { refreshToken },
-        { 
+        {
           withCredentials: true,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { "Content-Type": "application/json" },
         }
       );
-      
-      const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
+
+      const {
+        accessToken,
+        refreshToken: newRefreshToken,
+        expiresIn,
+      } = response.data;
 
       // Store new tokens
       localStorage.setItem("access_token", accessToken);
       localStorage.setItem("refresh_token", newRefreshToken);
-      
+
       // Calculate and store expiry time
       const expiryTime = Date.now() + expiresIn * 1000;
       localStorage.setItem("tokenExpiry", expiryTime.toString());
 
       // Update default authorization header
       api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
-      
+
       // Update the failed request's authorization header
       if (originalRequest.headers) {
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
@@ -121,13 +130,13 @@ api.interceptors.response.use(
 
       // Token refreshed successfully, process queued requests
       processQueue(null, accessToken);
-      
+
       // Retry the original request
       return api(originalRequest);
     } catch (refreshError) {
       // Refresh failed, process queue with error
       processQueue(refreshError as Error, null);
-      
+
       // Clear local storage and redirect to login
       localStorage.removeItem("token");
       localStorage.removeItem("access_token");
@@ -136,7 +145,7 @@ api.interceptors.response.use(
       localStorage.removeItem("user");
       sessionStorage.setItem("skipGlobalLoader", "1");
       window.location.href = "/";
-      
+
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;
@@ -145,65 +154,66 @@ api.interceptors.response.use(
 );
 
 export function getToken(token?: string) {
-    if (token) {
-        api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-    } else {
-        delete api.defaults.headers.common["Authorization"];
-    }
+  if (token) {
+    api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common["Authorization"];
+  }
 }
 
-
 // Manual token refresh function (can be used proactively)
-export const refreshToken = async (): Promise<{ 
-    accessToken: string; 
-    refreshToken: string; 
-    expiresIn: number 
+export const refreshToken = async (): Promise<{
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
 } | null> => {
-    try {
-        const refreshToken = localStorage.getItem("refresh_token");
-        
-        if (!refreshToken) {
-            throw new Error("No refresh token available");
-        }
+  try {
+    const refreshToken = localStorage.getItem("refresh_token");
 
-        const response = await axios.post(
-            `${API_BASE_URL}/api/auth/refresh`,
-            { refreshToken },
-            { 
-                withCredentials: true,
-                headers: { 'Content-Type': 'application/json' }
-            }
-        );
-
-        const { accessToken, refreshToken: newRefreshToken, expiresIn } = response.data;
-
-        // Update stored tokens
-        localStorage.setItem("access_token", accessToken);
-        localStorage.setItem("refresh_token", newRefreshToken);
-        
-        const expiryTime = Date.now() + expiresIn * 1000;
-        localStorage.setItem("tokenExpiry", expiryTime.toString());
-
-        // Update default header
-        api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
-
-        return {
-            accessToken,
-            refreshToken: newRefreshToken,
-            expiresIn,
-        };
-    } catch (error) {
-        console.error('Token refresh failed:', error);
-        return null;
+    if (!refreshToken) {
+      throw new Error("No refresh token available");
     }
+
+    const response = await axios.post(
+      `${API_BASE_URL}/api/auth/refresh`,
+      { refreshToken },
+      {
+        withCredentials: true,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+
+    const {
+      accessToken,
+      refreshToken: newRefreshToken,
+      expiresIn,
+    } = response.data;
+
+    // Update stored tokens
+    localStorage.setItem("access_token", accessToken);
+    localStorage.setItem("refresh_token", newRefreshToken);
+
+    const expiryTime = Date.now() + expiresIn * 1000;
+    localStorage.setItem("tokenExpiry", expiryTime.toString());
+
+    // Update default header
+    api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+
+    return {
+      accessToken,
+      refreshToken: newRefreshToken,
+      expiresIn,
+    };
+  } catch (error) {
+    console.error("Token refresh failed:", error);
+    return null;
+  }
 };
 
 // Initialize token from localStorage on app load
 if (typeof window !== "undefined") {
-    const storedToken = localStorage.getItem("access_token");
-    if (storedToken) {
-        getToken(storedToken);
-    }
+  const storedToken = localStorage.getItem("access_token");
+  if (storedToken) {
+    getToken(storedToken);
+  }
 }
-
-

@@ -119,9 +119,9 @@ export default forwardRef(function ChatWindow(
   const [currentUserAvatar, setCurrentUserAvatar] =
     useState<string>("/User_profil.png");
   const isLoadingMoreRef = useRef(false);
-  const channelIdRef = useRef(channelId); 
-  const receivedMessageIdsRef = useRef<Set<string | number>>(new Set()); 
-  const offsetRef = useRef(0); 
+  const channelIdRef = useRef(channelId);
+  const receivedMessageIdsRef = useRef<Set<string | number>>(new Set());
+  const offsetRef = useRef(0);
   const [serverRoles, setServerRoles] = useState<
     { id: string; name: string; color?: string }[]
   >([]);
@@ -158,10 +158,8 @@ export default forwardRef(function ChatWindow(
     null
   );
 
-  const {
-    notifications: mentionNotifications,
-    markAsRead: markMentionAsRead,
-  } = useNotifications();
+  const { notifications: mentionNotifications, markAsRead: markMentionAsRead } =
+    useNotifications();
 
   const reactionStorageKey = useMemo(() => {
     if (!currentUserId || !channelId) return null;
@@ -198,7 +196,9 @@ export default forwardRef(function ChatWindow(
   // Mark all mentions as read for a channel
   const markAllChannelMentionsAsRead = async (mentionIds: string[]) => {
     await Promise.all(
-      mentionIds.map((id) => mentionsApiClient.patch(`/api/mentions/${id}/read`))
+      mentionIds.map((id) =>
+        mentionsApiClient.patch(`/api/mentions/${id}/read`)
+      )
     );
   };
 
@@ -266,7 +266,6 @@ export default forwardRef(function ChatWindow(
   const normalizeRoleName = (name: string) =>
     name.trim().toLowerCase().replace(/\s+/g, " ");
 
-
   useEffect(() => {
     if (!channelId || !currentUserId) {
       setLastReadTimestamp(null);
@@ -283,13 +282,11 @@ export default forwardRef(function ChatWindow(
     }
   }, [channelId, currentUserId]);
 
-
   useEffect(() => {
-   
     if (
       loadingMessages ||
       isAutoScrollingRef.current ||
-      isManuallyScrollingRef.current || 
+      isManuallyScrollingRef.current ||
       messages.length === 0
     ) {
       return;
@@ -299,10 +296,10 @@ export default forwardRef(function ChatWindow(
     if (!container) return;
 
     // Check if user is at bottom (within 150px)
-   const replyBarHeight = replyingTo ? 52 : 0;
-   const isNearBottom =
-     container.scrollHeight - container.scrollTop - container.clientHeight <
-     150 + replyBarHeight;
+    const replyBarHeight = replyingTo ? 52 : 0;
+    const isNearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      150 + replyBarHeight;
 
     // Only auto-scroll if user is already at bottom
     if (isNearBottom) {
@@ -310,7 +307,7 @@ export default forwardRef(function ChatWindow(
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       });
     }
-  }, [messages, loadingMessages,replyingTo]);
+  }, [messages, loadingMessages, replyingTo]);
 
   // Seed valid usernames for mention validation
   useEffect(() => {
@@ -573,16 +570,14 @@ export default forwardRef(function ChatWindow(
         // console.log("Response status:", response.status);
 
         if (!response.ok) {
-          
           console.warn(
             "Member not found in server (non-blocking):",
             msg.senderId
           );
-          return; 
+          return;
         }
 
         const memberData = await response.json();
-
 
         setSelectedUser({
           id: msg.senderId,
@@ -600,7 +595,6 @@ export default forwardRef(function ChatWindow(
 
   const handleUsernameClick = useCallback(
     async (userId: string, username: string) => {
-
       const existingMessage = messages.find(
         (msg) => msg.senderId === userId || msg.username === username
       );
@@ -725,23 +719,19 @@ export default forwardRef(function ChatWindow(
         } else {
           setLoadingMessages(true);
           setIsInitialLoadDone(false);
-          offsetRef.current = 0; 
+          offsetRef.current = 0;
           setOffset(0);
           isLoadingMoreRef.current = false;
         }
 
         const currentOffset = loadMore ? offsetRef.current : 0;
 
-     
         if (abortSignal?.aborted) {
           return;
         }
 
-    
-      
         const res = await fetchMessages(currentChannelId, currentOffset);
 
-       
         if (abortSignal?.aborted || channelIdRef.current !== currentChannelId) {
           console.log(
             `Fetch completed for ${currentChannelId} but current channel is ${channelIdRef.current}, ignoring`
@@ -753,7 +743,6 @@ export default forwardRef(function ChatWindow(
           res.data.map(async (msg: any) => {
             const senderId = msg.sender_id || msg.senderId;
             const avatarUrl = await resolveAvatarUrl(senderId, msg);
-
 
             let replyTo = null;
             if (msg.reply_to_message) {
@@ -781,12 +770,11 @@ export default forwardRef(function ChatWindow(
                     msg.sender_name ||
                     "Unknown",
               mediaUrl: msg.media_url || msg.mediaUrl,
-              replyTo, 
+              replyTo,
             };
           })
         );
 
-        
         if (abortSignal?.aborted || channelIdRef.current !== currentChannelId) {
           console.log(
             `Message processing completed for ${currentChannelId} but current channel is ${channelIdRef.current}, ignoring`
@@ -823,10 +811,7 @@ export default forwardRef(function ChatWindow(
       } catch (err) {
         console.error("Failed to fetch messages", err);
       } finally {
-        if (
-          abortSignal?.aborted ||
-          channelIdRef.current !== currentChannelId
-        ) {
+        if (abortSignal?.aborted || channelIdRef.current !== currentChannelId) {
           return;
         }
 
@@ -853,7 +838,6 @@ export default forwardRef(function ChatWindow(
           return true;
         }
 
-      
         if (hasMore && attempt < retries - 1) {
           await loadMessages(true);
           await new Promise((resolve) => setTimeout(resolve, 100));
@@ -870,7 +854,6 @@ export default forwardRef(function ChatWindow(
   );
 
   useEffect(() => {
- 
     if (
       loadingMessages ||
       messages.length === 0 ||
@@ -881,7 +864,7 @@ export default forwardRef(function ChatWindow(
 
     initialScrollDoneRef.current = channelId;
     isAutoScrollingRef.current = true;
-    hasUserScrolledRef.current = false; 
+    hasUserScrolledRef.current = false;
 
     const performInitialScroll = () => {
       try {
@@ -892,34 +875,31 @@ export default forwardRef(function ChatWindow(
         if (!lastReadMs) {
           messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
           void markUnreadMentionsAsRead();
-          
+
           setTimeout(() => {
             isAutoScrollingRef.current = false;
           }, 500);
           return;
         }
 
-   
         const firstUnreadIndex = messages.findIndex((msg) => {
           const msgTime = new Date(msg.timestamp).getTime();
           return msgTime > lastReadMs && msg.senderId !== currentUserId;
         });
 
         if (firstUnreadIndex === -1) {
-        
           messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
           void markUnreadMentionsAsRead();
           setTimeout(() => {
             isAutoScrollingRef.current = false;
           }, 500);
         } else {
-         
           const firstUnread = messages[firstUnreadIndex];
           const el = messageRefs.current[firstUnread.id];
 
           if (el) {
             el.scrollIntoView({ behavior: "auto", block: "start" });
-           
+
             setTimeout(() => {
               isAutoScrollingRef.current = false;
             }, 500);
@@ -970,107 +950,105 @@ export default forwardRef(function ChatWindow(
     };
   }, [channelId, loadMessages]);
 
-const handleScroll = useCallback(() => {
-  const container = messagesContainerRef.current;
-  if (!container || loadingMore || !hasMore) return;
+  const handleScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container || loadingMore || !hasMore) return;
 
+    if (isAutoScrollingRef.current) return;
 
-  if (isAutoScrollingRef.current) return;
+    hasUserScrolledRef.current = true;
+    isManuallyScrollingRef.current = false;
 
-  hasUserScrolledRef.current = true;
-  isManuallyScrollingRef.current = false;
+    const isAtBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      50;
 
-  const isAtBottom =
-    container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+    if (
+      isAtBottom &&
+      hasUserScrolledRef.current &&
+      messages.length > 0 &&
+      channelId &&
+      currentUserId
+    ) {
+      const last = messages[messages.length - 1];
+      const ts = last.timestamp;
+      setLastReadTimestamp(ts);
+      try {
+        const key = `channel_last_read_${channelId}_${currentUserId}`;
+        localStorage.setItem(key, ts);
+      } catch (err) {
+        console.error("Failed to persist last read timestamp", err);
+      }
 
-
-  if (
-    isAtBottom &&
-    hasUserScrolledRef.current &&
-    messages.length > 0 &&
-    channelId &&
-    currentUserId
-  ) {
-    const last = messages[messages.length - 1];
-    const ts = last.timestamp;
-    setLastReadTimestamp(ts);
-    try {
-      const key = `channel_last_read_${channelId}_${currentUserId}`;
-      localStorage.setItem(key, ts);
-    } catch (err) {
-      console.error("Failed to persist last read timestamp", err);
+      void markUnreadMentionsAsRead();
     }
 
-    void markUnreadMentionsAsRead();
-  }
+    if (messages.length > 0 && channelId && currentUserId && !isAtBottom) {
+      const viewportBottom = container.scrollTop + container.clientHeight;
 
-  
-  if (messages.length > 0 && channelId && currentUserId && !isAtBottom) {
-    const viewportBottom = container.scrollTop + container.clientHeight;
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i];
+        const el = messageRefs.current[msg.id];
+        if (!el) continue;
 
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i];
-      const el = messageRefs.current[msg.id];
-      if (!el) continue;
+        const elTop = el.offsetTop;
+        if (elTop <= viewportBottom) {
+          const ts = msg.timestamp;
+          const existing = lastReadTimestamp
+            ? new Date(lastReadTimestamp).getTime()
+            : 0;
+          const next = new Date(ts).getTime();
 
-      const elTop = el.offsetTop;
-      if (elTop <= viewportBottom) {
-        const ts = msg.timestamp;
-        const existing = lastReadTimestamp
-          ? new Date(lastReadTimestamp).getTime()
-          : 0;
-        const next = new Date(ts).getTime();
+          if (next > existing) {
+            setLastReadTimestamp(ts);
+            try {
+              const key = `channel_last_read_${channelId}_${currentUserId}`;
+              localStorage.setItem(key, ts);
+            } catch (err) {
+              console.error("Failed to persist last read timestamp", err);
+            }
 
-        if (next > existing) {
-          setLastReadTimestamp(ts);
-          try {
-            const key = `channel_last_read_${channelId}_${currentUserId}`;
-            localStorage.setItem(key, ts);
-          } catch (err) {
-            console.error("Failed to persist last read timestamp", err);
+            void markUnreadMentionsAsRead();
           }
-
-          void markUnreadMentionsAsRead();
+          break;
         }
-        break;
       }
     }
-  }
 
- 
-  if (container.scrollTop < 100) {
-    const previousScrollHeight = container.scrollHeight;
-    const previousScrollTop = container.scrollTop;
+    if (container.scrollTop < 100) {
+      const previousScrollHeight = container.scrollHeight;
+      const previousScrollTop = container.scrollTop;
 
-    loadMessages(true).then(() => {
-      requestAnimationFrame(() => {
-        if (messagesContainerRef.current) {
-          const newScrollHeight = messagesContainerRef.current.scrollHeight;
-          messagesContainerRef.current.scrollTop =
-            previousScrollTop + (newScrollHeight - previousScrollHeight);
-        }
+      loadMessages(true).then(() => {
+        requestAnimationFrame(() => {
+          if (messagesContainerRef.current) {
+            const newScrollHeight = messagesContainerRef.current.scrollHeight;
+            messagesContainerRef.current.scrollTop =
+              previousScrollTop + (newScrollHeight - previousScrollHeight);
+          }
+        });
       });
-    });
-  }
-}, [
-  loadingMore,
-  hasMore,
-  loadMessages,
-  messages,
-  channelId,
-  currentUserId,
-  lastReadTimestamp,
-]);
+    }
+  }, [
+    loadingMore,
+    hasMore,
+    loadMessages,
+    messages,
+    channelId,
+    currentUserId,
+    lastReadTimestamp,
+  ]);
 
   const jumpToNextMention = useCallback(() => {
     if (unreadMentionsForChannel.length === 0) return;
 
     const targetMention =
-      unreadMentionsForChannel[currentMentionIndex % unreadMentionsForChannel.length];
+      unreadMentionsForChannel[
+        currentMentionIndex % unreadMentionsForChannel.length
+      ];
     const el = messageRefs.current[targetMention.messageId];
 
     if (el) {
-     
       isManuallyScrollingRef.current = true;
 
       el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1084,10 +1062,7 @@ const handleScroll = useCallback(() => {
     }
 
     setCurrentMentionIndex((prev) => prev + 1);
-  }, [
-    unreadMentionsForChannel,
-    currentMentionIndex,
-  ]);
+  }, [unreadMentionsForChannel, currentMentionIndex]);
 
   const markUnreadMentionsAsRead = useCallback(async () => {
     if (unreadMentionsForChannel.length === 0) return;
@@ -1311,9 +1286,12 @@ const handleScroll = useCallback(() => {
 
       receivedMessageIdsRef.current.add(messageId);
 
-      setTimeout(() => {
-        receivedMessageIdsRef.current.delete(messageId);
-      }, 10 * 60 * 1000);
+      setTimeout(
+        () => {
+          receivedMessageIdsRef.current.delete(messageId);
+        },
+        10 * 60 * 1000
+      );
     };
 
     // Handle message confirmation (for sender's optimistic UI)
@@ -1513,9 +1491,9 @@ const handleScroll = useCallback(() => {
         file: file || undefined,
       });
       setReplyingTo(null);
-       requestAnimationFrame(() => {
-         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-       });
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      });
       console.log("[Upload Message] Response:", response);
 
       setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
@@ -1527,7 +1505,7 @@ const handleScroll = useCallback(() => {
       if (err?.response?.status === 403) {
         setPermissionError(errorMessage);
         setTimeout(() => setPermissionError(null), 5000);
-      }  else {
+      } else {
         setToast({
           message: `Upload failed: size exceeded`,
           type: "error",

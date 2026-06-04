@@ -29,9 +29,7 @@ export const metadata: Metadata = {
     "collaboration tool",
     "Discord alternative",
   ],
-  authors: [
-    { name: "IEEE Computer Society VIT" },
-  ],
+  authors: [{ name: "IEEE Computer Society VIT" }],
   creator: "IEEE Computer Society VIT",
   publisher: "IEEE Computer Society VIT",
   openGraph: {
@@ -55,9 +53,7 @@ export default function RootLayout({
       <body>
         <TokenRefreshProvider>
           <MobileBlocker>
-            <ToastProvider>
-              {children}
-            </ToastProvider>
+            <ToastProvider>{children}</ToastProvider>
             <MinimizedCallBar />
           </MobileBlocker>
         </TokenRefreshProvider>

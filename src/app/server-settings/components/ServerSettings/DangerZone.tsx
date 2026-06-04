@@ -2,11 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  deleteServer,
-  transferServerOwnership,
-  getServerMembers,
-} from "@/api";
+import { deleteServer, transferServerOwnership, getServerMembers } from "@/api";
 import { getUser } from "@/api";
 import Toast from "@/components/Toast";
 

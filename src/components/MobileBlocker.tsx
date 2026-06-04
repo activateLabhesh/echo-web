@@ -21,7 +21,9 @@ export function MobileBlocker({ children }: { children: React.ReactNode }) {
         <div className="max-w-md text-center space-y-4">
           <h1 className="text-3xl font-semibold">Mobile App Coming Soon</h1>
           <p className="text-xl">We're still building the mobile experience.</p>
-          <p className="text-xl">For now, please use Echo on a laptop or desktop browser.</p>
+          <p className="text-xl">
+            For now, please use Echo on a laptop or desktop browser.
+          </p>
           <p className="text-md">Stay tuned</p>
         </div>
       </div>

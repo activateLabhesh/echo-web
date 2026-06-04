@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import {
-  
   getAllRoles,
   createRole,
   updateRole,
@@ -14,7 +13,7 @@ import {
   selfAssignRole,
   selfUnassignRole,
 } from "@/api";
-import {Role as RoleType,RoleCategory} from "@/api/types/roles.types";
+import { Role as RoleType, RoleCategory } from "@/api/types/roles.types";
 
 interface RoleProps {
   serverId: string;
@@ -31,21 +30,27 @@ export default function Role({ serverId, isOwner, isAdmin }: RoleProps) {
   }
 
   // Admin/Owner view
-  return <AdminRoleView serverId={serverId} isOwner={isOwner} isAdmin={isAdmin} />;
+  return (
+    <AdminRoleView serverId={serverId} isOwner={isOwner} isAdmin={isAdmin} />
+  );
 }
 
 // ==================== MEMBER VIEW ====================
 function MemberRoleView({ serverId }: { serverId: string }) {
-  const [selfAssignableRoles, setSelfAssignableRoles] = useState<RoleType[]>([]);
+  const [selfAssignableRoles, setSelfAssignableRoles] = useState<RoleType[]>(
+    []
+  );
   const [myRoles, setMyRoles] = useState<RoleType[]>([]);
   const [categories, setCategories] = useState<RoleCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
+
   // Track selected roles (for multi-select)
-  const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
+  const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(
+    new Set()
+  );
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
@@ -58,16 +63,16 @@ function MemberRoleView({ serverId }: { serverId: string }) {
           getMyRoles(serverId),
           getRoleCategories(serverId),
         ]);
-        
+
         // Filter out owner and admin roles
         const filteredRoles = rolesData.filter(
-          (r: RoleType) => r.role_type !== 'owner' && r.role_type !== 'admin'
+          (r: RoleType) => r.role_type !== "owner" && r.role_type !== "admin"
         );
-        
+
         setSelfAssignableRoles(filteredRoles);
         setMyRoles(myRolesData);
         setCategories(categoriesData);
-        
+
         // Initialize selected roles with current user roles
         const myRoleIds = new Set(myRolesData.map((r: RoleType) => r.id));
         setSelectedRoleIds(myRoleIds);
@@ -88,14 +93,17 @@ function MemberRoleView({ serverId }: { serverId: string }) {
       newSelected.add(roleId);
     }
     setSelectedRoleIds(newSelected);
-    
+
     // Check if there are changes from original
-    const myRoleIds = new Set(myRoles.map(r => r.id));
+    const myRoleIds = new Set(myRoles.map((r) => r.id));
     const newSelectedArr = Array.from(newSelected);
     const myRoleIdsArr = Array.from(myRoleIds);
-    const hasChanges = 
-      newSelectedArr.some(id => !myRoleIds.has(id)) ||
-      myRoleIdsArr.some(id => selfAssignableRoles.some(r => r.id === id) && !newSelected.has(id));
+    const hasChanges =
+      newSelectedArr.some((id) => !myRoleIds.has(id)) ||
+      myRoleIdsArr.some(
+        (id) =>
+          selfAssignableRoles.some((r) => r.id === id) && !newSelected.has(id)
+      );
     setHasChanges(hasChanges);
   };
 
@@ -105,14 +113,16 @@ function MemberRoleView({ serverId }: { serverId: string }) {
     setSuccess(null);
 
     try {
-      const myRoleIds = new Set(myRoles.map(r => r.id));
+      const myRoleIds = new Set(myRoles.map((r) => r.id));
       const selectedArr = Array.from(selectedRoleIds);
       const myRoleIdsArr = Array.from(myRoleIds);
-      
+
       // Find roles to add and remove
-      const rolesToAdd = selectedArr.filter(id => !myRoleIds.has(id));
-      const rolesToRemove = myRoleIdsArr.filter(id => 
-        selfAssignableRoles.some(r => r.id === id) && !selectedRoleIds.has(id)
+      const rolesToAdd = selectedArr.filter((id) => !myRoleIds.has(id));
+      const rolesToRemove = myRoleIdsArr.filter(
+        (id) =>
+          selfAssignableRoles.some((r) => r.id === id) &&
+          !selectedRoleIds.has(id)
       );
 
       // Process additions
@@ -130,7 +140,7 @@ function MemberRoleView({ serverId }: { serverId: string }) {
       setMyRoles(updatedMyRoles);
       setHasChanges(false);
       setSuccess("Roles updated successfully!");
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
@@ -176,8 +186,12 @@ function MemberRoleView({ serverId }: { serverId: string }) {
       <div className="max-w-2xl mx-auto p-8 text-white">
         <h1 className="text-2xl font-bold mb-4">Pick Your Roles</h1>
         <div className="bg-[#2f3136] rounded-lg p-6 text-center">
-          <p className="text-gray-400">No self-assignable roles available in this server.</p>
-          <p className="text-sm text-gray-500 mt-2">Contact server admins to create some!</p>
+          <p className="text-gray-400">
+            No self-assignable roles available in this server.
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            Contact server admins to create some!
+          </p>
         </div>
       </div>
     );
@@ -197,7 +211,9 @@ function MemberRoleView({ serverId }: { serverId: string }) {
       {error && (
         <div className="bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-lg mb-6">
           {error}
-          <button className="float-right" onClick={() => setError(null)}>×</button>
+          <button className="float-right" onClick={() => setError(null)}>
+            ×
+          </button>
         </div>
       )}
       {success && (
@@ -209,7 +225,9 @@ function MemberRoleView({ serverId }: { serverId: string }) {
       {/* Your Current Roles */}
       {myRoles.length > 0 && (
         <div className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase mb-3">Your Current Roles</h3>
+          <h3 className="text-sm font-semibold text-gray-400 uppercase mb-3">
+            Your Current Roles
+          </h3>
           <div className="flex flex-wrap gap-2">
             {myRoles.map((role) => (
               <span
@@ -238,7 +256,9 @@ function MemberRoleView({ serverId }: { serverId: string }) {
               {getCategoryName(categoryId)}
             </h3>
             {getCategoryDescription(categoryId) && (
-              <p className="text-xs text-gray-500 mt-1">{getCategoryDescription(categoryId)}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {getCategoryDescription(categoryId)}
+              </p>
             )}
           </div>
 
@@ -249,9 +269,10 @@ function MemberRoleView({ serverId }: { serverId: string }) {
                 <button
                   key={role.id}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2
-                    ${isSelected 
-                      ? "ring-2 ring-offset-2 ring-offset-[#2f3136]" 
-                      : "hover:scale-105"
+                    ${
+                      isSelected
+                        ? "ring-2 ring-offset-2 ring-offset-[#2f3136]"
+                        : "hover:scale-105"
                     }
                   `}
                   style={{
@@ -268,8 +289,16 @@ function MemberRoleView({ serverId }: { serverId: string }) {
                   />
                   <span>{role.name}</span>
                   {isSelected && (
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   )}
                 </button>
@@ -304,8 +333,9 @@ function MemberRoleView({ serverId }: { serverId: string }) {
       {/* Info */}
       <div className="mt-6 p-4 bg-[#36393f] rounded-lg">
         <p className="text-xs text-gray-400">
-          💡 <strong>Tip:</strong> Click roles to select/deselect them, then click "Save Changes" to apply.
-          Roles help you access specific channels and show your interests to other members.
+          💡 <strong>Tip:</strong> Click roles to select/deselect them, then
+          click "Save Changes" to apply. Roles help you access specific channels
+          and show your interests to other members.
         </p>
       </div>
     </div>
@@ -313,7 +343,15 @@ function MemberRoleView({ serverId }: { serverId: string }) {
 }
 
 // ==================== ADMIN VIEW ====================
-function AdminRoleView({ serverId, isOwner, isAdmin }: { serverId: string; isOwner: boolean; isAdmin: boolean }) {
+function AdminRoleView({
+  serverId,
+  isOwner,
+  isAdmin,
+}: {
+  serverId: string;
+  isOwner: boolean;
+  isAdmin: boolean;
+}) {
   const [roles, setRoles] = useState<RoleType[]>([]);
   const [categories, setCategories] = useState<RoleCategory[]>([]);
   const [selectedRole, setSelectedRole] = useState<RoleType | null>(null);
@@ -450,7 +488,8 @@ function AdminRoleView({ serverId, isOwner, isAdmin }: { serverId: string; isOwn
       return;
     }
 
-    if (!confirm(`Are you sure you want to delete the "${role.name}" role?`)) return;
+    if (!confirm(`Are you sure you want to delete the "${role.name}" role?`))
+      return;
 
     try {
       setSaving(true);
@@ -468,7 +507,12 @@ function AdminRoleView({ serverId, isOwner, isAdmin }: { serverId: string; isOwn
     const category = categories.find((c) => c.id === categoryId);
     if (!category) return;
 
-    if (!confirm(`Are you sure you want to delete the "${category.name}" category?`)) return;
+    if (
+      !confirm(
+        `Are you sure you want to delete the "${category.name}" category?`
+      )
+    )
+      return;
 
     try {
       await deleteRoleCategory(serverId, categoryId);
@@ -570,7 +614,9 @@ function AdminRoleView({ serverId, isOwner, isAdmin }: { serverId: string; isOwn
 
       {/* System Roles Section */}
       <div className="mb-8">
-        <h2 className="text-lg font-semibold mb-4 text-gray-300">System Roles</h2>
+        <h2 className="text-lg font-semibold mb-4 text-gray-300">
+          System Roles
+        </h2>
         <div className="flex gap-3 flex-wrap">
           {roles
             .filter((r) => r.role_type === "owner" || r.role_type === "admin")
@@ -608,7 +654,9 @@ function AdminRoleView({ serverId, isOwner, isAdmin }: { serverId: string; isOwn
         <div key={category.id} className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-300">{category.name}</h2>
+              <h2 className="text-lg font-semibold text-gray-300">
+                {category.name}
+              </h2>
               {category.description && (
                 <p className="text-sm text-gray-500">{category.description}</p>
               )}
@@ -647,7 +695,8 @@ function AdminRoleView({ serverId, isOwner, isAdmin }: { serverId: string; isOwn
                 )}
               </div>
             ))}
-            {(!groupedRoles[category.id] || groupedRoles[category.id].length === 0) && (
+            {(!groupedRoles[category.id] ||
+              groupedRoles[category.id].length === 0) && (
               <p className="text-gray-500 text-sm">No roles in this category</p>
             )}
           </div>
@@ -659,10 +708,14 @@ function AdminRoleView({ serverId, isOwner, isAdmin }: { serverId: string; isOwn
         (r) => r.role_type !== "owner" && r.role_type !== "admin"
       ).length > 0 && (
         <div className="mb-8">
-          <h2 className="text-lg font-semibold mb-4 text-gray-300">Other Roles</h2>
+          <h2 className="text-lg font-semibold mb-4 text-gray-300">
+            Other Roles
+          </h2>
           <div className="flex gap-3 flex-wrap">
             {groupedRoles["uncategorized"]
-              ?.filter((r) => r.role_type !== "owner" && r.role_type !== "admin")
+              ?.filter(
+                (r) => r.role_type !== "owner" && r.role_type !== "admin"
+              )
               .map((role) => (
                 <div
                   key={role.id}
@@ -695,7 +748,9 @@ function AdminRoleView({ serverId, isOwner, isAdmin }: { serverId: string; isOwn
       {selectedRole && canManageRoles && (
         <div className="bg-[#2f3136] rounded-lg p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="font-semibold text-[#ed4245]">Edit Role: {selectedRole.name}</h2>
+            <h2 className="font-semibold text-[#ed4245]">
+              Edit Role: {selectedRole.name}
+            </h2>
             <span
               className={`text-xs px-2 py-1 rounded-full ${getRoleTypeBadgeColor(
                 selectedRole.role_type
@@ -706,16 +761,23 @@ function AdminRoleView({ serverId, isOwner, isAdmin }: { serverId: string; isOwn
           </div>
 
           {/* Role Name */}
-          <label className="block font-semibold mb-2 text-[#b5bac1]">Role Name</label>
+          <label className="block font-semibold mb-2 text-[#b5bac1]">
+            Role Name
+          </label>
           <input
             className="w-full bg-black text-white border-2 border-[#72767d] rounded px-4 py-3 mb-4 focus:border-[#b5bac1] focus:outline-none transition-all"
             value={selectedRole.name}
             onChange={(e) => handleEditRole("name", e.target.value)}
-            disabled={selectedRole.role_type === "owner" || selectedRole.role_type === "admin"}
+            disabled={
+              selectedRole.role_type === "owner" ||
+              selectedRole.role_type === "admin"
+            }
           />
 
           {/* Role Color */}
-          <label className="block font-semibold mb-2 text-[#b5bac1]">Role Color</label>
+          <label className="block font-semibold mb-2 text-[#b5bac1]">
+            Role Color
+          </label>
           <input
             className="w-10 h-10 rounded border-2 border-[#72767d] mb-4 cursor-pointer"
             type="color"
@@ -724,37 +786,44 @@ function AdminRoleView({ serverId, isOwner, isAdmin }: { serverId: string; isOwn
           />
 
           {/* Self-Assignable Toggle */}
-          {selectedRole.role_type !== "owner" && selectedRole.role_type !== "admin" && (
-            <>
-              <div className="flex items-center gap-3 mb-4">
-                <input
-                  type="checkbox"
-                  id="selfAssignable"
-                  className="w-5 h-5 accent-yellow-400"
-                  checked={selectedRole.is_self_assignable}
-                  onChange={(e) => handleEditRole("is_self_assignable", e.target.checked)}
-                />
-                <label htmlFor="selfAssignable" className="text-[#b5bac1]">
-                  Allow members to self-assign this role
-                </label>
-              </div>
+          {selectedRole.role_type !== "owner" &&
+            selectedRole.role_type !== "admin" && (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                  <input
+                    type="checkbox"
+                    id="selfAssignable"
+                    className="w-5 h-5 accent-yellow-400"
+                    checked={selectedRole.is_self_assignable}
+                    onChange={(e) =>
+                      handleEditRole("is_self_assignable", e.target.checked)
+                    }
+                  />
+                  <label htmlFor="selfAssignable" className="text-[#b5bac1]">
+                    Allow members to self-assign this role
+                  </label>
+                </div>
 
-              {/* Category Selection */}
-              <label className="block font-semibold mb-2 text-[#b5bac1]">Category</label>
-              <select
-                className="w-full bg-black text-white border-2 border-[#72767d] rounded px-4 py-3 mb-4 focus:border-[#b5bac1] focus:outline-none"
-                value={selectedRole.category_id || ""}
-                onChange={(e) => handleEditRole("category_id", e.target.value || null)}
-              >
-                <option value="">No Category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
+                {/* Category Selection */}
+                <label className="block font-semibold mb-2 text-[#b5bac1]">
+                  Category
+                </label>
+                <select
+                  className="w-full bg-black text-white border-2 border-[#72767d] rounded px-4 py-3 mb-4 focus:border-[#b5bac1] focus:outline-none"
+                  value={selectedRole.category_id || ""}
+                  onChange={(e) =>
+                    handleEditRole("category_id", e.target.value || null)
+                  }
+                >
+                  <option value="">No Category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
 
           {/* Action Buttons */}
           <div className="flex gap-2 mt-6">
@@ -795,9 +864,13 @@ function AdminRoleView({ serverId, isOwner, isAdmin }: { serverId: string; isOwn
             >
               ×
             </button>
-            <h2 className="text-xl font-bold mb-6 text-white">Create New Role</h2>
+            <h2 className="text-xl font-bold mb-6 text-white">
+              Create New Role
+            </h2>
 
-            <label className="block font-semibold mb-2 text-[#b5bac1]">Role Name</label>
+            <label className="block font-semibold mb-2 text-[#b5bac1]">
+              Role Name
+            </label>
             <input
               className="w-full bg-black text-white border-2 border-[#72767d] rounded px-4 py-3 mb-4 focus:border-[#b5bac1] focus:outline-none"
               type="text"
@@ -806,7 +879,9 @@ function AdminRoleView({ serverId, isOwner, isAdmin }: { serverId: string; isOwn
               onChange={(e) => setNewRoleName(e.target.value)}
             />
 
-            <label className="block font-semibold mb-2 text-[#b5bac1]">Role Color</label>
+            <label className="block font-semibold mb-2 text-[#b5bac1]">
+              Role Color
+            </label>
             <input
               className="w-10 h-10 rounded border-2 border-[#72767d] mb-4 cursor-pointer"
               type="color"
@@ -827,7 +902,9 @@ function AdminRoleView({ serverId, isOwner, isAdmin }: { serverId: string; isOwn
               </label>
             </div>
 
-            <label className="block font-semibold mb-2 text-[#b5bac1]">Category (Optional)</label>
+            <label className="block font-semibold mb-2 text-[#b5bac1]">
+              Category (Optional)
+            </label>
             <select
               className="w-full bg-black text-white border-2 border-[#72767d] rounded px-4 py-3 mb-6 focus:border-[#b5bac1] focus:outline-none"
               value={newRoleCategory}
@@ -862,13 +939,17 @@ function AdminRoleView({ serverId, isOwner, isAdmin }: { serverId: string; isOwn
             >
               ×
             </button>
-            <h2 className="text-xl font-bold mb-6 text-white">Create Role Category</h2>
+            <h2 className="text-xl font-bold mb-6 text-white">
+              Create Role Category
+            </h2>
             <p className="text-gray-400 text-sm mb-4">
-              Categories help organize self-assignable roles (e.g., "Interests", "Pronouns",
-              "Region")
+              Categories help organize self-assignable roles (e.g., "Interests",
+              "Pronouns", "Region")
             </p>
 
-            <label className="block font-semibold mb-2 text-[#b5bac1]">Category Name</label>
+            <label className="block font-semibold mb-2 text-[#b5bac1]">
+              Category Name
+            </label>
             <input
               className="w-full bg-black text-white border-2 border-[#72767d] rounded px-4 py-3 mb-4 focus:border-[#b5bac1] focus:outline-none"
               type="text"

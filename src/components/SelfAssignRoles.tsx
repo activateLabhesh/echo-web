@@ -1,24 +1,23 @@
 "use client";
 import { useState, useEffect } from "react";
 import {
-
   getSelfAssignableRoles,
   selfAssignRole,
   selfUnassignRole,
   getMyRoles,
   getRoleCategories,
 } from "@/api";
-import {
-    Role,
-  RoleCategory,
-} from "@/api/types/roles.types";
+import { Role, RoleCategory } from "@/api/types/roles.types";
 
 interface SelfAssignRolesProps {
   serverId: string;
   onClose?: () => void;
 }
 
-export default function SelfAssignRoles({ serverId, onClose }: SelfAssignRolesProps) {
+export default function SelfAssignRoles({
+  serverId,
+  onClose,
+}: SelfAssignRolesProps) {
   const [selfAssignableRoles, setSelfAssignableRoles] = useState<Role[]>([]);
   const [myRoles, setMyRoles] = useState<Role[]>([]);
   const [categories, setCategories] = useState<RoleCategory[]>([]);
@@ -222,7 +221,7 @@ export default function SelfAssignRoles({ serverId, onClose }: SelfAssignRolesPr
                     className="w-3 h-3 rounded-full flex-shrink-0"
                     style={{ backgroundColor: role.color }}
                   />
-                  
+
                   {/* Role name */}
                   <span>{role.name}</span>
 
@@ -255,9 +254,9 @@ export default function SelfAssignRoles({ serverId, onClose }: SelfAssignRolesPr
       {/* Info text */}
       <div className="mt-6 p-4 bg-[#36393f] rounded-lg">
         <p className="text-xs text-gray-400">
-          💡 <strong>Tip:</strong> Click a role to add or remove it. Self-assignable
-          roles help you access specific channels and show your interests to other
-          members.
+          💡 <strong>Tip:</strong> Click a role to add or remove it.
+          Self-assignable roles help you access specific channels and show your
+          interests to other members.
         </p>
       </div>
     </div>

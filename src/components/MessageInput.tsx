@@ -73,13 +73,13 @@ export default function MessageInput({
     });
 
     const invalid = annotated.filter((f) => !f.valid);
-   if (invalid.length > 0) {
-     const msg = invalid
-       .map((f) => `"${f.file.name}": ${f.errorReason}`)
-       .join("\n");
-     if (onToast) onToast(msg, "error");
-     else showToast(msg, "error");
-   }
+    if (invalid.length > 0) {
+      const msg = invalid
+        .map((f) => `"${f.file.name}": ${f.errorReason}`)
+        .join("\n");
+      if (onToast) onToast(msg, "error");
+      else showToast(msg, "error");
+    }
 
     setFiles((prev) => [
       ...prev,

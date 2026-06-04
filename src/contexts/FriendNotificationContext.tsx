@@ -1,8 +1,17 @@
 "use client";
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
-import { Socket } from 'socket.io-client';
-import { fetchFriendRequests, getUser } from '@/api';
-import { createAuthSocket } from '@/socket';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
+import { Socket } from "socket.io-client";
+import { fetchFriendRequests, getUser } from "@/api";
+import { createAuthSocket } from "@/socket";
 
 interface FriendNotificationContextType {
   friendRequestCount: number;
@@ -16,7 +25,11 @@ const FriendNotificationContext = createContext<FriendNotificationContextType>({
   refreshCount: async () => {},
 });
 
-export function FriendNotificationProvider({ children }: { children: ReactNode }) {
+export function FriendNotificationProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [friendRequestCount, setFriendRequestCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const socketRef = useRef<Socket | null>(null);
@@ -29,7 +42,7 @@ export function FriendNotificationProvider({ children }: { children: ReactNode }
       const requests = await fetchFriendRequests();
       setFriendRequestCount(requests.length);
     } catch (error: any) {
-      console.error('Error fetching friend requests:', error);
+      console.error("Error fetching friend requests:", error);
       // If user is not authenticated, set count to 0 silently
       setFriendRequestCount(0);
     } finally {
@@ -59,19 +72,22 @@ export function FriendNotificationProvider({ children }: { children: ReactNode }
           void refreshCount();
         };
 
-        socket.on('friend_request', handleFriendEvent);
-        socket.on('friend_request_accepted', handleFriendEvent);
+        socket.on("friend_request", handleFriendEvent);
+        socket.on("friend_request_accepted", handleFriendEvent);
 
         cleanupSocket = () => {
-          socket.off('friend_request', handleFriendEvent);
-          socket.off('friend_request_accepted', handleFriendEvent);
+          socket.off("friend_request", handleFriendEvent);
+          socket.off("friend_request_accepted", handleFriendEvent);
           socket.disconnect();
           if (socketRef.current === socket) {
             socketRef.current = null;
           }
         };
       } catch (error) {
-        console.error('Failed to initialize friend notification socket:', error);
+        console.error(
+          "Failed to initialize friend notification socket:",
+          error
+        );
       }
     };
 

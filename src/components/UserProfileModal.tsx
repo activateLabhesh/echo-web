@@ -36,8 +36,9 @@ export default function UserProfileModal({
   onRemoveFriend,
 }: UserProfileModalProps) {
   const router = useRouter();
-  const [internalRelationshipStatus, setInternalRelationshipStatus] =
-    useState<RelationshipStatus | undefined>(relationshipStatus);
+  const [internalRelationshipStatus, setInternalRelationshipStatus] = useState<
+    RelationshipStatus | undefined
+  >(relationshipStatus);
   const [internalActionLoading, setInternalActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
 
@@ -52,12 +53,7 @@ export default function UserProfileModal({
   }, [relationshipStatus, user?.id]);
 
   useEffect(() => {
-    if (
-      !isOpen ||
-      !user ||
-      isOwnProfile ||
-      relationshipStatus !== undefined
-    ) {
+    if (!isOpen || !user || isOwnProfile || relationshipStatus !== undefined) {
       return;
     }
 
@@ -77,9 +73,7 @@ export default function UserProfileModal({
         );
 
         setInternalRelationshipStatus(
-          isFriend
-            ? "accepted"
-            : searchMatch?.relationshipStatus || "none"
+          isFriend ? "accepted" : searchMatch?.relationshipStatus || "none"
         );
       } catch (error) {
         console.error("Failed to load profile relationship status:", error);

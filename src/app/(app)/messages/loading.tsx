@@ -1,7 +1,6 @@
 export default function Loading() {
   return (
     <div className="flex h-screen w-full bg-slate-950 animate-in fade-in duration-200">
-      
       <aside className="hidden lg:flex w-80 flex-col border-r border-slate-800 bg-black p-4">
         <div className="mb-5">
           <div className="h-5 w-36 rounded bg-slate-800/70 animate-pulse" />
@@ -21,7 +20,6 @@ export default function Loading() {
         </div>
       </aside>
 
-   
       <div className="flex-1 flex flex-col items-center justify-center bg-black">
         <div className="h-16 w-16 rounded-full bg-slate-900/50 border border-slate-800/70 animate-pulse" />
         <div className="h-4 w-40 rounded bg-slate-800/50 animate-pulse mt-4" />

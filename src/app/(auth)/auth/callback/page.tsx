@@ -1,6 +1,6 @@
 "use client";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -9,19 +9,27 @@ import { supabase } from "@/lib/supabaseClient";
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "success" | "error">(
+    "loading"
+  );
   const [message, setMessage] = useState("Verifying your email...");
 
   useEffect(() => {
     const handleCallback = async () => {
       try {
         // Get the hash fragment from the URL (contains tokens)
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const hashParams = new URLSearchParams(
+          window.location.hash.substring(1)
+        );
         const accessToken = hashParams.get("access_token");
         const refreshToken = hashParams.get("refresh_token");
         const type = hashParams.get("type");
 
-        if (type === "signup" || type === "email_change" || type === "recovery") {
+        if (
+          type === "signup" ||
+          type === "email_change" ||
+          type === "recovery"
+        ) {
           // Email verification or password recovery
           if (accessToken && refreshToken) {
             // Set the session
@@ -41,7 +49,9 @@ function AuthCallbackContent() {
             // Success
             setStatus("success");
             if (type === "signup") {
-              setMessage("Email verified successfully! Redirecting to login...");
+              setMessage(
+                "Email verified successfully! Redirecting to login..."
+              );
             } else if (type === "recovery") {
               setMessage("Password reset link verified! Redirecting...");
               setTimeout(() => router.push("/reset-password"), 2000);
@@ -49,10 +59,10 @@ function AuthCallbackContent() {
             } else {
               setMessage("Email verified! Redirecting to login...");
             }
-            
+
             // Check for pending invite redirect and preserve it through login
             const pendingRedirect = localStorage.getItem("redirectAfterLogin");
-            const loginUrl = pendingRedirect 
+            const loginUrl = pendingRedirect
               ? `/login?verified=true&redirect=${encodeURIComponent(pendingRedirect)}`
               : "/login?verified=true";
             setTimeout(() => router.push(loginUrl), 2000);
@@ -86,7 +96,9 @@ function AuthCallbackContent() {
             <div className="mb-4">
               <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto"></div>
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Verifying Email</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">
+              Verifying Email
+            </h2>
             <p className="text-gray-400">{message}</p>
           </>
         )}
@@ -134,7 +146,9 @@ function AuthCallbackContent() {
                 </svg>
               </div>
             </div>
-            <h2 className="text-2xl font-bold text-red-400 mb-2">Verification Failed</h2>
+            <h2 className="text-2xl font-bold text-red-400 mb-2">
+              Verification Failed
+            </h2>
             <p className="text-gray-300">{message}</p>
           </>
         )}
@@ -145,16 +159,18 @@ function AuthCallbackContent() {
 
 export default function AuthCallback() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-        <div className="bg-gray-800 p-8 rounded-lg shadow-2xl border border-gray-700 max-w-md w-full text-center">
-          <div className="mb-4">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto"></div>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+          <div className="bg-gray-800 p-8 rounded-lg shadow-2xl border border-gray-700 max-w-md w-full text-center">
+            <div className="mb-4">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto"></div>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2"></h2>
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2"></h2>
         </div>
-      </div>
-    }>
+      }
+    >
       <AuthCallbackContent />
     </Suspense>
   );

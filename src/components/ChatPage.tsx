@@ -323,7 +323,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
       const senderId = message.sender_id;
       const isSender = senderId === currentUser?.id;
-      const name = isSender ? "You" : partner?.fullname ?? "Unknown User";
+      const name = isSender ? "You" : (partner?.fullname ?? "Unknown User");
       const avatarUrl = isSender
         ? currentUser?.avatar_url
         : partner?.avatar_url;
@@ -1206,9 +1206,13 @@ function MessagesPageContentInner() {
         e?.response?.data?.message ??
         e?.message ??
         "Failed to send message. Please try again.";
-      setToast({ message: "file size excceded", type: "error", key: Date.now() });
+      setToast({
+        message: "file size excceded",
+        type: "error",
+        key: Date.now(),
+      });
     }
-  }; 
+  };
 
   const handleSelectDm = useCallback(
     (userId: string) => {

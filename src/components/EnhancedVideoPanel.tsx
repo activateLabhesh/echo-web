@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState, useMemo, memo } from "react";
 import { VoiceVideoManager } from "@/lib/VoiceVideoManager";
 
-
 const IconMicrophone = ({ size = 16, className = "" }) => (
   <svg
     width={size}
@@ -223,424 +222,492 @@ interface EnhancedVideoPanelProps {
 
 /* ---------------------------- PARTICIPANT TILE ---------------------------- */
 
-const ParticipantVideo = memo(function ParticipantVideo({
-  participant,
-  manager,
-  isLocal = false,
-  isFullscreen = false,
-  onToggleFullscreen,
-  onVolumeChange
-}: {
-  participant: Participant;
-  manager?: VoiceVideoManager | null;
-  isLocal?: boolean;
-  isFullscreen?: boolean;
-  onToggleFullscreen?: () => void;
-  onVolumeChange?: (volume: number) => void;
-}) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const screenRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
+const ParticipantVideo = memo(
+  function ParticipantVideo({
+    participant,
+    manager,
+    isLocal = false,
+    isFullscreen = false,
+    onToggleFullscreen,
+    onVolumeChange,
+  }: {
+    participant: Participant;
+    manager?: VoiceVideoManager | null;
+    isLocal?: boolean;
+    isFullscreen?: boolean;
+    onToggleFullscreen?: () => void;
+    onVolumeChange?: (volume: number) => void;
+  }) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const screenRef = useRef<HTMLVideoElement>(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
 
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [showControls, setShowControls] = useState(false);
-  const [isVideoBound, setIsVideoBound] = useState(false);
-  const [isScreenBound, setIsScreenBound] = useState(false);
+    const [volume, setVolume] = useState(1);
+    const [isMuted, setIsMuted] = useState(false);
+    const [showControls, setShowControls] = useState(false);
+    const [isVideoBound, setIsVideoBound] = useState(false);
+    const [isScreenBound, setIsScreenBound] = useState(false);
 
-  const hasVideoState = !!participant.mediaState.video;
-  const hasScreenShareState = !!participant.mediaState.screenSharing;
-  const hasScreenShareStream = !!(participant.screenStream && participant.mediaState.screenSharing);
-  const hasVideoStream = !!(participant.stream && participant.stream.getVideoTracks().length > 0);
-  const hasActiveVideoTrack =
-    hasVideoStream && !!participant.stream?.getVideoTracks().some((t) => t.enabled);
+    const hasVideoState = !!participant.mediaState.video;
+    const hasScreenShareState = !!participant.mediaState.screenSharing;
+    const hasScreenShareStream = !!(
+      participant.screenStream && participant.mediaState.screenSharing
+    );
+    const hasVideoStream = !!(
+      participant.stream && participant.stream.getVideoTracks().length > 0
+    );
+    const hasActiveVideoTrack =
+      hasVideoStream &&
+      !!participant.stream?.getVideoTracks().some((t) => t.enabled);
 
-  // Check if we have Chime video/screen tiles to bind
-  const hasTileId = participant.tileId !== undefined && participant.tileId !== null;
-  const hasScreenTileId = participant.screenTileId !== undefined && participant.screenTileId !== null;
-  
-  const shouldShowScreenShare = hasScreenShareStream || hasScreenShareState;
-  // Show video element if:
-  // 1. Video state is ON (camera enabled), OR
-  // 2. We have a valid tileId (Chime needs the element to bind to even before state updates)
-  // This fixes black screen issue when minimizing/maximizing calls - the video element
-  // must exist for Chime SDK to bind the tile to it.
-  const shouldShowVideo = hasVideoState && !shouldShowScreenShare;
+    // Check if we have Chime video/screen tiles to bind
+    const hasTileId =
+      participant.tileId !== undefined && participant.tileId !== null;
+    const hasScreenTileId =
+      participant.screenTileId !== undefined &&
+      participant.screenTileId !== null;
 
-  
+    const shouldShowScreenShare = hasScreenShareStream || hasScreenShareState;
+    // Show video element if:
+    // 1. Video state is ON (camera enabled), OR
+    // 2. We have a valid tileId (Chime needs the element to bind to even before state updates)
+    // This fixes black screen issue when minimizing/maximizing calls - the video element
+    // must exist for Chime SDK to bind the tile to it.
+    const shouldShowVideo = hasVideoState && !shouldShowScreenShare;
 
-  // Bind Chime video tile to video element
-  // This effect handles binding the Chime SDK video tile to the HTML video element
-  useEffect(() => {
-    const tileId = participant.tileId;
-    const videoEl = videoRef.current;
+    // Bind Chime video tile to video element
+    // This effect handles binding the Chime SDK video tile to the HTML video element
+    useEffect(() => {
+      const tileId = participant.tileId;
+      const videoEl = videoRef.current;
 
-    // Early return if we don't have what we need
-    if (!manager || tileId === undefined || tileId === null) {
-      return;
-    }
-
-    // Function to perform the binding with retry logic
-    const bindTile = (retryCount = 0) => {
-      const currentVideoEl = videoRef.current;
-      
-      if (!currentVideoEl) {
-        // Video element not ready yet, retry after a short delay
-        if (retryCount < 5) {
-          setTimeout(() => bindTile(retryCount + 1), 100);
-        } else {
-          console.warn(`[ParticipantVideo] Video element never became available for tile ${tileId}`);
-        }
+      // Early return if we don't have what we need
+      if (!manager || tileId === undefined || tileId === null) {
         return;
       }
 
-      try {
-        manager.bindVideoElement(tileId, currentVideoEl);
-        setIsVideoBound(true);
-        
-        // Try to play the video
-        currentVideoEl.play().catch(err => {
-          // Autoplay might be blocked, that's okay - user interaction will start it
-          console.warn(`[ParticipantVideo] Video autoplay blocked:`, err.message);
-        });
-        
-      } catch (err) {
-        console.error(`[ParticipantVideo] Failed to bind video tile ${tileId}:`, err);
-        // Retry on failure
-        if (retryCount < 3) {
-          setTimeout(() => bindTile(retryCount + 1), 200);
+      // Function to perform the binding with retry logic
+      const bindTile = (retryCount = 0) => {
+        const currentVideoEl = videoRef.current;
+
+        if (!currentVideoEl) {
+          // Video element not ready yet, retry after a short delay
+          if (retryCount < 5) {
+            setTimeout(() => bindTile(retryCount + 1), 100);
+          } else {
+            console.warn(
+              `[ParticipantVideo] Video element never became available for tile ${tileId}`
+            );
+          }
+          return;
         }
-      }
-    };
 
-    // Start binding process - use a small delay to ensure React has finished rendering
-    const bindTimeout = setTimeout(() => bindTile(0), 50);
-
-    return () => {
-      clearTimeout(bindTimeout);
-      // Unbind when unmounting or tile changes
-      if (manager && tileId !== undefined && tileId !== null) {
         try {
-          manager.unbindVideoElement(tileId);
+          manager.bindVideoElement(tileId, currentVideoEl);
+          setIsVideoBound(true);
+
+          // Try to play the video
+          currentVideoEl.play().catch((err) => {
+            // Autoplay might be blocked, that's okay - user interaction will start it
+            console.warn(
+              `[ParticipantVideo] Video autoplay blocked:`,
+              err.message
+            );
+          });
         } catch (err) {
-          // Ignore errors on cleanup
+          console.error(
+            `[ParticipantVideo] Failed to bind video tile ${tileId}:`,
+            err
+          );
+          // Retry on failure
+          if (retryCount < 3) {
+            setTimeout(() => bindTile(retryCount + 1), 200);
+          }
         }
-        setIsVideoBound(false);
-      }
-    };
-  }, [manager, participant.tileId, participant.username, isLocal, shouldShowVideo, hasVideoState]);
+      };
 
-  // Bind Chime SCREEN SHARE tile to screen video element
-  // Similar to video tile binding but for screen share content
-  useEffect(() => {
-    const screenTileId = participant.screenTileId;
+      // Start binding process - use a small delay to ensure React has finished rendering
+      const bindTimeout = setTimeout(() => bindTile(0), 50);
 
-    // Early return if we don't have what we need
-    if (!manager || screenTileId === undefined || screenTileId === null) {
-      return;
-    }
-
-    // Function to perform the binding with retry logic
-    const bindScreenTile = (retryCount = 0) => {
-      const currentScreenEl = screenRef.current;
-      
-      if (!currentScreenEl) {
-        // Screen element not ready yet, retry after a short delay
-        if (retryCount < 5) {
-          setTimeout(() => bindScreenTile(retryCount + 1), 100);
-        } else {
-          console.warn(`[ParticipantVideo] Screen element never became available for tile ${screenTileId}`);
+      return () => {
+        clearTimeout(bindTimeout);
+        // Unbind when unmounting or tile changes
+        if (manager && tileId !== undefined && tileId !== null) {
+          try {
+            manager.unbindVideoElement(tileId);
+          } catch (err) {
+            // Ignore errors on cleanup
+          }
+          setIsVideoBound(false);
         }
+      };
+    }, [
+      manager,
+      participant.tileId,
+      participant.username,
+      isLocal,
+      shouldShowVideo,
+      hasVideoState,
+    ]);
+
+    // Bind Chime SCREEN SHARE tile to screen video element
+    // Similar to video tile binding but for screen share content
+    useEffect(() => {
+      const screenTileId = participant.screenTileId;
+
+      // Early return if we don't have what we need
+      if (!manager || screenTileId === undefined || screenTileId === null) {
         return;
       }
 
-      try {
-        manager.bindVideoElement(screenTileId, currentScreenEl);
-        setIsScreenBound(true);
-        
-        // Try to play the video
-        currentScreenEl.play().catch(err => {
-          console.warn(`[ParticipantVideo] Screen share autoplay blocked:`, err.message);
-        });
-        
-      } catch (err) {
-        console.error(`[ParticipantVideo] Failed to bind screen tile ${screenTileId}:`, err);
-        // Retry on failure
-        if (retryCount < 3) {
-          setTimeout(() => bindScreenTile(retryCount + 1), 200);
+      // Function to perform the binding with retry logic
+      const bindScreenTile = (retryCount = 0) => {
+        const currentScreenEl = screenRef.current;
+
+        if (!currentScreenEl) {
+          // Screen element not ready yet, retry after a short delay
+          if (retryCount < 5) {
+            setTimeout(() => bindScreenTile(retryCount + 1), 100);
+          } else {
+            console.warn(
+              `[ParticipantVideo] Screen element never became available for tile ${screenTileId}`
+            );
+          }
+          return;
         }
-      }
-    };
 
-    // Start binding process - use a small delay to ensure React has finished rendering
-    const bindTimeout = setTimeout(() => bindScreenTile(0), 50);
-
-    return () => {
-      clearTimeout(bindTimeout);
-      // Unbind when unmounting or tile changes
-      if (manager && screenTileId !== undefined && screenTileId !== null) {
         try {
-          manager.unbindVideoElement(screenTileId);
-        } catch (err) {
-          // Ignore errors on cleanup
-        }
-        setIsScreenBound(false);
-      }
-    };
-  }, [manager, participant.screenTileId, participant.username, shouldShowScreenShare, hasScreenShareState]);
+          manager.bindVideoElement(screenTileId, currentScreenEl);
+          setIsScreenBound(true);
 
-  // Legacy: track video stream changes (for non-Chime usage)
-  useEffect(() => {
-    const tracks = participant.stream?.getVideoTracks() || [];
-    const bump = () => setShowControls((s) => s);
-    tracks.forEach((t) => {
-      t.addEventListener("mute", bump);
-      t.addEventListener("unmute", bump);
-      t.addEventListener("ended", bump);
-    });
-    return () => {
+          // Try to play the video
+          currentScreenEl.play().catch((err) => {
+            console.warn(
+              `[ParticipantVideo] Screen share autoplay blocked:`,
+              err.message
+            );
+          });
+        } catch (err) {
+          console.error(
+            `[ParticipantVideo] Failed to bind screen tile ${screenTileId}:`,
+            err
+          );
+          // Retry on failure
+          if (retryCount < 3) {
+            setTimeout(() => bindScreenTile(retryCount + 1), 200);
+          }
+        }
+      };
+
+      // Start binding process - use a small delay to ensure React has finished rendering
+      const bindTimeout = setTimeout(() => bindScreenTile(0), 50);
+
+      return () => {
+        clearTimeout(bindTimeout);
+        // Unbind when unmounting or tile changes
+        if (manager && screenTileId !== undefined && screenTileId !== null) {
+          try {
+            manager.unbindVideoElement(screenTileId);
+          } catch (err) {
+            // Ignore errors on cleanup
+          }
+          setIsScreenBound(false);
+        }
+      };
+    }, [
+      manager,
+      participant.screenTileId,
+      participant.username,
+      shouldShowScreenShare,
+      hasScreenShareState,
+    ]);
+
+    // Legacy: track video stream changes (for non-Chime usage)
+    useEffect(() => {
+      const tracks = participant.stream?.getVideoTracks() || [];
+      const bump = () => setShowControls((s) => s);
       tracks.forEach((t) => {
-        t.removeEventListener("mute", bump);
-        t.removeEventListener("unmute", bump);
-        t.removeEventListener("ended", bump);
+        t.addEventListener("mute", bump);
+        t.addEventListener("unmute", bump);
+        t.addEventListener("ended", bump);
       });
+      return () => {
+        tracks.forEach((t) => {
+          t.removeEventListener("mute", bump);
+          t.removeEventListener("unmute", bump);
+          t.removeEventListener("ended", bump);
+        });
+      };
+    }, [participant.stream]);
+
+    // Legacy: bind stream to video element (fallback if no Chime tile)
+    useEffect(() => {
+      // Skip if we're using Chime tile binding
+      if (hasTileId && manager) return;
+
+      const hasActiveCam =
+        !!participant.stream &&
+        participant.stream.getVideoTracks().some((t) => t.enabled);
+      if (videoRef.current && participant.stream && hasActiveCam) {
+        if (videoRef.current.srcObject !== participant.stream) {
+          videoRef.current.srcObject = participant.stream;
+        }
+        videoRef.current.play().catch((err) => {
+          console.warn(`Video play failed for ${participant.username}`, err);
+        });
+        videoRef.current.volume = isMuted ? 0 : volume;
+      }
+      return () => {
+        if (videoRef.current && !participant.stream && !hasTileId) {
+          videoRef.current.pause();
+          videoRef.current.srcObject = null;
+        }
+      };
+    }, [
+      participant.stream,
+      participant.mediaState.video,
+      participant.mediaState.screenSharing,
+      isMuted,
+      volume,
+      hasTileId,
+      manager,
+    ]);
+
+    // Legacy: bind screen stream to screen element (fallback if no Chime screen tile)
+    useEffect(() => {
+      // Skip if we're using Chime screen tile binding
+      if (hasScreenTileId && manager) return;
+
+      if (
+        screenRef.current &&
+        participant.screenStream &&
+        shouldShowScreenShare
+      ) {
+        if (screenRef.current.srcObject !== participant.screenStream) {
+          screenRef.current.srcObject = participant.screenStream;
+        }
+        screenRef.current.play().catch((err) => {
+          console.warn(
+            `Screen share play failed for ${participant.username}.`,
+            err
+          );
+        });
+        screenRef.current.volume = isMuted ? 0 : volume;
+      }
+    }, [
+      participant.screenStream,
+      shouldShowScreenShare,
+      isMuted,
+      volume,
+      hasScreenTileId,
+      manager,
+    ]);
+
+    useEffect(() => {
+      if (audioRef.current && participant.stream) {
+        if (audioRef.current.srcObject !== participant.stream) {
+          audioRef.current.srcObject = participant.stream as any;
+        }
+        audioRef.current.volume = isMuted ? 0 : volume;
+        audioRef.current.play().catch(() => {});
+      }
+    }, [participant.stream, isMuted, volume]);
+
+    useEffect(() => {
+      return () => {
+        if (videoRef.current) {
+          videoRef.current.pause();
+          videoRef.current.srcObject = null;
+        }
+        if (screenRef.current) {
+          screenRef.current.pause();
+          screenRef.current.srcObject = null;
+        }
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.srcObject = null;
+        }
+      };
+    }, []);
+
+    const handleVolumeChange = (newVolume: number) => {
+      setVolume(newVolume);
+      if (videoRef.current) videoRef.current.volume = newVolume;
+      if (screenRef.current) screenRef.current.volume = newVolume;
+      if (audioRef.current) audioRef.current.volume = newVolume;
+      onVolumeChange?.(newVolume);
     };
-  }, [participant.stream]);
 
-  // Legacy: bind stream to video element (fallback if no Chime tile)
-  useEffect(() => {
-    // Skip if we're using Chime tile binding
-    if (hasTileId && manager) return;
-
-    const hasActiveCam =
-      !!participant.stream && participant.stream.getVideoTracks().some((t) => t.enabled);
-    if (videoRef.current && participant.stream && hasActiveCam) {
-      if (videoRef.current.srcObject !== participant.stream) {
-        videoRef.current.srcObject = participant.stream;
-      }
-      videoRef.current.play().catch((err) => {
-        console.warn(`Video play failed for ${participant.username}`, err);
-      });
-      videoRef.current.volume = isMuted ? 0 : volume;
-    }
-    return () => {
-      if (videoRef.current && !participant.stream && !hasTileId) {
-        videoRef.current.pause();
-        videoRef.current.srcObject = null;
-      }
+    const toggleMute = () => {
+      const newMuted = !isMuted;
+      setIsMuted(newMuted);
+      handleVolumeChange(newMuted ? 0 : volume);
     };
-  }, [participant.stream, participant.mediaState.video, participant.mediaState.screenSharing, isMuted, volume, hasTileId, manager]);
 
-  // Legacy: bind screen stream to screen element (fallback if no Chime screen tile)
-  useEffect(() => {
-    // Skip if we're using Chime screen tile binding
-    if (hasScreenTileId && manager) return;
-
-    if (screenRef.current && participant.screenStream && shouldShowScreenShare) {
-      if (screenRef.current.srcObject !== participant.screenStream) {
-        screenRef.current.srcObject = participant.screenStream;
-      }
-      screenRef.current.play().catch((err) => {
-        console.warn(`Screen share play failed for ${participant.username}.`, err);
-      });
-      screenRef.current.volume = isMuted ? 0 : volume;
-    }
-  }, [participant.screenStream, shouldShowScreenShare, isMuted, volume, hasScreenTileId, manager]);
-
-  useEffect(() => {
-    if (audioRef.current && participant.stream) {
-      if (audioRef.current.srcObject !== participant.stream) {
-        audioRef.current.srcObject = participant.stream as any;
-      }
-      audioRef.current.volume = isMuted ? 0 : volume;
-      audioRef.current.play().catch(() => {});
-    }
-  }, [participant.stream, isMuted, volume]);
-
-  useEffect(() => {
-    return () => {
-      if (videoRef.current) {
-        videoRef.current.pause();
-        videoRef.current.srcObject = null;
-      }
-      if (screenRef.current) {
-        screenRef.current.pause();
-        screenRef.current.srcObject = null;
-      }
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.srcObject = null;
-      }
-    };
-  }, []);
-
-  const handleVolumeChange = (newVolume: number) => {
-    setVolume(newVolume);
-    if (videoRef.current) videoRef.current.volume = newVolume;
-    if (screenRef.current) screenRef.current.volume = newVolume;
-    if (audioRef.current) audioRef.current.volume = newVolume;
-    onVolumeChange?.(newVolume);
-  };
-
-  const toggleMute = () => {
-    const newMuted = !isMuted;
-    setIsMuted(newMuted);
-    handleVolumeChange(newMuted ? 0 : volume);
-  };
-
-  return (
-    <div
-      className={`relative group bg-gray-900 rounded-lg overflow-hidden border-2 ${
-        participant.mediaState.speaking && !participant.mediaState.muted
-          ? "border-green-500"
-          : "border-gray-700"
-      } ${isFullscreen ? "fixed inset-0 z-50" : "aspect-video"}`}
-      onMouseEnter={() => setShowControls(true)}
-      onMouseLeave={() => setShowControls(false)}
-    >
-      {shouldShowScreenShare ? (
-        <div className="relative w-full h-full">
+    return (
+      <div
+        className={`relative group bg-gray-900 rounded-lg overflow-hidden border-2 ${
+          participant.mediaState.speaking && !participant.mediaState.muted
+            ? "border-green-500"
+            : "border-gray-700"
+        } ${isFullscreen ? "fixed inset-0 z-50" : "aspect-video"}`}
+        onMouseEnter={() => setShowControls(true)}
+        onMouseLeave={() => setShowControls(false)}
+      >
+        {shouldShowScreenShare ? (
+          <div className="relative w-full h-full">
+            <video
+              ref={screenRef}
+              autoPlay
+              playsInline
+              muted={isLocal}
+              className="w-full h-full object-contain bg-black"
+            />
+            <div className="absolute top-2 left-2 bg-blue-600 bg-opacity-90 rounded px-2 py-1 flex items-center space-x-1">
+              <IconDesktop size={12} className="text-white" />
+              <span className="text-xs text-white">Screen</span>
+            </div>
+            {hasVideoState && hasActiveVideoTrack && (
+              <div className="absolute bottom-4 right-4 w-32 h-24 bg-gray-800 rounded border border-gray-600 overflow-hidden">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted={isLocal}
+                  className={`w-full h-full object-cover ${isLocal ? "transform -scale-x-100" : ""}`}
+                />
+              </div>
+            )}
+          </div>
+        ) : shouldShowVideo ? (
           <video
-            ref={screenRef}
+            ref={videoRef}
             autoPlay
             playsInline
             muted={isLocal}
-            className="w-full h-full object-contain bg-black"
+            className={`w-full h-full object-cover ${isLocal ? "transform -scale-x-100" : ""}`}
+            style={{ backgroundColor: "black" }}
           />
-          <div className="absolute top-2 left-2 bg-blue-600 bg-opacity-90 rounded px-2 py-1 flex items-center space-x-1">
-            <IconDesktop size={12} className="text-white" />
-            <span className="text-xs text-white">Screen</span>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gray-800">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center mb-2 mx-auto">
+                <span className="text-2xl font-bold text-white">
+                  {participant.username?.charAt(0).toUpperCase() || "U"}
+                </span>
+              </div>
+              <p className="text-sm text-gray-300">
+                {participant.username || `User ${participant.oduserId}`}
+              </p>
+              {!participant.mediaState.video && (
+                <p className="text-xs text-gray-500 mt-1">Camera off</p>
+              )}
+            </div>
           </div>
-          {hasVideoState && hasActiveVideoTrack && (
-            <div className="absolute bottom-4 right-4 w-32 h-24 bg-gray-800 rounded border border-gray-600 overflow-hidden">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted={isLocal}
-                className={`w-full h-full object-cover ${isLocal ? "transform -scale-x-100" : ""}`}
+        )}
+
+        <div className="absolute bottom-2 left-2 flex space-x-1">
+          {participant.mediaState.muted && (
+            <div className="bg-red-600 rounded-full p-1">
+              <IconMicrophoneSlash size={12} className="text-white" />
+            </div>
+          )}
+          {participant.mediaState.speaking && !participant.mediaState.muted && (
+            <div className="bg-green-600 rounded-full p-1 animate-pulse">
+              <IconMicrophone size={12} className="text-white" />
+            </div>
+          )}
+          {participant.mediaState.video ? (
+            <div className="bg-gray-600 rounded-full p-1">
+              <IconVideo size={12} className="text-white" />
+            </div>
+          ) : (
+            !shouldShowScreenShare && (
+              <div className="bg-gray-600 rounded-full p-1">
+                <IconVideoSlash size={12} className="text-white" />
+              </div>
+            )
+          )}
+        </div>
+
+        <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 rounded px-2 py-1">
+          <span className="text-xs text-white">
+            {participant.username || `User ${participant.oduserId}`}
+            {isLocal && ` (You)`}
+          </span>
+        </div>
+
+        {showControls && !isLocal && (
+          <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center space-x-4 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="bg-black bg-opacity-70 rounded-lg p-2 flex items-center space-x-2">
+              <button
+                onClick={toggleMute}
+                className="text-white hover:text-gray-300 transition-colors"
+              >
+                {isMuted ? (
+                  <IconVolumeOff size={14} />
+                ) : (
+                  <IconVolumeUp size={14} />
+                )}
+              </button>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={isMuted ? 0 : volume}
+                onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                className="w-16"
               />
             </div>
-          )}
-        </div>
-      ) : shouldShowVideo ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={isLocal}
-          className={`w-full h-full object-cover ${isLocal ? "transform -scale-x-100" : ""}`}
-          style={{ backgroundColor: 'black' }}
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center bg-gray-800">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center mb-2 mx-auto">
-              <span className="text-2xl font-bold text-white">
-                {participant.username?.charAt(0).toUpperCase() || "U"}
-              </span>
-            </div>
-            <p className="text-sm text-gray-300">
-              {participant.username || `User ${participant.oduserId}`}
-            </p>
-            {!participant.mediaState.video && (
-              <p className="text-xs text-gray-500 mt-1">Camera off</p>
+            {onToggleFullscreen && (
+              <button
+                onClick={onToggleFullscreen}
+                className="bg-black bg-opacity-70 rounded p-2 text-white hover:text-gray-300 transition-colors"
+              >
+                {isFullscreen ? (
+                  <IconCompress size={14} />
+                ) : (
+                  <IconExpand size={14} />
+                )}
+              </button>
             )}
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="absolute bottom-2 left-2 flex space-x-1">
-        {participant.mediaState.muted && (
-          <div className="bg-red-600 rounded-full p-1">
-            <IconMicrophoneSlash size={12} className="text-white" />
-          </div>
+        {isFullscreen && (
+          <button
+            onClick={onToggleFullscreen}
+            className="absolute top-4 right-4 bg-black bg-opacity-70 rounded p-2 text-white hover:text-gray-300 transition-colors z-10"
+          >
+            <IconCompress size={16} />
+          </button>
         )}
-        {participant.mediaState.speaking && !participant.mediaState.muted && (
-          <div className="bg-green-600 rounded-full p-1 animate-pulse">
-            <IconMicrophone size={12} className="text-white" />
-          </div>
-        )}
-        {participant.mediaState.video ? (
-          <div className="bg-gray-600 rounded-full p-1">
-            <IconVideo size={12} className="text-white" />
-          </div>
-        ) : !shouldShowScreenShare && (
-          <div className="bg-gray-600 rounded-full p-1">
-            <IconVideoSlash size={12} className="text-white" />
-          </div>
-        )}
+
+        {/* hidden audio so remote voice plays even when no <video> is visible */}
+        <audio ref={audioRef} autoPlay className="hidden" />
       </div>
-
-      <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 rounded px-2 py-1">
-        <span className="text-xs text-white">
-          {participant.username || `User ${participant.oduserId}`}
-          {isLocal && ` (You)`}
-        </span>
-      </div>
-
-      {showControls && !isLocal && (
-        <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center space-x-4 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="bg-black bg-opacity-70 rounded-lg p-2 flex items-center space-x-2">
-            <button
-              onClick={toggleMute}
-              className="text-white hover:text-gray-300 transition-colors"
-            >
-              {isMuted ? <IconVolumeOff size={14} /> : <IconVolumeUp size={14} />}
-            </button>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={isMuted ? 0 : volume}
-              onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-              className="w-16"
-            />
-          </div>
-          {onToggleFullscreen && (
-            <button
-              onClick={onToggleFullscreen}
-              className="bg-black bg-opacity-70 rounded p-2 text-white hover:text-gray-300 transition-colors"
-            >
-              {isFullscreen ? <IconCompress size={14} /> : <IconExpand size={14} />}
-            </button>
-          )}
-        </div>
-      )}
-
-      {isFullscreen && (
-        <button
-          onClick={onToggleFullscreen}
-          className="absolute top-4 right-4 bg-black bg-opacity-70 rounded p-2 text-white hover:text-gray-300 transition-colors z-10"
-        >
-          <IconCompress size={16} />
-        </button>
-      )}
-
-      {/* hidden audio so remote voice plays even when no <video> is visible */}
-      <audio ref={audioRef} autoPlay className="hidden" />
-    </div>
-  );
-},
-(prev, next) => {
-  const a = prev.participant;
-  const b = next.participant;
-  const same =
-    a.id === b.id &&
-    a.stream === b.stream &&
-    a.screenStream === b.screenStream &&
-    a.tileId === b.tileId &&
-    a.screenTileId === b.screenTileId &&
-    a.mediaState.muted === b.mediaState.muted &&
-    a.mediaState.speaking === b.mediaState.speaking &&
-    a.mediaState.video === b.mediaState.video &&
-    a.mediaState.screenSharing === b.mediaState.screenSharing &&
-    prev.isLocal === next.isLocal &&
-    prev.isFullscreen === next.isFullscreen &&
-    prev.manager === next.manager;
-  return same;
-});
+    );
+  },
+  (prev, next) => {
+    const a = prev.participant;
+    const b = next.participant;
+    const same =
+      a.id === b.id &&
+      a.stream === b.stream &&
+      a.screenStream === b.screenStream &&
+      a.tileId === b.tileId &&
+      a.screenTileId === b.screenTileId &&
+      a.mediaState.muted === b.mediaState.muted &&
+      a.mediaState.speaking === b.mediaState.speaking &&
+      a.mediaState.video === b.mediaState.video &&
+      a.mediaState.screenSharing === b.mediaState.screenSharing &&
+      prev.isLocal === next.isLocal &&
+      prev.isFullscreen === next.isFullscreen &&
+      prev.manager === next.manager;
+    return same;
+  }
+);
 
 /* ----------------------------- VIDEO PANEL UI ----------------------------- */
 
@@ -648,48 +715,50 @@ const EnhancedVideoPanel: React.FC<EnhancedVideoPanelProps> = ({
   manager,
   participants = [],
   localVideoTileId,
-  localMediaState = { muted: false, speaking: false, video: false, screenSharing: false },
+  localMediaState = {
+    muted: false,
+    speaking: false,
+    video: false,
+    screenSharing: false,
+  },
   currentUser,
   collapsed = false,
   onParticipantVolumeChange,
   // Legacy props
   localStream,
-  localScreenStream
+  localScreenStream,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
 
-
   const [isPanelFullscreen, setIsPanelFullscreen] = useState(false);
-
 
   const [fullscreenParticipant, setFullscreenParticipant] = useState<
     string | null
   >(null);
 
+  const togglePanelFullscreen = async () => {
+    if (!panelRef.current) return;
 
-const togglePanelFullscreen = async () => {
-  if (!panelRef.current) return;
-
-  try {
-    if (!document.fullscreenElement) {
-      await panelRef.current.requestFullscreen();
-    } else {
-      await document.exitFullscreen();
+    try {
+      if (!document.fullscreenElement) {
+        await panelRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error("Fullscreen failed:", err);
     }
-  } catch (err) {
-    console.error("Fullscreen failed:", err);
-  }
-};
+  };
 
-   useEffect(() => {
-     const onFullscreenChange = () => {
-       setIsPanelFullscreen(!!document.fullscreenElement);
-     };
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsPanelFullscreen(!!document.fullscreenElement);
+    };
 
-     document.addEventListener("fullscreenchange", onFullscreenChange);
-     return () =>
-       document.removeEventListener("fullscreenchange", onFullscreenChange);
-   }, []);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
 
   const localParticipant: Participant = useMemo(
     () => ({
@@ -700,20 +769,26 @@ const togglePanelFullscreen = async () => {
       screenStream: localScreenStream || null,
       tileId: localVideoTileId !== null ? localVideoTileId : undefined,
       isLocal: true,
-      mediaState: localMediaState
+      mediaState: localMediaState,
     }),
-    [currentUser?.username, localStream, localScreenStream, localVideoTileId, localMediaState]
+    [
+      currentUser?.username,
+      localStream,
+      localScreenStream,
+      localVideoTileId,
+      localMediaState,
+    ]
   );
 
   // Filter out any remote participants that might be the local user
   // (this can happen when using external manager from VoiceCallContext)
   // We identify the local user by checking multiple criteria
   const allParticipants = useMemo(() => {
-    const localUsername = currentUser?.username || '';
-    
+    const localUsername = currentUser?.username || "";
+
     // Filter out participants that are actually the local user
     // (they will be represented by localParticipant instead)
-    const remoteParticipants = participants.filter(p => {
+    const remoteParticipants = participants.filter((p) => {
       // Keep participant if they are NOT the local user
       // A participant is local if:
       // 1. Their id is "local"
@@ -723,15 +798,18 @@ const togglePanelFullscreen = async () => {
       if (p.id === "local" || p.isLocal) {
         return false; // Filter out - this is the local user
       }
-      
+
       // Also check if username matches (for cases where isLocal wasn't set correctly)
-      if (localUsername && (p.username === localUsername || p.oduserId === localUsername)) {
+      if (
+        localUsername &&
+        (p.username === localUsername || p.oduserId === localUsername)
+      ) {
         return false; // Filter out - this is the local user
       }
-      
+
       return true;
     });
-    
+
     return [localParticipant, ...remoteParticipants];
   }, [localParticipant, participants, currentUser?.username]);
 
@@ -753,10 +831,15 @@ const togglePanelFullscreen = async () => {
   );
 
   const toggleFullscreen = (participantId: string) => {
-    setFullscreenParticipant((prev) => (prev === participantId ? null : participantId));
+    setFullscreenParticipant((prev) =>
+      prev === participantId ? null : participantId
+    );
   };
 
-  const handleParticipantVolumeChange = (participantId: string, volume: number) => {
+  const handleParticipantVolumeChange = (
+    participantId: string,
+    volume: number
+  ) => {
     onParticipantVolumeChange?.(participantId, volume);
   };
 
@@ -767,8 +850,7 @@ const togglePanelFullscreen = async () => {
   return (
     <div
       ref={panelRef}
- 
-     className="w-full h-full bg-black relative overflow-hidden"
+      className="w-full h-full bg-black relative overflow-hidden"
     >
       <div
         className={`grid ${layout.cols} ${layout.rows} gap-2 w-full h-full p-2`}

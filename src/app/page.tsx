@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 import React, { useEffect, useState } from "react";
 import Navbar from "@/components/navbar";
@@ -8,12 +8,12 @@ import SharkWithEyes from "@/components/shark";
 import AOS from "aos";
 import "aos/dist/aos.css";
 import { useRouter } from "next/navigation";
-import Modal from 'react-modal';
+import Modal from "react-modal";
 // import Loader from "@/components/Loader";
 import { FaGoogle } from "react-icons/fa";
 import { supabase } from "@/lib/supabaseClient";
 import Toast from "@/components/Toast";
-Modal.setAppElement('body');
+Modal.setAppElement("body");
 
 export default function Home() {
   const [showLoadingToast, setShowLoadingToast] = useState(false);
@@ -89,8 +89,7 @@ export default function Home() {
 
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [lastScrollY]); 
-
+  }, [lastScrollY]);
 
   useEffect(() => {
     // Check screen size
@@ -165,8 +164,6 @@ export default function Home() {
     AOS.init({ duration: 800, once: true });
   }, []);
 
- 
-
   return (
     <>
       {/* Loader Overlay */}
@@ -184,7 +181,6 @@ export default function Home() {
             ${loading ? "opacity-100 scale-100" : "opacity-0 scale-95"}
           `}
         >
-   
           <div className="mb-6">
             <div className="relative inline-block">
               <div className="font-jersey text-[64px] font-normal text-white">
@@ -219,21 +215,13 @@ export default function Home() {
             </div>
           </div>
 
-      
-        <div className="mb-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mx-auto"></div>
-        </div>
-            
-
-        
+          <div className="mb-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mx-auto"></div>
+          </div>
         </div>
       </div>
 
       <div className="relative w-screen overflow-x-hidden">
-
-       
-
-      
         <div
           className="fixed inset-0 bg-[url('/bg1.webp')] bg-cover bg-center -z-20 transition-transform duration-500"
           aria-hidden="true"
@@ -617,7 +605,6 @@ export default function Home() {
           </div>
         </div>
       </footer>
-     
     </>
   );
 }

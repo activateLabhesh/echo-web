@@ -33,11 +33,9 @@ export default function ProfilePage() {
   const [toast, setToast] = useState<string | null>(null);
   const [lastBioLimitToastAt, setLastBioLimitToastAt] = useState(0);
 
-
   const avatarInput = useRef<HTMLInputElement | null>(null);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const aboutTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-
 
   const showToast = (message: string) => {
     setToast(message);
@@ -51,37 +49,34 @@ export default function ProfilePage() {
     showToast("Bio cannot exceed 100 characters.");
   };
 
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await apiClient.get("/api/profile/getProfile");
+        console.log("PROFILE RESPONSE:", res.data);
 
- useEffect(() => {
-   const fetchProfile = async () => {
-     try {
-       const res = await apiClient.get("/api/profile/getProfile");
-       console.log("PROFILE RESPONSE:", res.data);
+        const profile = res.data.user;
 
-       const profile = res.data.user; 
+        setDisplayName(profile.fullname || "");
+        setUsername(profile.username || "");
+        setAbout((profile.bio || "").slice(0, BIO_MAX_LENGTH));
+        setEmail(profile.email || "");
+        setAvatar(profile.avatar_url || "/User_profil.png");
 
-       setDisplayName(profile.fullname || "");
-       setUsername(profile.username || "");
-      setAbout((profile.bio || "").slice(0, BIO_MAX_LENGTH));
-       setEmail(profile.email || "");
-       setAvatar(profile.avatar_url || "/User_profil.png");
+        setUser(profile);
+      } catch (err) {
+        console.error("Failed to fetch profile", err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-
-       setUser(profile);
-     } catch (err) {
-       console.error("Failed to fetch profile", err);
-     } finally {
-       setLoading(false);
-     }
-   };
-
-   fetchProfile();
- }, [setUser]);
+    fetchProfile();
+  }, [setUser]);
 
   useEffect(() => {
     if (!loading) setChanged(true);
   }, [displayName, about, avatarFile, loading]);
-
 
   useEffect(() => {
     if (editing.name) nameInputRef.current?.focus();
@@ -91,7 +86,6 @@ export default function ProfilePage() {
     if (editing.about) aboutTextareaRef.current?.focus();
   }, [editing.about]);
 
-  
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -105,45 +99,43 @@ export default function ProfilePage() {
     setAvatar(URL.createObjectURL(file));
   };
 
+  const handleSave = async () => {
+    if (!changed) return;
 
- const handleSave = async () => {
-   if (!changed) return;
+    setIsSaving(true);
 
-   setIsSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append("fullname", displayName);
+      formData.append("bio", about.slice(0, BIO_MAX_LENGTH));
+      if (avatarFile) formData.append("avatar", avatarFile);
 
-   try {
-     const formData = new FormData();
-     formData.append("fullname", displayName);
-    formData.append("bio", about.slice(0, BIO_MAX_LENGTH));
-     if (avatarFile) formData.append("avatar", avatarFile);
+      const res = await apiClient.patch(
+        "/api/profile/updateProfile",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
 
-     const res = await apiClient.patch("/api/profile/updateProfile", formData, {
-       headers: { "Content-Type": "multipart/form-data" },
-     });
+      const updatedUser = res.data.user;
 
-     const updatedUser = res.data.user;
+      setAvatar(updatedUser.avatar_url || "/User_profil.png");
 
-   
-     setAvatar(updatedUser.avatar_url || "/User_profil.png");
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      window.dispatchEvent(new Event("user-profile-updated"));
 
-
-     setUser(updatedUser);
-    localStorage.setItem("user", JSON.stringify(updatedUser));
-    window.dispatchEvent(new Event("user-profile-updated"));
-
-     setAvatarFile(null);
-     setChanged(false);
-     showToast("Profile updated");
-   } catch (err) {
-     console.error(err);
-     showToast("Failed to update profile");
-   } finally {
-     setIsSaving(false);
-   }
- };
-
- 
-
+      setAvatarFile(null);
+      setChanged(false);
+      showToast("Profile updated");
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to update profile");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -246,7 +238,11 @@ export default function ProfilePage() {
 
                 const isModifier = e.ctrlKey || e.metaKey || e.altKey;
                 const isSingleCharKey = e.key.length === 1;
-                if (!isModifier && isSingleCharKey && about.length >= BIO_MAX_LENGTH) {
+                if (
+                  !isModifier &&
+                  isSingleCharKey &&
+                  about.length >= BIO_MAX_LENGTH
+                ) {
                   e.preventDefault();
                   showBioLimitToast();
                 }

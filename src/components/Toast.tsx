@@ -21,17 +21,17 @@ export default function Toast({
   const styles = {
     info: {
       bg: "from-yellow-400/90 to-yellow-300/90",
-      
+
       text: "text-black",
     },
     success: {
       bg: "from-green-500/90 to-emerald-500/90",
-      
+
       text: "text-white",
     },
     error: {
       bg: "from-red-500/90 to-rose-500/90",
-      
+
       text: "text-white",
     },
   }[type];

@@ -3,12 +3,12 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { 
-  FaMicrophone, 
-  FaMicrophoneSlash, 
-  FaVideo, 
-  FaVideoSlash, 
+import React, { useState, useEffect } from "react";
+import {
+  FaMicrophone,
+  FaMicrophoneSlash,
+  FaVideo,
+  FaVideoSlash,
   FaDesktop,
   FaStop,
   FaRecordVinyl,
@@ -16,9 +16,9 @@ import {
   FaPhoneSlash,
   FaSignal,
   FaChevronDown,
-  FaChevronUp
-} from 'react-icons/fa';
-import { VoiceVideoManager } from '@/lib/VoiceVideoManager';
+  FaChevronUp,
+} from "react-icons/fa";
+import { VoiceVideoManager } from "@/lib/VoiceVideoManager";
 
 interface MediaState {
   muted: boolean;
@@ -26,7 +26,7 @@ interface MediaState {
   video: boolean;
   screenSharing: boolean;
   recording: boolean;
-  mediaQuality: 'low' | 'medium' | 'high' | 'auto';
+  mediaQuality: "low" | "medium" | "high" | "auto";
 }
 
 interface DeviceInfo {
@@ -56,7 +56,7 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
   manager,
   onHangUp,
   isConnected,
-  className = ""
+  className = "",
 }) => {
   const [mediaState, setMediaState] = useState<MediaState>({
     muted: false,
@@ -64,7 +64,7 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
     video: false,
     screenSharing: false,
     recording: false,
-    mediaQuality: 'auto'
+    mediaQuality: "auto",
   });
 
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo>({
@@ -73,7 +73,7 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
     audioOutputs: [],
     activeAudioDevice: undefined,
     activeVideoDevice: undefined,
-    activeAudioOutputDevice: undefined
+    activeAudioOutputDevice: undefined,
   });
 
   const [networkStats, setNetworkStats] = useState<NetworkStats | null>(null);
@@ -87,19 +87,19 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
   // Update states when manager changes
   useEffect(() => {
     if (!manager) return;
-    
+
     // Initial permissions check
     const perms = manager.getAvailablePermissions?.();
     if (perms) {
       setHasAudioPerm(!!perms.audio);
       setHasVideoPerm(!!perms.video);
     }
-    
+
     const id = setInterval(() => {
       setMediaState(manager.getMediaState());
       setNetworkStats(manager.getNetworkStats());
       setDeviceInfo(manager.getDeviceInfo());
-      
+
       // Update permissions
       const currentPerms = manager.getAvailablePermissions?.();
       if (currentPerms) {
@@ -107,7 +107,7 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
         setHasVideoPerm(!!currentPerms.video);
       }
     }, 1000);
-    
+
     return () => clearInterval(id);
   }, [manager]);
 
@@ -118,7 +118,7 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
       setIsRecording(true);
       setRecordingDuration(0);
       interval = setInterval(() => {
-        setRecordingDuration(prev => prev + 1);
+        setRecordingDuration((prev) => prev + 1);
       }, 1000);
     } else {
       setIsRecording(false);
@@ -136,7 +136,7 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
       const newMuted = !mediaState.muted;
       manager.toggleAudio(!newMuted);
     } catch (e) {
-      console.error('Toggle audio failed:', e);
+      console.error("Toggle audio failed:", e);
     }
   };
 
@@ -156,13 +156,13 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
         await manager.toggleVideo(false);
       } else {
         if (!hasVideoPerm) {
-          console.warn('No camera permission');
+          console.warn("No camera permission");
           return;
         }
         await manager.toggleVideo(true);
       }
     } catch (e) {
-      console.error('Toggle video failed:', e);
+      console.error("Toggle video failed:", e);
     }
   };
 
@@ -177,10 +177,13 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
     } catch (e: any) {
       // Only show error for non-cancellation errors
       // NotAllowedError (user cancelled) is handled silently in VoiceVideoManager
-      console.error('Screen share toggle failed:', e);
-      if (e?.name !== 'NotAllowedError' && !e?.message?.includes('Permission denied')) {
+      console.error("Screen share toggle failed:", e);
+      if (
+        e?.name !== "NotAllowedError" &&
+        !e?.message?.includes("Permission denied")
+      ) {
         // Only alert for genuine errors, not user cancellation
-        alert('Screen sharing failed. Please try again.');
+        alert("Screen sharing failed. Please try again.");
       }
     }
   };
@@ -195,20 +198,23 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
         includeAudio: true,
         includeVideo: mediaState.video,
         includeScreenShare: mediaState.screenSharing,
-        quality: 'high'
+        quality: "high",
       });
     }
   };
 
-  const handleDeviceChange = async (deviceId: string, type: 'audio' | 'video' | 'speaker') => {
+  const handleDeviceChange = async (
+    deviceId: string,
+    type: "audio" | "video" | "speaker"
+  ) => {
     if (!manager) return;
 
     try {
-      if (type === 'audio') {
+      if (type === "audio") {
         await manager.switchMicrophone(deviceId);
-      } else if (type === 'video') {
+      } else if (type === "video") {
         await manager.switchCamera(deviceId);
-      } else if (type === 'speaker') {
+      } else if (type === "speaker") {
         await manager.switchSpeaker(deviceId);
       }
       // Refresh device info
@@ -219,7 +225,7 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
     }
   };
 
-  const handleQualityChange = (quality: 'low' | 'medium' | 'high' | 'auto') => {
+  const handleQualityChange = (quality: "low" | "medium" | "high" | "auto") => {
     if (!manager) return;
     manager.adjustQuality(quality);
   };
@@ -227,29 +233,33 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
   const formatDuration = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
   const getConnectionQualityColor = (stats: NetworkStats | null): string => {
-    if (!stats) return 'text-gray-400';
-    
+    if (!stats) return "text-gray-400";
+
     switch (stats.connectionType) {
-      case 'good': return 'text-green-400';
-      case 'fair': return 'text-yellow-400';
-      case 'poor': return 'text-red-400';
-      default: return 'text-gray-400';
+      case "good":
+        return "text-green-400";
+      case "fair":
+        return "text-yellow-400";
+      case "poor":
+        return "text-red-400";
+      default:
+        return "text-gray-400";
     }
   };
 
   const getConnectionQualityIcon = (stats: NetworkStats | null) => {
     if (!stats) return <FaSignal className="opacity-50" />;
-    
+
     const quality = stats.connectionType;
     return (
       <div className="flex items-center space-x-1">
         <FaSignal className={getConnectionQualityColor(stats)} />
         <span className={`text-xs ${getConnectionQualityColor(stats)}`}>
-          {quality === 'good' ? '●●●' : quality === 'fair' ? '●●○' : '●○○'}
+          {quality === "good" ? "●●●" : quality === "fair" ? "●●○" : "●○○"}
         </span>
       </div>
     );
@@ -357,8 +367,6 @@ const VoiceVideoControls: React.FC<VoiceVideoControlsProps> = ({
           <FaPhoneSlash size={20} />
         </button>
       </div>
-   
-      
     </div>
   );
 };

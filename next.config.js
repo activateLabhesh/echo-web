@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-   eslint: {
+  eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
@@ -8,14 +8,14 @@ const nextConfig = {
   },
   reactStrictMode: true,
   swcMinify: true,
-  output: 'standalone',
+  output: "standalone",
   images: {
     domains: [
-      'remwzcalhvoaubuhuzan.supabase.co',
-      'lh3.googleusercontent.com',  // Google profile pictures
-      'googleusercontent.com',       // Google images
+      "remwzcalhvoaubuhuzan.supabase.co",
+      "lh3.googleusercontent.com", // Google profile pictures
+      "googleusercontent.com", // Google images
     ],
   },
 };
 
-module.exports = nextConfig
+module.exports = nextConfig;

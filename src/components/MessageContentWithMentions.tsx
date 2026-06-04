@@ -2,8 +2,6 @@
 
 import React, { useState } from "react";
 
-
-
 interface Role {
   id: string;
   name: string;
@@ -21,8 +19,6 @@ interface MentionContentProps {
   onMentionClick?: (userId: string, username: string) => void;
   onRoleMentionClick?: (roleName: string) => void;
 }
-
-
 
 export default function MessageContentWithMentions({
   content,
@@ -72,19 +68,21 @@ export default function MessageContentWithMentions({
 
     const usedPositions = new Set<number>();
 
-    Array.from(segmentContent.matchAll(everyoneMentionRegex)).forEach((match) => {
-      mentions.push({
-        start: match.index!,
-        end: match.index! + match[0].length,
-        type: "everyone",
-        match: match[0],
-        displayText: match[0],
-      });
+    Array.from(segmentContent.matchAll(everyoneMentionRegex)).forEach(
+      (match) => {
+        mentions.push({
+          start: match.index!,
+          end: match.index! + match[0].length,
+          type: "everyone",
+          match: match[0],
+          displayText: match[0],
+        });
 
-      for (let i = match.index!; i < match.index! + match[0].length; i++) {
-        usedPositions.add(i);
+        for (let i = match.index!; i < match.index! + match[0].length; i++) {
+          usedPositions.add(i);
+        }
       }
-    });
+    );
 
     Array.from(segmentContent.matchAll(roleMentionRegex)).forEach((match) => {
       const roleName = match[1].trim();
@@ -233,27 +231,27 @@ export default function MessageContentWithMentions({
                     : "none",
                 }
               : mention.type === "user"
-              ? {
-                  backgroundColor: isCurrentUserMention
-                    ? "rgba(88,101,242,0.35)"
-                    : "rgba(88,101,242,0.18)",
-                  color: "#ffffff",
-                  borderRadius: "6px",
-                  padding: "2px 6px",
-                }
-              : {
-                  backgroundColor: "rgba(250,204,21,0.25)",
-                  color: "#facc15",
-                  borderRadius: "6px",
-                  padding: "2px 6px",
-                }
+                ? {
+                    backgroundColor: isCurrentUserMention
+                      ? "rgba(88,101,242,0.35)"
+                      : "rgba(88,101,242,0.18)",
+                    color: "#ffffff",
+                    borderRadius: "6px",
+                    padding: "2px 6px",
+                  }
+                : {
+                    backgroundColor: "rgba(250,204,21,0.25)",
+                    color: "#facc15",
+                    borderRadius: "6px",
+                    padding: "2px 6px",
+                  }
           }
           onClick={
             mention.type === "user" && onMentionClick
               ? () => onMentionClick(username, username)
               : mention.type === "role" && onRoleMentionClick
-              ? () => onRoleMentionClick(roleName)
-              : undefined
+                ? () => onRoleMentionClick(roleName)
+                : undefined
           }
         >
           {mention.displayText}
@@ -345,5 +343,3 @@ export default function MessageContentWithMentions({
     </div>
   );
 }
-
-

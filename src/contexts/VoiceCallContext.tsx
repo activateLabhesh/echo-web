@@ -91,7 +91,8 @@ const defaultContextValue: VoiceCallContextValue = {
 
 // ==================== CONTEXT ====================
 
-const VoiceCallContext = createContext<VoiceCallContextValue>(defaultContextValue);
+const VoiceCallContext =
+  createContext<VoiceCallContextValue>(defaultContextValue);
 
 // ==================== PROVIDER ====================
 
@@ -122,7 +123,8 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
 
   // Get current user info from localStorage
   const getCurrentUser = useCallback(() => {
-    if (typeof window === "undefined") return { id: "guest", username: "Guest" };
+    if (typeof window === "undefined")
+      return { id: "guest", username: "Guest" };
     try {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
       return {
@@ -150,7 +152,11 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
 
     // Voice roster updates
     manager.onVoiceRoster((members) => {
-      console.log("[VoiceCallContext] Roster update:", members.length, "members");
+      console.log(
+        "[VoiceCallContext] Roster update:",
+        members.length,
+        "members"
+      );
       setParticipants(members);
     });
 
@@ -196,7 +202,11 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
 
     // User joined/left (for logging)
     manager.onUserJoined((attendeeId, externalUserId) => {
-      console.log("[VoiceCallContext] User joined:", attendeeId, externalUserId);
+      console.log(
+        "[VoiceCallContext] User joined:",
+        attendeeId,
+        externalUserId
+      );
     });
 
     manager.onUserLeft((attendeeId) => {
@@ -205,50 +215,61 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
   }, []);
 
   // Initialize manager (request permissions)
-  const initializeManager = useCallback(async (manager: VoiceVideoManager) => {
-    if (isInitialized) return true;
+  const initializeManager = useCallback(
+    async (manager: VoiceVideoManager) => {
+      if (isInitialized) return true;
 
-    console.log("[VoiceCallContext] Initializing manager (requesting permissions)");
-    setPermissionError(null);
+      console.log(
+        "[VoiceCallContext] Initializing manager (requesting permissions)"
+      );
+      setPermissionError(null);
 
-    try {
-      // Try full permissions first
-      await manager.initialize(true, true);
-      setIsInitialized(true);
-      setLocalMediaState(manager.getMediaState());
-      console.log("[VoiceCallContext] Full permissions granted");
-      return true;
-    } catch (fullError: any) {
-      console.warn("[VoiceCallContext] Full permissions failed, trying fallbacks");
-
-      // Try audio-only
       try {
-        await manager.initializeAudioOnly();
+        // Try full permissions first
+        await manager.initialize(true, true);
         setIsInitialized(true);
         setLocalMediaState(manager.getMediaState());
-        setPermissionError("Video permission denied. Audio-only mode active.");
-        console.log("[VoiceCallContext] Audio-only mode");
+        console.log("[VoiceCallContext] Full permissions granted");
         return true;
-      } catch (audioError) {
-        // Try video-only
+      } catch (fullError: any) {
+        console.warn(
+          "[VoiceCallContext] Full permissions failed, trying fallbacks"
+        );
+
+        // Try audio-only
         try {
-          await manager.initializeVideoOnly();
+          await manager.initializeAudioOnly();
           setIsInitialized(true);
           setLocalMediaState(manager.getMediaState());
-          setPermissionError("Audio permission denied. Video-only mode active.");
-          console.log("[VoiceCallContext] Video-only mode");
-          return true;
-        } catch (videoError) {
-          // All failed
-          console.error("[VoiceCallContext] All permission requests failed");
           setPermissionError(
-            "Camera and microphone access denied. Please allow permissions and try again."
+            "Video permission denied. Audio-only mode active."
           );
-          return false;
+          console.log("[VoiceCallContext] Audio-only mode");
+          return true;
+        } catch (audioError) {
+          // Try video-only
+          try {
+            await manager.initializeVideoOnly();
+            setIsInitialized(true);
+            setLocalMediaState(manager.getMediaState());
+            setPermissionError(
+              "Audio permission denied. Video-only mode active."
+            );
+            console.log("[VoiceCallContext] Video-only mode");
+            return true;
+          } catch (videoError) {
+            // All failed
+            console.error("[VoiceCallContext] All permission requests failed");
+            setPermissionError(
+              "Camera and microphone access denied. Please allow permissions and try again."
+            );
+            return false;
+          }
         }
       }
-    }
-  }, [isInitialized]);
+    },
+    [isInitialized]
+  );
 
   // ==================== ACTIONS ====================
 
@@ -260,7 +281,12 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
       serverId: string,
       serverName: string
     ) => {
-      console.log("[VoiceCallContext] joinCall:", { channelId, channelName, serverId, serverName });
+      console.log("[VoiceCallContext] joinCall:", {
+        channelId,
+        channelName,
+        serverId,
+        serverName,
+      });
 
       // Clear previous errors
       setConnectionError(null);
@@ -274,7 +300,10 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
 
         // If already in a call, leave it first
         if (activeCall) {
-          console.log("[VoiceCallContext] Leaving previous call:", activeCall.channelId);
+          console.log(
+            "[VoiceCallContext] Leaving previous call:",
+            activeCall.channelId
+          );
           manager.leaveVoiceChannel();
           // Clear state
           setParticipants([]);
@@ -316,7 +345,13 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
         setIsConnecting(false);
       }
     },
-    [activeCall, isInitialized, getOrCreateManager, initializeManager, setupEventListeners]
+    [
+      activeCall,
+      isInitialized,
+      getOrCreateManager,
+      initializeManager,
+      setupEventListeners,
+    ]
   );
 
   // Leave current call
@@ -416,7 +451,9 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
   // Cleanup on unmount (full app close)
   useEffect(() => {
     return () => {
-      console.log("[VoiceCallContext] Provider unmounting, disconnecting manager");
+      console.log(
+        "[VoiceCallContext] Provider unmounting, disconnecting manager"
+      );
       const manager = managerRef.current;
       if (manager) {
         manager.disconnect();

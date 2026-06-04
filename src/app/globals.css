@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Jersey+10&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Jersey+10&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -31,7 +31,11 @@ body {
 }
 
 .chat-scroll::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(148, 163, 184, 0.45), rgba(99, 102, 241, 0.45));
+  background: linear-gradient(
+    180deg,
+    rgba(148, 163, 184, 0.45),
+    rgba(99, 102, 241, 0.45)
+  );
   border-radius: 9999px;
 }
 
@@ -65,29 +69,28 @@ body {
   }
 }
 
-  /* Gradient */
-  .card-wrapper-1::before {
-    background: conic-gradient(
-        rgba(241, 10, 10, 0.4) 0deg,
-      rgba(244, 114, 182, 0.4) 0deg,
-      transparent 80deg
-    );
+/* Gradient */
+.card-wrapper-1::before {
+  background: conic-gradient(
+    rgba(241, 10, 10, 0.4) 0deg,
+    rgba(244, 114, 182, 0.4) 0deg,
+    transparent 80deg
+  );
 
-    @apply absolute left-[-25%] top-[-25%] h-[150%] w-[150%] animate-border-spin content-[''];
-  }
+  @apply absolute left-[-25%] top-[-25%] h-[150%] w-[150%] animate-border-spin content-[''];
+}
 
-  /* Body */
-  .card-content-1 {
-    @apply absolute left-[8px] top-[8px] h-[calc(100%-16px)] w-[calc(100%-16px)] rounded-full bg-gradient-to-r from-[#0B1450] to-[#2A3AA3];
-  }
-  .card-content-2 {
-    @apply absolute left-[8px] top-[8px] h-[calc(100%-16px)] w-[calc(100%-16px)] rounded-full bg-[#D85D29];
-  }
+/* Body */
+.card-content-1 {
+  @apply absolute left-[8px] top-[8px] h-[calc(100%-16px)] w-[calc(100%-16px)] rounded-full bg-gradient-to-r from-[#0B1450] to-[#2A3AA3];
+}
+.card-content-2 {
+  @apply absolute left-[8px] top-[8px] h-[calc(100%-16px)] w-[calc(100%-16px)] rounded-full bg-[#D85D29];
+}
 
-  .gradient-border {
-    @apply p-[2px] bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg inline-block;
-  }
-
+.gradient-border {
+  @apply p-[2px] bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg inline-block;
+}
 
 .mention-highlight {
   border-radius: 10px;
@@ -119,7 +122,6 @@ body {
   animation: toast-in 0.25s ease-out forwards;
 }
 
-
 .skeleton-shimmer {
   background: linear-gradient(
     90deg,
@@ -131,7 +133,6 @@ body {
   animation: shimmer 1.5s infinite;
 }
 
-
 .animate-in {
   animation: fade-in 0.2s ease-out;
 }
@@ -139,9 +140,8 @@ body {
   overflow-wrap: anywhere;
 }
 
-
 @keyframes mentionBlink {
-  0%{
+  0% {
     background-color: rgba(255, 255, 150, 0.15);
   }
 

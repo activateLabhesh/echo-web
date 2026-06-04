@@ -4,7 +4,8 @@ import { VoiceVideoManager } from "./lib/VoiceVideoManager";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 const SOCKET_PATH = process.env.NEXT_PUBLIC_SOCKET_PATH || "/socket.io";
-const USE_CREDENTIALS = (process.env.NEXT_PUBLIC_SOCKET_WITH_CREDENTIALS ?? "true") === "true";
+const USE_CREDENTIALS =
+  (process.env.NEXT_PUBLIC_SOCKET_WITH_CREDENTIALS ?? "true") === "true";
 
 const baseConfig: Partial<ManagerOptions & SocketOptions> = {
   // Prefer WS, fall back to polling if needed
@@ -12,13 +13,13 @@ const baseConfig: Partial<ManagerOptions & SocketOptions> = {
   upgrade: true,
 
   // Connection + heartbeat
-  timeout: 20000,            // connect timeout
+  timeout: 20000, // connect timeout
 
   // Reconnect/backoff
   reconnection: true,
   reconnectionAttempts: Infinity,
-  reconnectionDelay: 500,      // initial
-  reconnectionDelayMax: 5000,  // cap
+  reconnectionDelay: 500, // initial
+  reconnectionDelayMax: 5000, // cap
   randomizationFactor: 0.5,
 
   // CORS/cookies (only if your server allows credentials)
@@ -34,7 +35,10 @@ const baseConfig: Partial<ManagerOptions & SocketOptions> = {
   path: SOCKET_PATH,
 };
 
-export const createAuthSocket = (userId: string, extraAuth?: Record<string, any>): Socket => {
+export const createAuthSocket = (
+  userId: string,
+  extraAuth?: Record<string, any>
+): Socket => {
   // NOTE: if you have a token, pass it in extraAuth (e.g., { token })
   const socket = io(API_URL, {
     ...baseConfig,
@@ -43,11 +47,18 @@ export const createAuthSocket = (userId: string, extraAuth?: Record<string, any>
 
   // Minimal, consistent logging
   socket.on("connect", () => {
-    console.log("✅ Socket connected", { id: socket.id, url: API_URL, path: SOCKET_PATH });
+    console.log("✅ Socket connected", {
+      id: socket.id,
+      url: API_URL,
+      path: SOCKET_PATH,
+    });
   });
 
   socket.on("connect_error", (err) => {
-    console.error("❌ Socket connect_error:", { message: err?.message, data: err });
+    console.error("❌ Socket connect_error:", {
+      message: err?.message,
+      data: err,
+    });
   });
 
   socket.on("disconnect", (reason) => {

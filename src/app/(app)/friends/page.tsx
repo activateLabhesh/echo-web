@@ -2,7 +2,13 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { usePageReady } from "@/components/RouteChangeLoader";
-import { FaUserFriends, FaPlus, FaSearch, FaCommentAlt, FaUserMinus } from "react-icons/fa";
+import {
+  FaUserFriends,
+  FaPlus,
+  FaSearch,
+  FaCommentAlt,
+  FaUserMinus,
+} from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import {
   fetchAllFriends,
@@ -10,13 +16,13 @@ import {
   addFriend,
   removeFriend,
   respondToFriendRequest,
-  searchUsers
+  searchUsers,
 } from "@/api";
 import { fetchUserProfile } from "@/api/profile.api";
 import Loader from "@/components/Loader";
 import UserProfileModal from "@/components/UserProfileModal";
 import { useFriendNotifications } from "@/contexts/FriendNotificationContext";
-import {SearchUserResult} from "@/api/types/user.types";
+import { SearchUserResult } from "@/api/types/user.types";
 
 type RelationshipStatus = SearchUserResult["relationshipStatus"];
 
@@ -151,10 +157,10 @@ export default function FriendsPage() {
       await addFriend(userId);
       loadRequests();
       // Update search results to reflect new status
-      setSearchResults(prev => 
-        prev.map(user => 
-          user.id === userId 
-            ? { ...user, relationshipStatus: 'pending' as const }
+      setSearchResults((prev) =>
+        prev.map((user) =>
+          user.id === userId
+            ? { ...user, relationshipStatus: "pending" as const }
             : user
         )
       );
@@ -172,7 +178,7 @@ export default function FriendsPage() {
       setSearching(false);
       return;
     }
-    
+
     setSearching(true);
     setError("");
     try {
@@ -192,7 +198,7 @@ export default function FriendsPage() {
     const timeoutId = setTimeout(() => {
       handleSearch(searchQuery);
     }, 300);
-    
+
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
@@ -234,7 +240,9 @@ export default function FriendsPage() {
       await refreshFriendNotifications();
     } catch (err: any) {
       console.error("Error accepting request:", err);
-      setError(err?.response?.data?.message || "Failed to accept friend request");
+      setError(
+        err?.response?.data?.message || "Failed to accept friend request"
+      );
     }
   };
 
@@ -246,7 +254,9 @@ export default function FriendsPage() {
       await refreshFriendNotifications();
     } catch (err: any) {
       console.error("Error rejecting request:", err);
-      setError(err?.response?.data?.message || "Failed to reject friend request");
+      setError(
+        err?.response?.data?.message || "Failed to reject friend request"
+      );
     }
   };
 
@@ -259,7 +269,8 @@ export default function FriendsPage() {
     if (searchMatch) return searchMatch.relationshipStatus;
 
     if (friends.some((friend) => friend.id === userId)) return "accepted";
-    if (requests.some((request) => request.user1_id === userId)) return "pending";
+    if (requests.some((request) => request.user1_id === userId))
+      return "pending";
 
     return "none";
   };
@@ -316,7 +327,11 @@ export default function FriendsPage() {
                       <div
                         className="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
                         onClick={() =>
-                          openUserProfile(user.id, user.username, user.avatar_url)
+                          openUserProfile(
+                            user.id,
+                            user.username,
+                            user.avatar_url
+                          )
                         }
                       >
                         <img

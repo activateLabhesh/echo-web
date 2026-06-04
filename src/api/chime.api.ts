@@ -1,20 +1,29 @@
-import {api,apiClient} from "./axios";
-import {ChimeMeetingResponse} from "./types/chime.types";
+import { api, apiClient } from "./axios";
+import { ChimeMeetingResponse } from "./types/chime.types";
 
 /**
  * Join or create a Chime meeting for a voice channel
  * The backend handles creating the meeting if it doesn't exist
  */
-export const joinChimeMeeting = async (channelId: string, userId: string): Promise<ChimeMeetingResponse> => {
+export const joinChimeMeeting = async (
+  channelId: string,
+  userId: string
+): Promise<ChimeMeetingResponse> => {
   try {
-    const response = await apiClient.post<ChimeMeetingResponse>('/api/chime/join', {
-      channelId,
-      userId
-    });
+    const response = await apiClient.post<ChimeMeetingResponse>(
+      "/api/chime/join",
+      {
+        channelId,
+        userId,
+      }
+    );
     return response.data;
   } catch (error: any) {
-   
-    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || "Failed to join voice channel.";
+    const errorMessage =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to join voice channel.";
     throw new Error(errorMessage);
   }
 };
@@ -22,14 +31,20 @@ export const joinChimeMeeting = async (channelId: string, userId: string): Promi
 /**
  * Leave a Chime meeting
  */
-export const leaveChimeMeeting = async (channelId: string, attendeeId: string): Promise<void> => {
+export const leaveChimeMeeting = async (
+  channelId: string,
+  attendeeId: string
+): Promise<void> => {
   try {
-    await apiClient.post('/api/chime/leave', {
+    await apiClient.post("/api/chime/leave", {
       channelId,
-      attendeeId
+      attendeeId,
     });
   } catch (error: any) {
-    console.error("Error leaving Chime meeting:", error.response?.data || error.message || error);
+    console.error(
+      "Error leaving Chime meeting:",
+      error.response?.data || error.message || error
+    );
     // Don't throw on leave - it's okay if this fails
   }
 };
@@ -37,12 +52,17 @@ export const leaveChimeMeeting = async (channelId: string, attendeeId: string): 
 /**
  * Get active attendees in a Chime meeting
  */
-export const getChimeMeetingAttendees = async (channelId: string): Promise<any[]> => {
+export const getChimeMeetingAttendees = async (
+  channelId: string
+): Promise<any[]> => {
   try {
     const response = await apiClient.get(`/api/chime/attendees/${channelId}`);
     return response.data.attendees || [];
   } catch (error: any) {
-    console.error("Error getting Chime attendees:", error.response?.data || error.message || error);
+    console.error(
+      "Error getting Chime attendees:",
+      error.response?.data || error.message || error
+    );
     return [];
   }
 };
@@ -78,4 +98,3 @@ export const getChimeMeetingAttendees = async (channelId: string): Promise<any[]
 //     throw new Error(errorMessage);
 //   }
 // };
-

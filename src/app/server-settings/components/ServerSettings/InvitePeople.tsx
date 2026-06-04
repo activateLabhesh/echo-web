@@ -26,7 +26,7 @@ export default function InvitePeople({ serverId }: InvitePeopleProps) {
       setPermissionDenied(false);
       const response = await getServerInvites(serverId);
       setInvites(response);
-      
+
       // Set the most recent invite as the default link using the invite id
       if (response.length > 0) {
         const latestInvite = response[0];
@@ -48,26 +48,29 @@ export default function InvitePeople({ serverId }: InvitePeopleProps) {
   };
 
   const handleGenerateLink = async () => {
-    
     try {
-      const expiresAfterStr = expiresAfter === "Never" ? undefined : expiresAfter;
+      const expiresAfterStr =
+        expiresAfter === "Never" ? undefined : expiresAfter;
       const maxUsesStr = maxUses === "No limit" ? undefined : maxUses;
-      
-      
+
       const response = await createServerInvite(serverId, {
         expiresAfter: expiresAfterStr,
-        maxUses: maxUsesStr
+        maxUses: maxUsesStr,
       });
-      
+
       const inviteId = response.invite?.id;
-      const newLink = inviteId ? `${window.location.origin}/invite/${inviteId}` : "";
+      const newLink = inviteId
+        ? `${window.location.origin}/invite/${inviteId}`
+        : "";
       setInviteLink(newLink);
       setSuccess("New invite link generated successfully");
       loadInvites(); // Refresh the invites list
-      
+
       setTimeout(() => setSuccess(""), 3000);
     } catch (err: any) {
-      setError(`Failed to generate invite link: ${err.response?.data?.error || err.message}`);
+      setError(
+        `Failed to generate invite link: ${err.response?.data?.error || err.message}`
+      );
       setTimeout(() => setError(""), 5000);
     }
   };
@@ -78,13 +81,13 @@ export default function InvitePeople({ serverId }: InvitePeopleProps) {
         await deleteInvite(serverId, inviteId);
         setSuccess("Invite deleted successfully");
         loadInvites(); // Refresh the invites list
-        
+
         // Clear the invite link if it was the deleted one
-        const deletedInvite = invites.find(inv => inv.id === inviteId);
+        const deletedInvite = invites.find((inv) => inv.id === inviteId);
         if (deletedInvite && inviteLink.includes(deletedInvite.id)) {
           setInviteLink("");
         }
-        
+
         setTimeout(() => setSuccess(""), 3000);
       } catch (err) {
         console.error("Error deleting invite:", err);
@@ -118,16 +121,30 @@ export default function InvitePeople({ serverId }: InvitePeopleProps) {
         <h1 className="text-2xl font-bold mb-8">Invite People</h1>
         <div className="bg-yellow-600 border border-yellow-500 rounded-lg p-6">
           <div className="flex items-center mb-4">
-            <svg className="w-6 h-6 text-yellow-300 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            <svg
+              className="w-6 h-6 text-yellow-300 mr-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
             </svg>
-            <h3 className="text-lg font-semibold text-yellow-300">Access Restricted</h3>
+            <h3 className="text-lg font-semibold text-yellow-300">
+              Access Restricted
+            </h3>
           </div>
           <p className="text-yellow-100 mb-4">
-            You don't have permission to view or manage server invites. Only server admins and owners can access this feature.
+            You don't have permission to view or manage server invites. Only
+            server admins and owners can access this feature.
           </p>
           <p className="text-yellow-200 text-sm">
-            Contact a server administrator if you need to invite someone to this server.
+            Contact a server administrator if you need to invite someone to this
+            server.
           </p>
         </div>
       </div>
@@ -137,13 +154,11 @@ export default function InvitePeople({ serverId }: InvitePeopleProps) {
   return (
     <div className="max-w-lg mx-auto p-8 text-white">
       <h1 className="text-2xl font-bold mb-8">Invite People</h1>
-      
+
       {error && (
-        <div className="bg-red-500 text-white p-3 rounded mb-4">
-          {error}
-        </div>
+        <div className="bg-red-500 text-white p-3 rounded mb-4">{error}</div>
       )}
-      
+
       {success && (
         <div className="bg-green-500 text-white p-3 rounded mb-4">
           {success}
@@ -151,7 +166,9 @@ export default function InvitePeople({ serverId }: InvitePeopleProps) {
       )}
 
       <div className="mb-7">
-        <label className="block text-sm text-[#b5bac1] mb-2 font-semibold">Invite Link</label>
+        <label className="block text-sm text-[#b5bac1] mb-2 font-semibold">
+          Invite Link
+        </label>
         <div className="flex items-center gap-3">
           <input
             type="text"
@@ -167,8 +184,12 @@ export default function InvitePeople({ serverId }: InvitePeopleProps) {
               backgroundPosition: "left center",
               transition: "background-position 0.5s, transform 0.2s",
             }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundPosition = "right center")}
-            onMouseLeave={e => (e.currentTarget.style.backgroundPosition = "left center")}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundPosition = "right center")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundPosition = "left center")
+            }
             onClick={handleCopyLink}
             disabled={!inviteLink}
           >
@@ -178,7 +199,9 @@ export default function InvitePeople({ serverId }: InvitePeopleProps) {
       </div>
       <div className="flex gap-6 mb-8 flex-col md:flex-row">
         <div className="flex-1 min-w-[180px]">
-          <label className="block text-sm text-[#b5bac1] mb-2 font-semibold">Expires after</label>
+          <label className="block text-sm text-[#b5bac1] mb-2 font-semibold">
+            Expires after
+          </label>
           <div className="relative w-full">
             <select
               className="w-full bg-black text-white border-2 border-[#72767d] rounded px-4 py-3 pr-10 appearance-none focus:border-[#b5bac1] focus:outline-none transition-all duration-200"
@@ -208,7 +231,9 @@ export default function InvitePeople({ serverId }: InvitePeopleProps) {
           </div>
         </div>
         <div className="flex-1 min-w-[180px]">
-          <label className="block text-sm text-[#b5bac1] mb-2 font-semibold">Max number of uses</label>
+          <label className="block text-sm text-[#b5bac1] mb-2 font-semibold">
+            Max number of uses
+          </label>
           <div className="relative w-full">
             <select
               className="w-full bg-black text-white border-2 border-[#72767d] rounded px-4 py-3 pr-10 appearance-none focus:border-[#b5bac1] focus:outline-none transition-all duration-200"
@@ -246,8 +271,12 @@ export default function InvitePeople({ serverId }: InvitePeopleProps) {
             backgroundPosition: "left center",
             transition: "background-position 0.5s, transform 0.2s",
           }}
-          onMouseEnter={e => (e.currentTarget.style.backgroundPosition = "right center")}
-          onMouseLeave={e => (e.currentTarget.style.backgroundPosition = "left center")}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.backgroundPosition = "right center")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.backgroundPosition = "left center")
+          }
           onClick={handleGenerateLink}
         >
           Generate New Link
@@ -270,12 +299,18 @@ export default function InvitePeople({ serverId }: InvitePeopleProps) {
                   </div>
                   <div className="text-xs text-[#b5bac1]">
                     Uses: {invite.people_joined}
-                    {invite.use_limit ? ` / ${invite.use_limit}` : " / unlimited"}
+                    {invite.use_limit
+                      ? ` / ${invite.use_limit}`
+                      : " / unlimited"}
                   </div>
                   <div className="text-xs text-[#b5bac1]">
-                    {invite.expiry ? `Expires: ${new Date(invite.expiry).toLocaleDateString()}` : "Never expires"}
+                    {invite.expiry
+                      ? `Expires: ${new Date(invite.expiry).toLocaleDateString()}`
+                      : "Never expires"}
                   </div>
-                  <div className={`text-xs mt-1 ${invite.is_valid ? "text-green-400" : "text-red-400"}`}>
+                  <div
+                    className={`text-xs mt-1 ${invite.is_valid ? "text-green-400" : "text-red-400"}`}
+                  >
                     {invite.is_valid ? "Active" : "Expired"}
                   </div>
                 </div>

@@ -4,9 +4,9 @@
 // Hook to listen for incoming voice channel invites and display notifications
 // Should be used at a high level (e.g., in the main layout or providers)
 
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { Socket } from 'socket.io-client';
-import { createAuthSocket } from '@/socket';
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Socket } from "socket.io-client";
+import { createAuthSocket } from "@/socket";
 
 // ==================== TYPES ====================
 
@@ -52,8 +52,8 @@ export function useVoiceInviteNotifications({
 
   // Clean up expired invites
   const clearInvite = useCallback((inviteId: string) => {
-    setInvites(prev => prev.filter(inv => inv.id !== inviteId));
-    
+    setInvites((prev) => prev.filter((inv) => inv.id !== inviteId));
+
     // Clear any existing timer
     const timer = expirationTimersRef.current.get(inviteId);
     if (timer) {
@@ -64,29 +64,35 @@ export function useVoiceInviteNotifications({
 
   const clearAllInvites = useCallback(() => {
     setInvites([]);
-    
+
     // Clear all timers
-    expirationTimersRef.current.forEach(timer => clearTimeout(timer));
+    expirationTimersRef.current.forEach((timer) => clearTimeout(timer));
     expirationTimersRef.current.clear();
   }, []);
 
   // Accept invite
-  const acceptInvite = useCallback((inviteId: string) => {
-    const invite = invites.find(inv => inv.id === inviteId);
-    if (invite) {
-      onAccept?.(invite);
-      clearInvite(inviteId);
-    }
-  }, [invites, onAccept, clearInvite]);
+  const acceptInvite = useCallback(
+    (inviteId: string) => {
+      const invite = invites.find((inv) => inv.id === inviteId);
+      if (invite) {
+        onAccept?.(invite);
+        clearInvite(inviteId);
+      }
+    },
+    [invites, onAccept, clearInvite]
+  );
 
   // Decline invite
-  const declineInvite = useCallback((inviteId: string) => {
-    const invite = invites.find(inv => inv.id === inviteId);
-    if (invite) {
-      onDecline?.(invite);
-      clearInvite(inviteId);
-    }
-  }, [invites, onDecline, clearInvite]);
+  const declineInvite = useCallback(
+    (inviteId: string) => {
+      const invite = invites.find((inv) => inv.id === inviteId);
+      if (invite) {
+        onDecline?.(invite);
+        clearInvite(inviteId);
+      }
+    },
+    [invites, onDecline, clearInvite]
+  );
 
   // Set up socket connection and listeners
   useEffect(() => {
@@ -107,7 +113,7 @@ export function useVoiceInviteNotifications({
       inviterAvatar?: string;
       timestamp: string;
     }) => {
-      console.log('[VoiceInvite] Received invite:', data);
+      console.log("[VoiceInvite] Received invite:", data);
 
       const inviteId = `${data.channelId}-${data.inviterUserId}-${Date.now()}`;
       const expiresAt = Date.now() + inviteExpirationMs;
@@ -125,15 +131,18 @@ export function useVoiceInviteNotifications({
         expiresAt,
       };
 
-      setInvites(prev => {
+      setInvites((prev) => {
         // Don't add duplicate invites from the same person to the same channel
         const isDuplicate = prev.some(
-          inv => inv.channelId === data.channelId && inv.inviterUserId === data.inviterUserId
+          (inv) =>
+            inv.channelId === data.channelId &&
+            inv.inviterUserId === data.inviterUserId
         );
         if (isDuplicate) {
           // Update the existing invite's expiration
-          return prev.map(inv =>
-            inv.channelId === data.channelId && inv.inviterUserId === data.inviterUserId
+          return prev.map((inv) =>
+            inv.channelId === data.channelId &&
+            inv.inviterUserId === data.inviterUserId
               ? { ...inv, expiresAt, timestamp: data.timestamp }
               : inv
           );
@@ -150,29 +159,29 @@ export function useVoiceInviteNotifications({
       // Play notification sound (optional - browser notification API)
       try {
         // Request permission for browser notifications if not already granted
-        if ('Notification' in window && Notification.permission === 'granted') {
+        if ("Notification" in window && Notification.permission === "granted") {
           new Notification(`Voice Invite from ${data.inviterUsername}`, {
             body: `Join ${data.channelName} in ${data.serverName}`,
-            icon: data.inviterAvatar || '/default-avatar.png',
+            icon: data.inviterAvatar || "/default-avatar.png",
             tag: inviteId, // Prevents duplicate notifications
             requireInteraction: true,
           });
         }
       } catch (err) {
-        console.warn('[VoiceInvite] Could not show browser notification:', err);
+        console.warn("[VoiceInvite] Could not show browser notification:", err);
       }
     };
 
-    socket.on('voice_invite_received', handleVoiceInviteReceived);
+    socket.on("voice_invite_received", handleVoiceInviteReceived);
 
     // Cleanup
     return () => {
-      socket.off('voice_invite_received', handleVoiceInviteReceived);
+      socket.off("voice_invite_received", handleVoiceInviteReceived);
       socket.disconnect();
       socketRef.current = null;
-      
+
       // Clear all timers
-      expirationTimersRef.current.forEach(timer => clearTimeout(timer));
+      expirationTimersRef.current.forEach((timer) => clearTimeout(timer));
       expirationTimersRef.current.clear();
     };
   }, [userId, inviteExpirationMs, clearInvite]);

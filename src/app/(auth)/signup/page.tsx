@@ -33,7 +33,6 @@
 //     setSuccess(false);
 //     setLoading(true);
 
-
 //     try {
 //       const res = await register(form.email, form.username, form.password);
 //       setSuccess(true);
@@ -163,7 +162,6 @@
 //   );
 // }
 
-
 export default function SignUpPage() {
-  return null
+  return null;
 }

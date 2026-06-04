@@ -1,5 +1,6 @@
 "use client";
-{/*
+{
+  /*
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createServer } from "@/api/";
@@ -136,21 +137,21 @@ export default function CreateServerPage() {
 }
 
 
-*/}
-
+*/
+}
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
- import { useToast } from "@/contexts/ToastContext";
- export default function CreateServerPage() {
-   const router = useRouter();
-   const { showToast } = useToast();
+import { useToast } from "@/contexts/ToastContext";
+export default function CreateServerPage() {
+  const router = useRouter();
+  const { showToast } = useToast();
 
-   useEffect(() => {
-     showToast("Please login to continue", "info", 4000);
+  useEffect(() => {
+    showToast("Please login to continue", "info", 4000);
 
-     router.replace("/");
-   }, [router, showToast]);
+    router.replace("/");
+  }, [router, showToast]);
 
-   return null;
- }
+  return null;
+}

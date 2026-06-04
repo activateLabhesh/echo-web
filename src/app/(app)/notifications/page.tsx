@@ -1,14 +1,13 @@
 "use client";
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from "react";
 import { usePageReady } from "@/components/RouteChangeLoader";
-import { Bell, CheckCheck, Check, Loader2 } from 'lucide-react';
-import { getUser } from '@/api';
-import { useNotifications } from '../../../hooks/useNotifications';
-import { apiClient } from '@/utils/apiClient';
+import { Bell, CheckCheck, Check, Loader2 } from "lucide-react";
+import { getUser } from "@/api";
+import { useNotifications } from "../../../hooks/useNotifications";
+import { apiClient } from "@/utils/apiClient";
 
 import Loader from "@/components/Loader";
 import Toast from "@/components/Toast";
-
 
 interface Notification {
   id: string;
@@ -41,20 +40,26 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread">("all");
-  const { notifications: realtimeNotifications, unreadCount: realtimeUnreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const {
+    notifications: realtimeNotifications,
+    unreadCount: realtimeUnreadCount,
+    markAsRead,
+    markAllAsRead,
+  } = useNotifications();
   const lastRealtimeNotificationCountRef = useRef(0);
   const [toast, setToast] = useState<{
     message: string;
     type: "info" | "success" | "error";
   } | null>(null);
 
-
   useEffect(() => {
     loadNotifications();
   }, []);
 
   useEffect(() => {
-    if (realtimeNotifications.length > lastRealtimeNotificationCountRef.current) {
+    if (
+      realtimeNotifications.length > lastRealtimeNotificationCountRef.current
+    ) {
       void loadNotifications();
     }
     lastRealtimeNotificationCountRef.current = realtimeNotifications.length;
@@ -69,9 +74,6 @@ export default function NotificationsPage() {
       } else {
         setRefreshing(true);
       }
-
-      
-    
 
       const user = await getUser();
       if (!user?.id) return;
@@ -133,7 +135,6 @@ export default function NotificationsPage() {
     }
   };
 
-
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -165,206 +166,212 @@ export default function NotificationsPage() {
     realtimeUnreadCount
   );
 
-
-
   return (
-    <> {toast && (() => {
-  const { message, type } = toast;
-  return (
-    <div className="fixed top-6 right-6 z-[9999]">
-      <Toast
-        message={message}
-        type={type}
-        duration={3000}
-        onClose={() => setToast(null)}
-      />
-    </div>
-  );
-})()}
-
-    <div className="min-h-screen bg-black">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-[#4f545c] bg-black sticky top-0 z-10">
-          <div className="flex items-center gap-4">
-            <Bell size={32} className="text-white" />
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white">
-                Notifications
-              </h1>
-              <p className="text-gray-400 text-sm">
-                {unreadCount > 0
-                  ? `${unreadCount} unread notifications`
-                  : "All caught up!"}
-              </p>
+    <>
+      {" "}
+      {toast &&
+        (() => {
+          const { message, type } = toast;
+          return (
+            <div className="fixed top-6 right-6 z-[9999]">
+              <Toast
+                message={message}
+                type={type}
+                duration={3000}
+                onClose={() => setToast(null)}
+              />
             </div>
-          </div>
+          );
+        })()}
+      <div className="min-h-screen bg-black">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-[#4f545c] bg-black sticky top-0 z-10">
+            <div className="flex items-center gap-4">
+              <Bell size={32} className="text-white" />
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-white">
+                  Notifications
+                </h1>
+                <p className="text-gray-400 text-sm">
+                  {unreadCount > 0
+                    ? `${unreadCount} unread notifications`
+                    : "All caught up!"}
+                </p>
+              </div>
+            </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Filter Toggle */}
-            <div className="flex bg-[#2f3136] rounded-lg p-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Filter Toggle */}
+              <div className="flex bg-[#2f3136] rounded-lg p-1">
+                <button
+                  onClick={() => setFilter("all")}
+                  className={`px-2 md:px-3 py-1 rounded text-xs md:text-sm transition-colors ${
+                    filter === "all"
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  All ({notifications.length})
+                </button>
+                <button
+                  onClick={() => setFilter("unread")}
+                  className={`px-2 md:px-3 py-1 rounded text-xs md:text-sm transition-colors ${
+                    filter === "unread"
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  Unread ({unreadCount})
+                </button>
+              </div>
+
+              {/* Mark All Read */}
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllAsRead}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 md:px-4 py-2 rounded-lg transition-colors text-xs md:text-sm"
+                >
+                  <CheckCheck size={16} />
+                  <span className="hidden sm:inline">Mark All Read</span>
+                </button>
+              )}
+
+              {/* Refresh */}
               <button
-                onClick={() => setFilter("all")}
-                className={`px-2 md:px-3 py-1 rounded text-xs md:text-sm transition-colors ${
-                  filter === "all"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-400 hover:text-white"
+                onClick={() => loadNotifications({ showFullLoader: false })}
+                disabled={refreshing || loading}
+                className={`text-white px-3 md:px-4 py-2 rounded-lg transition-colors text-xs md:text-sm inline-flex items-center gap-2 ${
+                  refreshing || loading
+                    ? "bg-[#5f656c] cursor-not-allowed opacity-80"
+                    : "bg-[#4f545c] hover:bg-[#5f656c]"
                 }`}
               >
-                All ({notifications.length})
-              </button>
-              <button
-                onClick={() => setFilter("unread")}
-                className={`px-2 md:px-3 py-1 rounded text-xs md:text-sm transition-colors ${
-                  filter === "unread"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-400 hover:text-white"
-                }`}
-              >
-                Unread ({unreadCount})
+                {(refreshing || loading) && (
+                  <Loader2 size={14} className="animate-spin" />
+                )}
+                <span className="hidden sm:inline">Refresh</span>
+                <span className="sm:hidden">↻</span>
               </button>
             </div>
-
-            {/* Mark All Read */}
-            {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAllAsRead}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 md:px-4 py-2 rounded-lg transition-colors text-xs md:text-sm"
-              >
-                <CheckCheck size={16} />
-                <span className="hidden sm:inline">Mark All Read</span>
-              </button>
-            )}
-
-            {/* Refresh */}
-            <button
-              onClick={() => loadNotifications({ showFullLoader: false })}
-              disabled={refreshing || loading}
-              className={`text-white px-3 md:px-4 py-2 rounded-lg transition-colors text-xs md:text-sm inline-flex items-center gap-2 ${
-                refreshing || loading
-                  ? "bg-[#5f656c] cursor-not-allowed opacity-80"
-                  : "bg-[#4f545c] hover:bg-[#5f656c]"
-              }`}
-            >
-              {(refreshing || loading) && <Loader2 size={14} className="animate-spin" />}
-              <span className="hidden sm:inline">Refresh</span>
-              <span className="sm:hidden">↻</span>
-            </button>
           </div>
-        </div>
 
-        {refreshing && (
-          <div className="px-6 py-2 border-b border-[#2f3136] bg-[#111214]">
-            <div className="flex items-center gap-2 text-sm text-gray-300">
-              <Loader2 size={14} className="animate-spin" />
-              <span>Refreshing notifications...</span>
+          {refreshing && (
+            <div className="px-6 py-2 border-b border-[#2f3136] bg-[#111214]">
+              <div className="flex items-center gap-2 text-sm text-gray-300">
+                <Loader2 size={14} className="animate-spin" />
+                <span>Refreshing notifications...</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Notifications List */}
-        {loading ? (
-          <div className="flex items-center justify-center min-h-[400px]">
-            
-          </div>
-        ) : filteredNotifications.length === 0 ? (
-          <div className="flex items-center justify-center min-h-[400px] text-center py-16">
-            <div>
-              <Bell size={64} className="text-gray-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-400 mb-2">
-                {filter === "unread"
-                  ? "No unread notifications"
-                  : "No notifications yet"}
-              </h3>
-              <p className="text-gray-500 px-4">
-                {filter === "unread"
-                  ? "All your notifications have been read!"
-                  : "You'll see mentions and other notifications here when they arrive."}
-              </p>
+          {/* Notifications List */}
+          {loading ? (
+            <div className="flex items-center justify-center min-h-[400px]"></div>
+          ) : filteredNotifications.length === 0 ? (
+            <div className="flex items-center justify-center min-h-[400px] text-center py-16">
+              <div>
+                <Bell size={64} className="text-gray-600 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-400 mb-2">
+                  {filter === "unread"
+                    ? "No unread notifications"
+                    : "No notifications yet"}
+                </h3>
+                <p className="text-gray-500 px-4">
+                  {filter === "unread"
+                    ? "All your notifications have been read!"
+                    : "You'll see mentions and other notifications here when they arrive."}
+                </p>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="p-6 space-y-3 pb-20">
-            {filteredNotifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`p-4 rounded-lg border transition-all hover:shadow-lg ${
-                  notification.is_read
-                    ? "bg-[#2f3136] border-[#4f545c]"
-                    : "bg-blue-600/10 border-blue-500/30 border-l-4 border-l-blue-500"
-                }`}
-              >
-                <div className="flex items-start gap-4">
-                  <img
-                    src={
-                      notification.message?.users?.avatar_url || "/avatar.png"
-                    }
-                    alt="User"
-                    className="w-12 h-12 rounded-full"
-                  />
+          ) : (
+            <div className="p-6 space-y-3 pb-20">
+              {filteredNotifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-4 rounded-lg border transition-all hover:shadow-lg ${
+                    notification.is_read
+                      ? "bg-[#2f3136] border-[#4f545c]"
+                      : "bg-blue-600/10 border-blue-500/30 border-l-4 border-l-blue-500"
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <img
+                      src={
+                        notification.message?.users?.avatar_url || "/avatar.png"
+                      }
+                      alt="User"
+                      className="w-12 h-12 rounded-full"
+                    />
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-4 mb-2">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-white font-semibold">
-                            {notification.message?.users?.username ||
-                              "Unknown User"}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-4 mb-2">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-white font-semibold">
+                              {notification.message?.users?.username ||
+                                "Unknown User"}
+                            </span>
+                            <span className="text-gray-400 text-sm">
+                              mentioned you in
+                            </span>
+                            <span className="text-blue-400 font-medium text-sm">
+                              #
+                              {notification.message?.channels?.name ||
+                                "unknown"}
+                            </span>
+                            {notification.message?.channels?.servers?.name && (
+                              <>
+                                <span className="text-gray-400 text-sm">
+                                  on
+                                </span>
+                                <span className="text-gray-300 font-medium text-sm">
+                                  {notification.message.channels.servers.name}
+                                </span>
+                              </>
+                            )}
+                          </div>
+
+                          <p className="text-gray-300 mb-2">
+                            "
+                            {truncateContent(
+                              notification.message?.content || ""
+                            )}
+                            "
+                          </p>
+
+                          <span className="text-gray-500 text-sm">
+                            {formatTime(notification.created_at)}
                           </span>
-                          <span className="text-gray-400 text-sm">
-                            mentioned you in
-                          </span>
-                          <span className="text-blue-400 font-medium text-sm">
-                            #{notification.message?.channels?.name || "unknown"}
-                          </span>
-                          {notification.message?.channels?.servers?.name && (
-                            <>
-                              <span className="text-gray-400 text-sm">on</span>
-                              <span className="text-gray-300 font-medium text-sm">
-                                {notification.message.channels.servers.name}
-                              </span>
-                            </>
-                          )}
                         </div>
 
-                        <p className="text-gray-300 mb-2">
-                          "
-                          {truncateContent(notification.message?.content || "")}
-                          "
-                        </p>
-
-                        <span className="text-gray-500 text-sm">
-                          {formatTime(notification.created_at)}
-                        </span>
+                        {!notification.is_read && (
+                          <button
+                            onClick={() => handleMarkAsRead(notification.id)}
+                            className="text-gray-400 hover:text-white p-2 rounded hover:bg-[#4f545c]"
+                            title="Mark as read"
+                          >
+                            <Check size={16} />
+                          </button>
+                        )}
                       </div>
 
                       {!notification.is_read && (
-                        <button
-                          onClick={() => handleMarkAsRead(notification.id)}
-                          className="text-gray-400 hover:text-white p-2 rounded hover:bg-[#4f545c]"
-                          title="Mark as read"
-                        >
-                          <Check size={16} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                          <span className="text-blue-400 text-sm font-medium">
+                            Unread
+                          </span>
+                        </div>
                       )}
                     </div>
-
-                    {!notification.is_read && (
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                        <span className="text-blue-400 text-sm font-medium">
-                          Unread
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
     </>
   );
 }

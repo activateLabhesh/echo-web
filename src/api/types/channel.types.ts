@@ -1,11 +1,11 @@
 export interface ChannelRoleAccess {
+  id: string;
+  role_id: string;
+  roles: {
     id: string;
-    role_id: string;
-    roles: {
-        id: string;
-        name: string;
-        color: string;
-    };
+    name: string;
+    color: string;
+  };
 }
 
 export interface ChannelData {
@@ -16,4 +16,3 @@ export interface ChannelData {
   allowed_role_ids?: string[];
   moderator_role_ids?: string[];
 }
-

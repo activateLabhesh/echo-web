@@ -1,14 +1,20 @@
-import {apiClient} from "./axios";
-import {FriendRequest, Friend} from "./types/friend.types";
+import { apiClient } from "./axios";
+import { FriendRequest, Friend } from "./types/friend.types";
 
 export const addFriend = async (user2_id: string): Promise<FriendRequest> => {
   try {
-    const response = await apiClient.post<FriendRequest>(`/api/friends/add_friend`, {
-      user2_id,
-    });
+    const response = await apiClient.post<FriendRequest>(
+      `/api/friends/add_friend`,
+      {
+        user2_id,
+      }
+    );
     return response.data;
   } catch (error: any) {
-    console.error("Error adding friend:", error?.response?.data || error.message);
+    console.error(
+      "Error adding friend:",
+      error?.response?.data || error.message
+    );
     throw error;
   }
 };
@@ -35,9 +41,7 @@ export const removeFriend = async (
       throw new Error("Missing friend ID");
     }
 
-    const response = await apiClient.delete(
-      `/api/friends/${friendId}`
-    );
+    const response = await apiClient.delete(`/api/friends/${friendId}`);
 
     return response.data;
   } catch (error) {
@@ -51,17 +55,22 @@ export const respondToFriendRequest = async (
   status: "accepted" | "rejected"
 ): Promise<FriendRequest> => {
   try {
-    const response = await apiClient.put<FriendRequest>(`/api/friends/request`, {
-      requestId,
-      status,
-    });
+    const response = await apiClient.put<FriendRequest>(
+      `/api/friends/request`,
+      {
+        requestId,
+        status,
+      }
+    );
     return response.data;
   } catch (error: any) {
-    console.error("Error responding to friend request:", error?.response?.data || error.message);
+    console.error(
+      "Error responding to friend request:",
+      error?.response?.data || error.message
+    );
     throw error;
   }
 };
-
 
 export const fetchAllFriends = async (): Promise<Friend[]> => {
   try {

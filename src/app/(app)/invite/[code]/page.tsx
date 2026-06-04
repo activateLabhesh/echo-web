@@ -6,7 +6,6 @@ import { joinServer } from "@/api";
 import Loader from "@/components/Loader";
 import Toast from "@/components/Toast";
 
-
 export default function InvitePage() {
   const { code } = useParams<{ code: string }>();
   const router = useRouter();
@@ -82,7 +81,10 @@ export default function InvitePage() {
         // Handle auth errors - redirect to login
         if (err.code === "AUTH_REQUIRED" || err?.response?.status === 401) {
           localStorage.setItem("redirectAfterLogin", `/invite/${code}`);
-          setToast({ message: "Session expired. Please log in again.", type: "info" });
+          setToast({
+            message: "Session expired. Please log in again.",
+            type: "info",
+          });
           setTimeout(() => {
             router.replace("/");
           }, 1000);
@@ -104,97 +106,98 @@ export default function InvitePage() {
 
   return (
     <>
-    {toast && (() => {
-  const { message, type } = toast;
-  return (
-    <div className="fixed top-6 right-6 z-[9999]">
-      <Toast
-        message={message}
-        type={type}
-        duration={3000}
-        onClose={() => setToast(null)}
-      />
-    </div>
-  );
-})()}
-
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-950 via-black to-gray-900 text-white px-6">
-      <div className="w-full max-w-md bg-[#111214] rounded-2xl shadow-2xl p-8 border border-gray-800 text-center">
-        {loading && <Loader size="md" />}
-
-        {!loading && error && errorCode === "USER_BANNED" && (
-          <>
-            <div className="flex justify-center mb-4">
-              <svg
-                className="w-16 h-16 text-red-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-                />
-              </svg>
+      {toast &&
+        (() => {
+          const { message, type } = toast;
+          return (
+            <div className="fixed top-6 right-6 z-[9999]">
+              <Toast
+                message={message}
+                type={type}
+                duration={3000}
+                onClose={() => setToast(null)}
+              />
             </div>
+          );
+        })()}
 
-            <h1 className="text-2xl font-bold mb-3 text-red-500">
-              Access Denied
-            </h1>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-950 via-black to-gray-900 text-white px-6">
+        <div className="w-full max-w-md bg-[#111214] rounded-2xl shadow-2xl p-8 border border-gray-800 text-center">
+          {loading && <Loader size="md" />}
 
-            <p className="text-gray-300 mb-2 font-semibold">{error}</p>
+          {!loading && error && errorCode === "USER_BANNED" && (
+            <>
+              <div className="flex justify-center mb-4">
+                <svg
+                  className="w-16 h-16 text-red-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                  />
+                </svg>
+              </div>
 
-            <p className="text-gray-400 mb-6 text-sm">
-              You have been banned from this server and cannot join. Please
-              contact the server administrators if you believe this is a
-              mistake.
-            </p>
+              <h1 className="text-2xl font-bold mb-3 text-red-500">
+                Access Denied
+              </h1>
 
-            <button
-              onClick={() => router.push("/servers")}
-              className="w-full py-3 rounded-lg bg-gradient-to-r from-[#ffb347] to-[#ffcc33] text-[#23272a] font-bold hover:from-[#ffcc33] hover:to-[#ffb347] transition"
-            >
-              Back to Servers
-            </button>
-          </>
-        )}
+              <p className="text-gray-300 mb-2 font-semibold">{error}</p>
 
-        {!loading && error && errorCode !== "USER_BANNED" && (
-          <>
-            <div className="flex justify-center mb-4">
-              <svg
-                className="w-16 h-16 text-yellow-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+              <p className="text-gray-400 mb-6 text-sm">
+                You have been banned from this server and cannot join. Please
+                contact the server administrators if you believe this is a
+                mistake.
+              </p>
+
+              <button
+                onClick={() => router.push("/servers")}
+                className="w-full py-3 rounded-lg bg-gradient-to-r from-[#ffb347] to-[#ffcc33] text-[#23272a] font-bold hover:from-[#ffcc33] hover:to-[#ffb347] transition"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-                />
-              </svg>
-            </div>
+                Back to Servers
+              </button>
+            </>
+          )}
 
-            <h1 className="text-2xl font-bold mb-3 text-yellow-500">
-              Invite Failed
-            </h1>
+          {!loading && error && errorCode !== "USER_BANNED" && (
+            <>
+              <div className="flex justify-center mb-4">
+                <svg
+                  className="w-16 h-16 text-yellow-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
+                </svg>
+              </div>
 
-            <p className="text-gray-400 mb-6">{error}</p>
+              <h1 className="text-2xl font-bold mb-3 text-yellow-500">
+                Invite Failed
+              </h1>
 
-            <button
-              onClick={() => router.push("/servers")}
-              className="w-full py-3 rounded-lg bg-gray-800 hover:bg-gray-700 transition"
-            >
-              Back to Servers
-            </button>
-          </>
-        )}
+              <p className="text-gray-400 mb-6">{error}</p>
+
+              <button
+                onClick={() => router.push("/servers")}
+                className="w-full py-3 rounded-lg bg-gray-800 hover:bg-gray-700 transition"
+              >
+                Back to Servers
+              </button>
+            </>
+          )}
+        </div>
       </div>
-    </div>
     </>
   );
 }

@@ -1,11 +1,11 @@
 "use client";
-import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
-import { X, Check, CheckCheck, Bell } from 'lucide-react';
-import { getUser } from '@/api';
-import { useNotifications } from '../hooks/useNotifications';
-import { apiClient } from '@/utils/apiClient';
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
+import { X, Check, CheckCheck, Bell } from "lucide-react";
+import { getUser } from "@/api";
+import { useNotifications } from "../hooks/useNotifications";
+import { apiClient } from "@/utils/apiClient";
 
 interface Notification {
   id: string;
@@ -45,10 +45,10 @@ interface NotificationDropdownProps {
   } | null;
 }
 
-export default function NotificationDropdown({ 
+export default function NotificationDropdown({
   onClose,
   onNavigateToMessage,
-  anchorRect
+  anchorRect,
 }: NotificationDropdownProps) {
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -56,22 +56,26 @@ export default function NotificationDropdown({
   const [mounted, setMounted] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { markAsRead: hookMarkAsRead, markAllAsRead: hookMarkAllAsRead } = useNotifications();
+  const { markAsRead: hookMarkAsRead, markAllAsRead: hookMarkAllAsRead } =
+    useNotifications();
 
   useEffect(() => {
     loadNotifications();
     setMounted(true);
     setPortalReady(true);
-    
+
     // Close dropdown when clicking outside
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         onClose();
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [onClose]);
 
   const loadNotifications = async () => {
@@ -84,7 +88,7 @@ export default function NotificationDropdown({
       const data = response.data;
       setNotifications(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Failed to load notifications:', error);
+      console.error("Failed to load notifications:", error);
       setNotifications([]);
     } finally {
       setLoading(false);
@@ -94,39 +98,35 @@ export default function NotificationDropdown({
   const markAsRead = async (notificationId: string) => {
     try {
       await apiClient.patch(`/api/mentions/${notificationId}/read`);
-      
+
       // Update local state immediately for better UX
-      setNotifications(prev =>
-        prev.map(n =>
-          n.id === notificationId ? { ...n, is_read: true } : n
-        )
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
       );
-      
+
       // Also call the hook function to update global state
       await hookMarkAsRead(notificationId);
     } catch (error) {
-      console.error('Failed to mark notification as read:', error);
+      console.error("Failed to mark notification as read:", error);
     }
   };
 
   const markAllAsRead = async () => {
     try {
-      await apiClient.patch('/api/mentions/mark-all-read');
-      
+      await apiClient.patch("/api/mentions/mark-all-read");
+
       // Update local state immediately for better UX
-      setNotifications(prev =>
-        prev.map(n => ({ ...n, is_read: true }))
-      );
-      
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+
       // Also call the hook function to update global state
       await hookMarkAllAsRead();
-      
+
       // Reload notifications from backend to ensure sync
       setTimeout(() => {
         loadNotifications();
       }, 100);
     } catch (error) {
-      console.error('Failed to mark all as read:', error);
+      console.error("Failed to mark all as read:", error);
     }
   };
 
@@ -135,15 +135,16 @@ export default function NotificationDropdown({
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 60) return "just now";
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 86400)
+      return `${Math.floor(diffInSeconds / 3600)}h ago`;
     return `${Math.floor(diffInSeconds / 86400)}d ago`;
   };
 
   const truncateContent = (content: string, maxLength: number = 50) => {
     if (content.length <= maxLength) return content;
-    return content.substring(0, maxLength) + '...';
+    return content.substring(0, maxLength) + "...";
   };
 
   if (!portalReady || !anchorRect) {
@@ -166,10 +167,7 @@ export default function NotificationDropdown({
   };
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[2147483647]"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-[2147483647]" onClick={onClose}>
       <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
       <div
         ref={dropdownRef}
@@ -188,7 +186,7 @@ export default function NotificationDropdown({
             Mentions
           </h3>
           <div className="flex items-center gap-2">
-            {notifications.some(n => !n.is_read) && (
+            {notifications.some((n) => !n.is_read) && (
               <button
                 onClick={markAllAsRead}
                 className="text-xs text-gray-300 hover:text-white flex items-center gap-1 px-2 py-1 rounded-full bg-gray-900 border border-gray-800"
@@ -237,8 +235,11 @@ export default function NotificationDropdown({
                   onClick={() => {
                     if (!notification.is_read) markAsRead(notification.id);
                     // If navigation handler is provided, call it with channelId and messageId
-                    const channelId = notification.message?.channel_id || notification.message?.channels?.server_id;
-                    const messageId = notification.message_id || notification.message?.id;
+                    const channelId =
+                      notification.message?.channel_id ||
+                      notification.message?.channels?.server_id;
+                    const messageId =
+                      notification.message_id || notification.message?.id;
                     if (onNavigateToMessage && channelId && messageId) {
                       onNavigateToMessage(channelId, messageId);
                       onClose();
@@ -248,7 +249,9 @@ export default function NotificationDropdown({
                   <div className="flex items-start gap-3">
                     {/* Avatar */}
                     <img
-                      src={notification.message?.users?.avatar_url || '/avatar.png'}
+                      src={
+                        notification.message?.users?.avatar_url || "/avatar.png"
+                      }
                       alt="User"
                       className="w-9 h-9 rounded-full flex-shrink-0"
                     />
@@ -257,7 +260,8 @@ export default function NotificationDropdown({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-white font-medium text-sm">
-                          {notification.message?.users?.username || 'Unknown User'}
+                          {notification.message?.users?.username ||
+                            "Unknown User"}
                         </span>
                         <span className="text-gray-500 text-xs">
                           mentioned you
@@ -268,13 +272,14 @@ export default function NotificationDropdown({
                       </div>
 
                       <p className="text-gray-300 text-sm mb-2">
-                        "{truncateContent(notification.message?.content || '')}"
+                        "{truncateContent(notification.message?.content || "")}"
                       </p>
 
                       <div className="flex items-center justify-between text-xs">
                         <div className="text-gray-500">
-                          #{notification.message?.channels?.name || 'unknown'} •{' '}
-                          {notification.message?.channels?.servers?.name || 'Unknown Server'}
+                          #{notification.message?.channels?.name || "unknown"} •{" "}
+                          {notification.message?.channels?.servers?.name ||
+                            "Unknown Server"}
                         </div>
                         <div className="text-gray-600">
                           {formatTimeAgo(notification.created_at)}
@@ -308,7 +313,7 @@ export default function NotificationDropdown({
             <button
               onClick={() => {
                 onClose();
-                router.push('/notifications');
+                router.push("/notifications");
               }}
               className="text-gray-300 hover:text-white text-sm"
             >

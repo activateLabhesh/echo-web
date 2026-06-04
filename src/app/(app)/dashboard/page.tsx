@@ -1,5 +1,6 @@
- "use client";
- { /*
+"use client";
+{
+  /*
 
 export default function DashboardPage() {
   return (
@@ -308,8 +309,8 @@ export default function DashboardPage() {
   );
 }
 
-  */}
-
+  */
+}
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";

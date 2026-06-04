@@ -1,9 +1,18 @@
 "use client";
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
-import { Socket } from 'socket.io-client';
-import { getUnreadMessageCounts } from '@/api';
-import { getUser } from '@/api';
-import { createAuthSocket } from '@/socket';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
+import { Socket } from "socket.io-client";
+import { getUnreadMessageCounts } from "@/api";
+import { getUser } from "@/api";
+import { createAuthSocket } from "@/socket";
 
 interface MessageNotificationContextType {
   unreadMessageCount: number;
@@ -12,16 +21,23 @@ interface MessageNotificationContextType {
   refreshCount: () => Promise<void>;
 }
 
-const MessageNotificationContext = createContext<MessageNotificationContextType>({
-  unreadMessageCount: 0,
-  unreadPerThread: {},
-  loading: true,
-  refreshCount: async () => {},
-});
+const MessageNotificationContext =
+  createContext<MessageNotificationContextType>({
+    unreadMessageCount: 0,
+    unreadPerThread: {},
+    loading: true,
+    refreshCount: async () => {},
+  });
 
-export function MessageNotificationProvider({ children }: { children: ReactNode }) {
+export function MessageNotificationProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
-  const [unreadPerThread, setUnreadPerThread] = useState<Record<string, number>>({});
+  const [unreadPerThread, setUnreadPerThread] = useState<
+    Record<string, number>
+  >({});
   const [loading, setLoading] = useState(true);
   const socketRef = useRef<Socket | null>(null);
   const refreshInFlightRef = useRef(false);
@@ -34,7 +50,7 @@ export function MessageNotificationProvider({ children }: { children: ReactNode 
       setUnreadMessageCount(totalUnread);
       setUnreadPerThread(unreadCounts);
     } catch (error) {
-      console.error('Error fetching message notifications:', error);
+      console.error("Error fetching message notifications:", error);
       setUnreadMessageCount(0);
       setUnreadPerThread({});
     } finally {
@@ -63,21 +79,21 @@ export function MessageNotificationProvider({ children }: { children: ReactNode 
           void refreshCount();
         };
 
-        socket.on('new_message', handleDmEvent);
-        socket.on('receive_dm', handleDmEvent);
-        socket.on('dm_sent_confirmation', handleDmEvent);
+        socket.on("new_message", handleDmEvent);
+        socket.on("receive_dm", handleDmEvent);
+        socket.on("dm_sent_confirmation", handleDmEvent);
 
         return () => {
-          socket.off('new_message', handleDmEvent);
-          socket.off('receive_dm', handleDmEvent);
-          socket.off('dm_sent_confirmation', handleDmEvent);
+          socket.off("new_message", handleDmEvent);
+          socket.off("receive_dm", handleDmEvent);
+          socket.off("dm_sent_confirmation", handleDmEvent);
           socket.disconnect();
           if (socketRef.current === socket) {
             socketRef.current = null;
           }
         };
       } catch (error) {
-        console.error('Failed to initialize DM notification socket:', error);
+        console.error("Failed to initialize DM notification socket:", error);
       }
     };
 
@@ -86,7 +102,7 @@ export function MessageNotificationProvider({ children }: { children: ReactNode 
     return () => {
       mounted = false;
       cleanupPromise.then((cleanup) => {
-        if (typeof cleanup === 'function') {
+        if (typeof cleanup === "function") {
           cleanup();
         }
       });
@@ -113,7 +129,9 @@ export function MessageNotificationProvider({ children }: { children: ReactNode 
 export function useMessageNotifications() {
   const context = useContext(MessageNotificationContext);
   if (!context) {
-    throw new Error('useMessageNotifications must be used within MessageNotificationProvider');
+    throw new Error(
+      "useMessageNotifications must be used within MessageNotificationProvider"
+    );
   }
   return context;
 }

@@ -10,7 +10,6 @@ import React, {
 } from "react";
 import { usePathname } from "next/navigation";
 
-
 interface NavigationLoadingContextValue {
   /** Call from any page once its data is fully loaded */
   setPageReady: () => void;
@@ -18,8 +17,10 @@ interface NavigationLoadingContextValue {
   isNavigating: boolean;
 }
 
-const NavigationLoadingContext =
-  createContext<NavigationLoadingContextValue>({ setPageReady: () => {}, isNavigating: false });
+const NavigationLoadingContext = createContext<NavigationLoadingContextValue>({
+  setPageReady: () => {},
+  isNavigating: false,
+});
 
 /** Pages call this hook to signal they're done loading data. */
 export function usePageReady() {
@@ -65,9 +66,18 @@ export default function RouteChangeLoader({
   }, []);
 
   const clearTimers = useCallback(() => {
-    if (autoTimer.current) { clearTimeout(autoTimer.current); autoTimer.current = null; }
-    if (fadeTimer.current) { clearTimeout(fadeTimer.current); fadeTimer.current = null; }
-    if (progressTimer.current) { clearInterval(progressTimer.current); progressTimer.current = null; }
+    if (autoTimer.current) {
+      clearTimeout(autoTimer.current);
+      autoTimer.current = null;
+    }
+    if (fadeTimer.current) {
+      clearTimeout(fadeTimer.current);
+      fadeTimer.current = null;
+    }
+    if (progressTimer.current) {
+      clearInterval(progressTimer.current);
+      progressTimer.current = null;
+    }
   }, []);
 
   const dismiss = useCallback(() => {
@@ -144,7 +154,6 @@ export default function RouteChangeLoader({
 
   return (
     <NavigationLoadingContext.Provider value={{ setPageReady, isNavigating }}>
-      
       {showBar && (
         <div className="fixed top-0 left-0 right-0 z-[9999] h-[2px] pointer-events-none">
           <div

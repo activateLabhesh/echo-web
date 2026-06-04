@@ -146,8 +146,7 @@ export const useMessageReactions = (
       return Object.entries(messageReactions).map(([emoji, userIds]) => ({
         emoji,
         count: userIds.length,
-        reactedByMe:
-          !!currentUserId && userIds.includes(currentUserId.trim()),
+        reactedByMe: !!currentUserId && userIds.includes(currentUserId.trim()),
       }));
     },
     [currentUserId, reactionsByMessageId]

@@ -17,10 +17,14 @@ const AddChannel: React.FC = () => {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<"success" | "error">("success");
+  const [messageType, setMessageType] = useState<"success" | "error">(
+    "success"
+  );
   const [roles, setRoles] = useState<Role[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
-  const [selectedModeratorIds, setSelectedModeratorIds] = useState<string[]>([]);
+  const [selectedModeratorIds, setSelectedModeratorIds] = useState<string[]>(
+    []
+  );
   const [loadingRoles, setLoadingRoles] = useState(false);
 
   // Load roles when server ID is available
@@ -32,11 +36,11 @@ const AddChannel: React.FC = () => {
         const serverRoles = await getAllRoles(serverId);
         // Filter out owner and admin roles - they can see all channels anyway
         const assignableRoles = serverRoles.filter(
-          (r) => r.role_type !== 'owner' && r.role_type !== 'admin'
+          (r) => r.role_type !== "owner" && r.role_type !== "admin"
         );
         setRoles(assignableRoles);
       } catch (error) {
-        console.error('Failed to load roles:', error);
+        console.error("Failed to load roles:", error);
       } finally {
         setLoadingRoles(false);
       }
@@ -44,23 +48,24 @@ const AddChannel: React.FC = () => {
     loadRoles();
   }, [serverId]);
 
- const handleChange = (
-   e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
- ) => {
-   const target = e.target;
-   const { name, value, type } = target;
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const target = e.target;
+    const { name, value, type } = target;
 
-   setFormData((prev) => ({
-     ...prev,
-     [name]: type === "checkbox" ? (target as HTMLInputElement).checked : value,
-   }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]:
+        type === "checkbox" ? (target as HTMLInputElement).checked : value,
+    }));
 
-   // Clear selected roles when switching channel types
-   if (name === 'channel_type') {
-     setSelectedRoleIds([]);
-     setSelectedModeratorIds([]);
-   }
- };
+    // Clear selected roles when switching channel types
+    if (name === "channel_type") {
+      setSelectedRoleIds([]);
+      setSelectedModeratorIds([]);
+    }
+  };
 
   const handleRoleToggle = (roleId: string) => {
     setSelectedRoleIds((prev) =>
@@ -78,18 +83,20 @@ const AddChannel: React.FC = () => {
     );
   };
 
-
   const validatePayload = (): string | null => {
     if (!serverId) return "Missing server ID in URL.";
     if (!formData.name || formData.name.trim().length < 1)
       return "Channel name cannot be empty.";
     if (!["text", "voice"].includes(formData.type))
       return "Invalid channel type.";
-    if (!["normal", "read_only", "role_restricted"].includes(formData.channel_type || "normal"))
+    if (
+      !["normal", "read_only", "role_restricted"].includes(
+        formData.channel_type || "normal"
+      )
+    )
       return "Invalid permission type.";
     return null;
   };
-
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -110,10 +117,13 @@ const AddChannel: React.FC = () => {
         name: formData.name,
         type: formData.type,
         channel_type: formData.channel_type || "normal",
-        allowed_role_ids: formData.channel_type === "role_restricted" ? selectedRoleIds : [],
-        moderator_role_ids: (formData.channel_type === "read_only" || formData.channel_type === "role_restricted") 
-          ? selectedModeratorIds 
-          : [],
+        allowed_role_ids:
+          formData.channel_type === "role_restricted" ? selectedRoleIds : [],
+        moderator_role_ids:
+          formData.channel_type === "read_only" ||
+          formData.channel_type === "role_restricted"
+            ? selectedModeratorIds
+            : [],
       };
 
       const response = await createChannel(serverId!, channelPayload);
@@ -123,7 +133,7 @@ const AddChannel: React.FC = () => {
       setFormData({ name: "", type: "text", channel_type: "normal" });
       setSelectedRoleIds([]);
       setSelectedModeratorIds([]);
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setMessage(""), 3000);
     } catch (err: any) {
@@ -189,10 +199,14 @@ const AddChannel: React.FC = () => {
             className="w-full bg-black text-white border-2 border-[#72767d] rounded px-4 py-3 focus:border-[#FFC341] focus:outline-none transition-all duration-200 cursor-pointer"
           >
             <option value="normal">Normal - Everyone can view and send</option>
-            <option value="read_only">Read Only - Everyone views, only admins/mods send</option>
-            <option value="role_restricted">Role Restricted - Specific roles only</option>
+            <option value="read_only">
+              Read Only - Everyone views, only admins/mods send
+            </option>
+            <option value="role_restricted">
+              Role Restricted - Specific roles only
+            </option>
           </select>
-          
+
           {/* Info text based on selection */}
           <div className="mt-3 p-3 bg-[#2f3136] rounded-lg border-l-4 border-[#FFC341]">
             {formData.channel_type === "normal" && (
@@ -202,12 +216,14 @@ const AddChannel: React.FC = () => {
             )}
             {formData.channel_type === "read_only" && (
               <p className="text-sm text-[#b5bac1]">
-                🔒 Perfect for announcements - all members can see messages, but only admins and selected moderators can send
+                🔒 Perfect for announcements - all members can see messages, but
+                only admins and selected moderators can send
               </p>
             )}
             {formData.channel_type === "role_restricted" && (
               <p className="text-sm text-[#b5bac1]">
-                👥 Only members with selected roles can view this channel. Admins and moderators can send messages
+                👥 Only members with selected roles can view this channel.
+                Admins and moderators can send messages
               </p>
             )}
           </div>
@@ -220,13 +236,15 @@ const AddChannel: React.FC = () => {
               Who can view this channel?
             </label>
             <p className="text-sm text-[#72767d] mb-3">
-              Select roles that can access this channel. Owners and Admins can always see all channels.
+              Select roles that can access this channel. Owners and Admins can
+              always see all channels.
             </p>
             {loadingRoles ? (
               <div className="text-[#72767d]">Loading roles...</div>
             ) : roles.length === 0 ? (
               <div className="text-[#72767d] text-sm">
-                No custom roles available. Create roles first in the Roles settings.
+                No custom roles available. Create roles first in the Roles
+                settings.
               </div>
             ) : (
               <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-[#72767d] scrollbar-track-[#2f3136]">
@@ -243,7 +261,7 @@ const AddChannel: React.FC = () => {
                     />
                     <span
                       className="px-2 py-1 rounded text-sm font-medium text-white"
-                      style={{ backgroundColor: role.color || '#5865f2' }}
+                      style={{ backgroundColor: role.color || "#5865f2" }}
                     >
                       {role.name}
                     </span>
@@ -260,13 +278,15 @@ const AddChannel: React.FC = () => {
         )}
 
         {/* Moderator selection for read_only and role_restricted channels */}
-        {(formData.channel_type === "read_only" || formData.channel_type === "role_restricted") && (
+        {(formData.channel_type === "read_only" ||
+          formData.channel_type === "role_restricted") && (
           <div className="p-4 bg-[#2f3136] rounded-lg border-2 border-[#FFC341]">
             <label className="block font-semibold mb-2 text-[#b5bac1]">
               Who can send messages? (Optional)
             </label>
             <p className="text-sm text-[#72767d] mb-3">
-              Admins and owners can always send. Select additional moderator roles below.
+              Admins and owners can always send. Select additional moderator
+              roles below.
             </p>
             {loadingRoles ? (
               <div className="text-[#72767d]">Loading roles...</div>
@@ -289,7 +309,7 @@ const AddChannel: React.FC = () => {
                     />
                     <span
                       className="px-2 py-1 rounded text-sm font-medium text-white"
-                      style={{ backgroundColor: role.color || '#5865f2' }}
+                      style={{ backgroundColor: role.color || "#5865f2" }}
                     >
                       {role.name}
                     </span>
@@ -299,7 +319,8 @@ const AddChannel: React.FC = () => {
             )}
             {selectedModeratorIds.length > 0 && (
               <div className="mt-3 text-sm text-[#FFC341] font-medium">
-                ✓ {selectedModeratorIds.length} moderator role(s) can send messages
+                ✓ {selectedModeratorIds.length} moderator role(s) can send
+                messages
               </div>
             )}
           </div>
@@ -316,19 +337,25 @@ const AddChannel: React.FC = () => {
             backgroundPosition: "left center",
             transition: "background-position 0.5s, transform 0.2s",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundPosition = "right center")}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundPosition = "left center")}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.backgroundPosition = "right center")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.backgroundPosition = "left center")
+          }
         >
           {loading ? "Creating..." : "Create Channel"}
         </button>
 
         {/* Message */}
         {message && (
-          <div className={`p-3 rounded-lg text-center font-medium ${
-            messageType === "success" 
-              ? "bg-green-600 text-white" 
-              : "bg-red-600 text-white"
-          }`}>
+          <div
+            className={`p-3 rounded-lg text-center font-medium ${
+              messageType === "success"
+                ? "bg-green-600 text-white"
+                : "bg-red-600 text-white"
+            }`}
+          >
             {message}
           </div>
         )}

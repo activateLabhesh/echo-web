@@ -1,7 +1,11 @@
 // src/lib/CallStateManager.ts
 // Manages call state globally to allow minimizing calls and navigating between channels
 
-import { VoiceVideoManager, VoiceRosterMember, VideoTileInfo } from './VoiceVideoManager';
+import {
+  VoiceVideoManager,
+  VoiceRosterMember,
+  VideoTileInfo,
+} from "./VoiceVideoManager";
 
 /**
  * Represents the state of an active call
@@ -12,12 +16,12 @@ export interface ActiveCallState {
   serverId: string;
   channelName: string;
   startTime: Date;
-  callType: 'voice' | 'video';
+  callType: "voice" | "video";
 }
 
 /**
  * CallStateManager - Singleton that manages the global call state
- * 
+ *
  * This allows users to:
  * - Minimize a call and navigate to other channels
  * - Keep the call active in the background
@@ -26,7 +30,7 @@ export interface ActiveCallState {
  */
 class CallStateManager {
   private static instance: CallStateManager;
-  
+
   // The single VoiceVideoManager instance for the active call
   private voiceManager: VoiceVideoManager | null = null;
   private callState: ActiveCallState | null = null;
@@ -72,10 +76,10 @@ class CallStateManager {
    * Start tracking a new call
    */
   startCall(
-    channelId: string, 
-    serverId: string, 
+    channelId: string,
+    serverId: string,
     channelName: string,
-    callType: 'voice' | 'video' = 'voice'
+    callType: "voice" | "video" = "voice"
   ): void {
     this.callState = {
       isMinimized: false,
@@ -86,7 +90,7 @@ class CallStateManager {
       callType,
     };
     this.notifyListeners();
-    console.log('[CallStateManager] Call started:', this.callState);
+    console.log("[CallStateManager] Call started:", this.callState);
   }
 
   /**
@@ -97,7 +101,7 @@ class CallStateManager {
     if (this.callState) {
       this.callState = { ...this.callState, isMinimized: true };
       this.notifyListeners();
-      console.log('[CallStateManager] Call minimized');
+      console.log("[CallStateManager] Call minimized");
     }
   }
 
@@ -108,7 +112,7 @@ class CallStateManager {
     if (this.callState) {
       this.callState = { ...this.callState, isMinimized: false };
       this.notifyListeners();
-      console.log('[CallStateManager] Call maximized');
+      console.log("[CallStateManager] Call maximized");
     }
   }
 
@@ -121,13 +125,13 @@ class CallStateManager {
         this.voiceManager.leaveVoiceChannel();
         this.voiceManager.disconnect();
       } catch (error) {
-        console.error('[CallStateManager] Error ending call:', error);
+        console.error("[CallStateManager] Error ending call:", error);
       }
       this.voiceManager = null;
     }
     this.callState = null;
     this.notifyListeners();
-    console.log('[CallStateManager] Call ended');
+    console.log("[CallStateManager] Call ended");
   }
 
   /**
@@ -173,7 +177,7 @@ class CallStateManager {
   /**
    * Update the call type (e.g., when user enables video)
    */
-  updateCallType(callType: 'voice' | 'video'): void {
+  updateCallType(callType: "voice" | "video"): void {
     if (this.callState) {
       this.callState = { ...this.callState, callType };
       this.notifyListeners();
@@ -182,11 +186,11 @@ class CallStateManager {
 
   private notifyListeners(): void {
     const state = this.callState ? { ...this.callState } : null;
-    this.listeners.forEach(listener => {
+    this.listeners.forEach((listener) => {
       try {
         listener(state);
       } catch (error) {
-        console.error('[CallStateManager] Error in listener:', error);
+        console.error("[CallStateManager] Error in listener:", error);
       }
     });
   }

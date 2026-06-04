@@ -439,7 +439,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </div>
 
-        {showReactionPicker && reactionPickerPosition && typeof document !== "undefined"
+        {showReactionPicker &&
+        reactionPickerPosition &&
+        typeof document !== "undefined"
           ? createPortal(
               <div
                 ref={reactionPickerRef}

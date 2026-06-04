@@ -10,7 +10,6 @@ import { useToast } from "@/contexts/ToastContext";
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
-
 const EmojiPicker = dynamic(
   () => import("emoji-picker-react").then((mod) => mod.default),
   {
@@ -22,7 +21,6 @@ const EmojiPicker = dynamic(
     ),
   }
 );
-
 
 interface MentionableUser {
   id: string;
@@ -89,26 +87,19 @@ export default function MessageInputWithMentions({
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const mentionDropdownRef = useRef<HTMLDivElement>(null);
 
-
   useEffect(() => {
     textInputRef.current?.focus();
   }, []);
 
-
-
   useEffect(() => {
     if (!isSending) {
-      
-      
     }
   }, [isSending]);
-
 
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
 
-      
       if (
         target.closest("button") ||
         target.closest('input[type="file"]') ||
@@ -118,7 +109,6 @@ export default function MessageInputWithMentions({
         return;
       }
 
-      
       requestAnimationFrame(() => {
         textInputRef.current?.focus();
       });
@@ -127,7 +117,6 @@ export default function MessageInputWithMentions({
     document.addEventListener("click", handleGlobalClick);
     return () => document.removeEventListener("click", handleGlobalClick);
   }, []);
-
 
   useEffect(() => {
     if (!showEmojiPicker) return;
@@ -148,7 +137,6 @@ export default function MessageInputWithMentions({
     };
   }, [showEmojiPicker]);
 
-
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     setText((prev) => prev + emojiData.emoji);
     requestAnimationFrame(() => {
@@ -156,52 +144,50 @@ export default function MessageInputWithMentions({
     });
   };
 
-  
+  const ALLOWED_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "video/mp4",
+    "video/webm",
+    "video/quicktime",
+    "video/x-msvideo",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/plain",
+    "text/csv",
+  ];
 
- const ALLOWED_TYPES = [
-   "image/jpeg",
-   "image/png",
-   "image/gif",
-   "image/webp",
-   "image/svg+xml",
-   "video/mp4",
-   "video/webm",
-   "video/quicktime",
-   "video/x-msvideo",
-   "application/pdf",
-   "application/msword",
-   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-   "application/vnd.ms-excel",
-   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-   "text/plain",
-   "text/csv",
- ];
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || []);
+    const annotated = selected.map((file) => {
+      if (file.size > MAX_FILE_SIZE_BYTES)
+        return { file, valid: false, errorReason: "Too large (max 25 MB)" };
+      if (!ALLOWED_TYPES.includes(file.type))
+        return { file, valid: false, errorReason: "Unsupported file type" };
+      return { file, valid: true, errorReason: undefined };
+    });
 
- const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-   const selected = Array.from(e.target.files || []);
-   const annotated = selected.map((file) => {
-     if (file.size > MAX_FILE_SIZE_BYTES)
-       return { file, valid: false, errorReason: "Too large (max 25 MB)" };
-     if (!ALLOWED_TYPES.includes(file.type))
-       return { file, valid: false, errorReason: "Unsupported file type" };
-     return { file, valid: true, errorReason: undefined };
-   });
+    const invalid = annotated.filter((f) => !f.valid);
+    if (invalid.length > 0) {
+      showToast(
+        invalid.map((f) => `"${f.file.name}": ${f.errorReason}`).join("\n"),
+        "error"
+      );
+    }
 
-   const invalid = annotated.filter((f) => !f.valid);
-   if (invalid.length > 0) {
-     showToast(
-       invalid.map((f) => `"${f.file.name}": ${f.errorReason}`).join("\n"),
-       "error"
-     );
-   }
+    setFiles((prev) => [
+      ...prev,
+      ...annotated.filter((f) => f.valid).map((f) => f.file),
+    ]);
 
-   setFiles((prev) => [
-     ...prev,
-     ...annotated.filter((f) => f.valid).map((f) => f.file),
-   ]);
-
-   if (fileInputRef.current) fileInputRef.current.value = "";
- };
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const validateRoleMentions = (message: string) => {
     const roleMentionRegex = /@&([a-zA-Z0-9_ ]+?)(?=\s|$)/g;
@@ -223,26 +209,22 @@ export default function MessageInputWithMentions({
   };
 
   const handleSend = () => {
-  if (text.trim() === "" && files.length === 0) return;
+    if (text.trim() === "" && files.length === 0) return;
 
-  const validation = validateRoleMentions(text);
-  if (!validation.valid) {
-    alert(`Role "${validation.invalidRole}" does not exist in this server.`);
-    return;
-  }
+    const validation = validateRoleMentions(text);
+    if (!validation.valid) {
+      alert(`Role "${validation.invalidRole}" does not exist in this server.`);
+      return;
+    }
 
-  sendMessage(text.trim(), files);
+    sendMessage(text.trim(), files);
 
-  setShowEmojiPicker(false);
-  setShowMentionDropdown(false);
+    setShowEmojiPicker(false);
+    setShowMentionDropdown(false);
 
-  setText("");
-  setFiles([]);
-
- 
-};
-
-  
+    setText("");
+    setFiles([]);
+  };
 
   const searchMentionable = async (query: string) => {
     if (!serverId) {
@@ -264,40 +246,35 @@ export default function MessageInputWithMentions({
     }
   };
 
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const cursor = e.target.selectionStart || 0;
 
+    setText(value);
 
- const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-   const value = e.target.value;
-   const cursor = e.target.selectionStart || 0;
+    const beforeCursor = value.slice(0, cursor);
 
-   setText(value);
+    const match = beforeCursor.match(/(?:^|\s)@([a-zA-Z0-9_]*)$/);
 
+    if (match) {
+      const atSymbolIndex = beforeCursor.lastIndexOf("@");
 
-   const beforeCursor = value.slice(0, cursor);
-
-  
-   const match = beforeCursor.match(/(?:^|\s)@([a-zA-Z0-9_]*)$/);
-
-   if (match) {
-    
-     const atSymbolIndex = beforeCursor.lastIndexOf("@");
-
-     setMentionQuery(match[1]);
-     setMentionPosition(atSymbolIndex); 
-     setShowMentionDropdown(true);
-     setSelectedMentionIndex(0);
-     searchMentionable(match[1]);
-   } else {
-     setShowMentionDropdown(false);
-     setMentionableUsers([]);
-   }
- };
+      setMentionQuery(match[1]);
+      setMentionPosition(atSymbolIndex);
+      setShowMentionDropdown(true);
+      setSelectedMentionIndex(0);
+      searchMentionable(match[1]);
+    } else {
+      setShowMentionDropdown(false);
+      setMentionableUsers([]);
+    }
+  };
 
   const insertMention = (type: "user" | "role" | "everyone", name: string) => {
     const beforeMention = text.substring(0, mentionPosition);
     const afterMention = text.substring(
       mentionPosition + mentionQuery.length + 1
-    ); 
+    );
 
     let mentionText = "";
     if (type === "user") {
@@ -318,8 +295,6 @@ export default function MessageInputWithMentions({
       textInputRef.current?.setSelectionRange(pos, pos);
     });
   };
-
-  
 
   const filteredRoles = serverRoles.filter((role) =>
     role.name.toLowerCase().includes(mentionQuery.toLowerCase())
@@ -358,8 +333,6 @@ export default function MessageInputWithMentions({
       handleSend();
     }
   };
-
-
 
   return (
     <div className="relative p-4">

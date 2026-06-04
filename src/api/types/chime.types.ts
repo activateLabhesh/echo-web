@@ -1,4 +1,3 @@
-
 export interface ChimeMeetingResponse {
   meeting: {
     MeetingId: string;

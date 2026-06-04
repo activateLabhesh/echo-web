@@ -15,7 +15,7 @@ import DangerZone from "./components/ServerSettings/DangerZone";
 import AddChannel from "./components/ServerSettings/AddChannel";
 
 import { getServerDetails, getMyRoles } from "@/api";
-import { type ServerDetails} from "@/api/types/server.types";
+import { type ServerDetails } from "@/api/types/server.types";
 
 export default function ServerSettingsPage() {
   const router = useRouter();
@@ -51,7 +51,6 @@ export default function ServerSettingsPage() {
     setServerIdReady(true);
   }, []);
 
-
   useEffect(() => {
     if (!serverIdReady) return;
 
@@ -84,48 +83,42 @@ export default function ServerSettingsPage() {
     loadServerDetails();
   }, [serverIdReady, serverId]);
 
+  if (!serverIdReady || loading) {
+    return (
+      <div className="flex min-h-screen bg-black items-center justify-center">
+        <div className="mb-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
 
+  if (!serverId) {
+    return (
+      <div className="flex min-h-screen bg-black items-center justify-center">
+        <div className="text-red-500 text-xl">No server selected</div>
+      </div>
+    );
+  }
 
+  if (error) {
+    return (
+      <div className="flex min-h-screen bg-black items-center justify-center">
+        <div className="text-red-500 text-xl">{error}</div>
+      </div>
+    );
+  }
 
-
-if (!serverIdReady || loading) {
-  return (
-    <div className="flex min-h-screen bg-black items-center justify-center">
-       <div className="mb-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mx-auto"></div>
-              </div>
-    </div>
-  );
-}
-
-if (!serverId) {
-  return (
-    <div className="flex min-h-screen bg-black items-center justify-center">
-      <div className="text-red-500 text-xl">No server selected</div>
-    </div>
-  );
-}
-
-if (error) {
-  return (
-    <div className="flex min-h-screen bg-black items-center justify-center">
-      <div className="text-red-500 text-xl">{error}</div>
-    </div>
-  );
-}
-
-if (!serverDetails) {
-  return (
-    <div className="flex min-h-screen bg-black items-center justify-center">
-      <div className="text-red-500 text-xl">Server not found</div>
-    </div>
-  );
-}
-
+  if (!serverDetails) {
+    return (
+      <div className="flex min-h-screen bg-black items-center justify-center">
+        <div className="text-red-500 text-xl">Server not found</div>
+      </div>
+    );
+  }
 
   const resolvedServerId: string = serverId!;
   const isOwner: boolean = Boolean(serverDetails.isOwner);
-
 
   let Content: JSX.Element;
 
@@ -203,7 +196,6 @@ if (!serverDetails) {
         />
       );
   }
-
 
   return (
     <div className="flex min-h-screen bg-black text-white">

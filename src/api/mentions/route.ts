@@ -1,17 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
 // Force dynamic rendering for this route
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 // Get mentions for a user
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const userId = searchParams.get("userId");
 
     if (!userId) {
       return NextResponse.json(
-        { error: 'User ID is required' },
+        { error: "User ID is required" },
         { status: 400 }
       );
     }
@@ -19,16 +19,17 @@ export async function GET(request: NextRequest) {
     // console.log('Frontend API: Getting mentions for user:', userId);
 
     // Get the backend URL from environment or default to localhost
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const backendUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
     const url = `${backendUrl}/api/mentions?userId=${encodeURIComponent(userId)}`;
-    
+
     // console.log('Frontend API: Fetching from backend:', url);
 
     // Forward the request to the backend
     const response = await fetch(url, {
       headers: {
-        'Cookie': request.headers.get('cookie') || '',
-        'Content-Type': 'application/json',
+        Cookie: request.headers.get("cookie") || "",
+        "Content-Type": "application/json",
       },
     });
 
@@ -36,9 +37,9 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Frontend API: Backend error:', response.status, errorText);
+      console.error("Frontend API: Backend error:", response.status, errorText);
       return NextResponse.json(
-        { error: 'Failed to fetch mentions from backend' },
+        { error: "Failed to fetch mentions from backend" },
         { status: response.status }
       );
     }
@@ -48,9 +49,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Frontend API: Error in mentions fetch:', error);
+    console.error("Frontend API: Error in mentions fetch:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

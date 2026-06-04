@@ -1,7 +1,7 @@
-import {api,apiClient} from "./axios";
-import {Message} from "./types/message.types";
-import {ApiResponse} from "./types/common.types";
-import {getUser} from "./profile.api"
+import { api, apiClient } from "./axios";
+import { Message } from "./types/message.types";
+import { ApiResponse } from "./types/common.types";
+import { getUser } from "./profile.api";
 
 const DM_CACHE_TTL_MS = 2 * 60 * 1000;
 
@@ -58,15 +58,11 @@ export const uploadMessage = async (payload: {
       formData.append("file", payload.file);
     }
 
-    const response = await apiClient.post(
-      "/api/message/upload",
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
+    const response = await apiClient.post("/api/message/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
 
     return response.data;
   } catch (error) {
@@ -99,15 +95,11 @@ export const uploaddm = async (payload: {
       formData.append("file", payload.mediaurl);
     }
 
-    const response = await apiClient.post(
-      "/api/message/upload_dm",
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
+    const response = await apiClient.post("/api/message/upload_dm", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
 
     return response.data;
   } catch (error) {
@@ -150,16 +142,17 @@ export const fetchMessages = async (
   }
 };
 
-
 //Fetches the DM of the users
-export const getUserDMs = async (options: { forceRefresh?: boolean; cacheTtlMs?: number } = {}): Promise<any> => {
+export const getUserDMs = async (
+  options: { forceRefresh?: boolean; cacheTtlMs?: number } = {}
+): Promise<any> => {
   const { forceRefresh = false, cacheTtlMs = DM_CACHE_TTL_MS } = options;
   let userId: string | null = null;
 
   try {
     const user = await getUser();
     if (!user || !user.id) {
-      throw new Error('User not authenticated');
+      throw new Error("User not authenticated");
     }
 
     userId = user.id;
@@ -198,8 +191,8 @@ export const getUserDMs = async (options: { forceRefresh?: boolean; cacheTtlMs?:
       console.error(" Request timed out");
       throw new Error("Request timed out. Please try again.");
     }
-    
-    if (error.message === 'User not authenticated') {
+
+    if (error.message === "User not authenticated") {
       console.error(" Authentication error:", error.message);
       throw new Error("Please login to view messages");
     }
@@ -214,14 +207,19 @@ export const getUserDMs = async (options: { forceRefresh?: boolean; cacheTtlMs?:
 };
 
 // Get unread message counts
-export const getUnreadMessageCounts = async (): Promise<{ unreadCounts: Record<string, number>; totalUnread: number }> => {
+export const getUnreadMessageCounts = async (): Promise<{
+  unreadCounts: Record<string, number>;
+  totalUnread: number;
+}> => {
   try {
     const user = await getUser();
     if (!user || !user.id) {
-      throw new Error('User not authenticated');
+      throw new Error("User not authenticated");
     }
 
-    const response = await apiClient.get(`/api/message/${user.id}/unread-counts`);
+    const response = await apiClient.get(
+      `/api/message/${user.id}/unread-counts`
+    );
     return response.data;
   } catch (error: any) {
     console.error("Error fetching unread counts:", error.message || error);
@@ -234,14 +232,13 @@ export const markThreadAsRead = async (threadId: string): Promise<void> => {
   try {
     const user = await getUser();
     if (!user || !user.id) {
-      throw new Error('User not authenticated');
+      throw new Error("User not authenticated");
     }
 
     await apiClient.post(`/api/message/thread/${threadId}/mark-read`, {
-      userId: user.id
+      userId: user.id,
     });
   } catch (error: any) {
     console.error("Error marking thread as read:", error.message || error);
   }
 };
-

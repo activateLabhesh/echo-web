@@ -338,7 +338,7 @@ export default function MessageContentWithMentions({
   };
 
   return (
-    <div className="text-gray-300 leading-relaxed break-words">
+    <div className="text-gray-300 leading-relaxed whitespace-pre-wrap break-words">
       {renderContent()}
     </div>
   );

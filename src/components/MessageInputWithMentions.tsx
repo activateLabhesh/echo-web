@@ -83,7 +83,7 @@ export default function MessageInputWithMentions({
   const [searchingMentions, setSearchingMentions] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const textInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const mentionDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -93,8 +93,23 @@ export default function MessageInputWithMentions({
 
   useEffect(() => {
     if (!isSending) {
+      requestAnimationFrame(() => {
+        textInputRef.current?.focus();
+      });
     }
   }, [isSending]);
+
+  const resizeTextArea = () => {
+    const textArea = textInputRef.current;
+    if (!textArea) return;
+
+    textArea.style.height = "auto";
+    textArea.style.height = `${textArea.scrollHeight}px`;
+  };
+
+  useEffect(() => {
+    resizeTextArea();
+  }, [text]);
 
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
@@ -217,13 +232,20 @@ export default function MessageInputWithMentions({
       return;
     }
 
-    sendMessage(text.trim(), files);
+    sendMessage(text, files);
 
     setShowEmojiPicker(false);
     setShowMentionDropdown(false);
 
     setText("");
     setFiles([]);
+
+    requestAnimationFrame(() => {
+      if (textInputRef.current) {
+        textInputRef.current.style.height = "auto";
+        textInputRef.current.focus();
+      }
+    });
   };
 
   const searchMentionable = async (query: string) => {
@@ -246,11 +268,13 @@ export default function MessageInputWithMentions({
     }
   };
 
-  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     const cursor = e.target.selectionStart || 0;
 
     setText(value);
+    e.target.style.height = "auto";
+    e.target.style.height = `${e.target.scrollHeight}px`;
 
     const beforeCursor = value.slice(0, cursor);
 
@@ -300,7 +324,15 @@ export default function MessageInputWithMentions({
     role.name.toLowerCase().includes(mentionQuery.toLowerCase())
   );
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.nativeEvent.isComposing) {
+      return;
+    }
+
+    if (e.key === "Enter" && e.shiftKey) {
+      return;
+    }
+
     if (showMentionDropdown) {
       const total = filteredRoles.length + mentionableUsers.length + 1;
 
@@ -474,14 +506,15 @@ export default function MessageInputWithMentions({
       )}
 
       {/* Input Bar */}
-      <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-3">
-        <input
+      <div className="flex items-end gap-2 bg-gray-800 rounded-lg p-3">
+        <textarea
           ref={textInputRef}
+          rows={1}
           value={text}
           onChange={handleTextChange}
           onKeyDown={handleKeyDown}
           placeholder="Type a message…"
-          className="flex-1 bg-transparent outline-none text-white"
+          className="max-h-32 flex-1 resize-none overflow-y-auto bg-transparent leading-6 text-white outline-none placeholder:text-gray-400"
         />
 
         <input

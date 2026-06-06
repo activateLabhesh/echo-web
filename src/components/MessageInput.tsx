@@ -92,7 +92,7 @@ export default function MessageInput({
   const handleSend = () => {
     if (!text.trim() && files.length === 0) return;
 
-    sendMessage(text.trim(), files);
+    sendMessage(text, files);
 
     setText("");
     setFiles([]);

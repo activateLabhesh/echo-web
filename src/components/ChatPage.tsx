@@ -283,6 +283,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [files, setFiles] = useState<SelectedFile[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const draftInputRef = useRef<HTMLTextAreaElement>(null);
 
   const timeFormatter = useMemo(
     () =>
@@ -359,13 +360,31 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     dayFormatter,
     timeFormatter,
   ]);
-  const canSend = draft.length > 0 || files.some((f) => f.valid);
+  const resizeDraftInput = () => {
+    const textarea = draftInputRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  };
+
+  useEffect(() => {
+    resizeDraftInput();
+  }, [draft]);
+
+  const canSend = draft.trim().length > 0 || files.some((f) => f.valid);
   const handleSend = (value: string) => {
     const validFiles = files.filter((f) => f.valid).map((f) => f.file);
-    if (value.length === 0 && validFiles.length === 0) return;
+    if (value.trim().length === 0 && validFiles.length === 0) return;
     onSendMessage(value, validFiles);
     setDraft("");
     setFiles([]);
+    requestAnimationFrame(() => {
+      if (draftInputRef.current) {
+        draftInputRef.current.style.height = "auto";
+        draftInputRef.current.focus();
+      }
+    });
   };
 
   const MAX_FILE_SIZE_MB = 25;
@@ -626,7 +645,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
         )}
 
-        <div className="flex items-center gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/70 px-4 py-3">
+        <div className="flex items-end gap-3 rounded-2xl border border-slate-800/70 bg-slate-950/70 px-4 py-3">
           <input
             type="file"
             ref={fileInputRef}
@@ -651,18 +670,27 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             <Smile className="h-4 w-4" />
           </button>
 
-          <input
-            type="text"
+          <textarea
+            ref={draftInputRef}
+            rows={1}
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              event.target.style.height = "auto";
+              event.target.style.height = `${event.target.scrollHeight}px`;
+            }}
             onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing) {
+                return;
+              }
+
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
                 handleSend(draft);
               }
             }}
             placeholder={`Message @${recipientFirstName}`}
-            className="flex-1 bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500"
+            className="max-h-32 flex-1 resize-none overflow-y-auto bg-transparent text-sm leading-6 text-slate-100 outline-none placeholder:text-slate-500"
           />
           {showEmojiPicker && (
             <div

@@ -1484,7 +1484,7 @@ export default forwardRef(function ChatWindow(
 
     try {
       const response = await uploadMessage({
-        content: text.trim(),
+        content: text,
         channel_id: channelId,
         sender_id: currentUserId,
         reply_to: replyingTo?.id,
@@ -1573,12 +1573,12 @@ export default forwardRef(function ChatWindow(
 
     try {
       if (validFiles.length === 0) {
-        await sendSingleMessage(normalizedText, null);
+        await sendSingleMessage(text, null);
         return;
       }
 
       const [firstFile, ...restFiles] = validFiles;
-      await sendSingleMessage(normalizedText, firstFile);
+      await sendSingleMessage(text, firstFile);
 
       for (const file of restFiles) {
         await sendSingleMessage("", file);

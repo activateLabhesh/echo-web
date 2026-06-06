@@ -323,7 +323,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             ${isFailed ? "ring-1 ring-red-500 bg-red-900/20" : ""}
           `}
         >
-          <div className="text-sm leading-relaxed whitespace-normal break-words text-left">
+          <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-left">
             {messageRenderer
               ? messageRenderer(message.content)
               : renderPlainContent(message.content)}

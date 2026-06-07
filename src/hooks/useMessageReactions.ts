@@ -1,6 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  addMessageReaction,
+  getMessageReactions,
+  removeMessageReaction,
+} from "@/api/message.api";
 
 export type MessageReactionSummary = {
   emoji: string;
@@ -10,120 +15,146 @@ export type MessageReactionSummary = {
 
 type ReactionStorage = Record<string, Record<string, string[]>>;
 
-const readStoredReactions = (storageKey: string): ReactionStorage => {
-  try {
-    const raw = localStorage.getItem(storageKey);
-    if (!raw) return {};
-
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {};
-    }
-
-    const normalized: ReactionStorage = {};
-
-    for (const [messageId, reactions] of Object.entries(
-      parsed as Record<string, unknown>
-    )) {
-      if (!reactions || typeof reactions !== "object") continue;
-
-      const messageReactions: Record<string, string[]> = {};
-
-      for (const [emoji, userIds] of Object.entries(
-        reactions as Record<string, unknown>
-      )) {
-        if (!Array.isArray(userIds)) continue;
-
-        const cleanUserIds = Array.from(
-          new Set(
-            userIds
-              .map((userId) =>
-                typeof userId === "string" ? userId.trim() : ""
-              )
-              .filter(Boolean)
-          )
-        );
-
-        if (cleanUserIds.length > 0) {
-          messageReactions[emoji.trim()] = cleanUserIds;
-        }
-      }
-
-      if (Object.keys(messageReactions).length > 0) {
-        normalized[messageId] = messageReactions;
-      }
-    }
-
-    return normalized;
-  } catch (error) {
-    console.error("Failed to read message reactions", error);
-    return {};
-  }
+type UseMessageReactionsOptions = {
+  mode: "channel" | "dm";
+  currentUserId?: string | null;
+  messageIds?: Array<string | number>;
 };
 
-const persistStoredReactions = (
-  storageKey: string,
-  reactions: ReactionStorage
-) => {
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(reactions));
-  } catch (error) {
-    console.error("Failed to persist message reactions", error);
-  }
-};
-
-export const useMessageReactions = (
-  storageKey: string | null,
+const normalizeReactions = (
+  raw: Array<{ emoji: string; count?: number; user_ids?: string[]; reacted_by_me?: boolean }>,
   currentUserId?: string | null
-) => {
+): Record<string, string[]> => {
+  const result: Record<string, string[]> = {};
+
+  for (const reaction of raw) {
+    const emoji = reaction.emoji?.trim();
+    if (!emoji) continue;
+
+    const userIds = Array.isArray(reaction.user_ids)
+      ? reaction.user_ids.map(String).filter(Boolean)
+      : reaction.count && reaction.count > 0
+        ? Array.from({ length: reaction.count }, (_, i) => `user-${i}`)
+        : [];
+
+    if (reaction.reacted_by_me && currentUserId && !userIds.includes(currentUserId)) {
+      userIds.push(currentUserId);
+    }
+
+    if (userIds.length > 0) {
+      result[emoji] = Array.from(new Set(userIds));
+    }
+  }
+
+  return result;
+};
+
+export const useMessageReactions = ({
+  mode,
+  currentUserId,
+  messageIds = [],
+}: UseMessageReactionsOptions) => {
   const [reactionsByMessageId, setReactionsByMessageId] =
     useState<ReactionStorage>({});
+  const [loading, setLoading] = useState(false);
+  const fetchedIdsRef = useRef<Set<string>>(new Set());
+
+  const buildTarget = useCallback(
+    (messageId: string | number) => {
+      const id = String(messageId);
+      return mode === "dm"
+        ? { dm_message_id: id }
+        : { message_id: id };
+    },
+    [mode]
+  );
+
+  const fetchReactionsForMessage = useCallback(
+    async (messageId: string | number) => {
+      const key = String(messageId);
+      if (!key || key.startsWith("temp-")) return;
+
+      try {
+        const raw = await getMessageReactions(buildTarget(messageId));
+        setReactionsByMessageId((current) => {
+          const normalized = normalizeReactions(raw, currentUserId);
+          if (Object.keys(normalized).length === 0) {
+            const next = { ...current };
+            delete next[key];
+            return next;
+          }
+          return { ...current, [key]: normalized };
+        });
+        fetchedIdsRef.current.add(key);
+      } catch (error) {
+        console.error(`Failed to fetch reactions for message ${key}`, error);
+      }
+    },
+    [buildTarget, currentUserId]
+  );
 
   useEffect(() => {
-    if (!storageKey) {
-      setReactionsByMessageId({});
-      return;
-    }
-
-    setReactionsByMessageId(readStoredReactions(storageKey));
-  }, [storageKey]);
+    fetchedIdsRef.current.clear();
+    setReactionsByMessageId({});
+  }, [mode]);
 
   useEffect(() => {
-    if (!storageKey) return;
+    const ids = messageIds
+      .map(String)
+      .filter((id) => id && !id.startsWith("temp-"));
 
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key !== storageKey) return;
-      setReactionsByMessageId(readStoredReactions(storageKey));
+    const missing = ids.filter((id) => !fetchedIdsRef.current.has(id));
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+
+    const loadReactions = async () => {
+      setLoading(true);
+      await Promise.all(
+        missing.map(async (id) => {
+          if (cancelled) return;
+          await fetchReactionsForMessage(id);
+        })
+      );
+      if (!cancelled) setLoading(false);
     };
 
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, [storageKey]);
+    loadReactions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [messageIds, fetchReactionsForMessage]);
 
   const toggleReaction = useCallback(
-    (messageId: string | number, emoji: string, userId: string) => {
-      if (!storageKey) return;
-
+    async (messageId: string | number, emoji: string, userId: string) => {
+      const key = String(messageId);
       const normalizedEmoji = emoji.trim();
       const normalizedUserId = userId.trim();
-      if (!normalizedEmoji || !normalizedUserId) return;
+      if (!normalizedEmoji || !normalizedUserId || key.startsWith("temp-")) {
+        return;
+      }
+
+      const existingUsers = new Set(
+        reactionsByMessageId[key]?.[normalizedEmoji] ?? []
+      );
+      const isRemoving = existingUsers.has(normalizedUserId);
 
       setReactionsByMessageId((current) => {
-        const key = String(messageId);
         const next = { ...current };
         const messageReactions = { ...(next[key] ?? {}) };
-        const existingUsers = new Set(messageReactions[normalizedEmoji] ?? []);
+        const users = new Set(messageReactions[normalizedEmoji] ?? []);
 
-        if (existingUsers.has(normalizedUserId)) {
-          existingUsers.delete(normalizedUserId);
+        if (isRemoving) {
+          users.delete(normalizedUserId);
         } else {
-          existingUsers.add(normalizedUserId);
+          users.add(normalizedUserId);
         }
 
-        if (existingUsers.size === 0) {
+        if (users.size === 0) {
           delete messageReactions[normalizedEmoji];
         } else {
-          messageReactions[normalizedEmoji] = Array.from(existingUsers);
+          messageReactions[normalizedEmoji] = Array.from(users);
         }
 
         if (Object.keys(messageReactions).length === 0) {
@@ -132,11 +163,27 @@ export const useMessageReactions = (
           next[key] = messageReactions;
         }
 
-        persistStoredReactions(storageKey, next);
         return next;
       });
+
+      try {
+        const target = buildTarget(messageId);
+        if (isRemoving) {
+          await removeMessageReaction({ ...target, emoji: normalizedEmoji });
+        } else {
+          await addMessageReaction({ ...target, emoji: normalizedEmoji });
+        }
+        fetchedIdsRef.current.add(key);
+      } catch (error) {
+        console.error("Failed to toggle reaction", error);
+        await fetchReactionsForMessage(messageId);
+      }
     },
-    [storageKey]
+    [
+      reactionsByMessageId,
+      buildTarget,
+      fetchReactionsForMessage,
+    ]
   );
 
   const getReactionsForMessage = useCallback(
@@ -146,7 +193,8 @@ export const useMessageReactions = (
       return Object.entries(messageReactions).map(([emoji, userIds]) => ({
         emoji,
         count: userIds.length,
-        reactedByMe: !!currentUserId && userIds.includes(currentUserId.trim()),
+        reactedByMe:
+          !!currentUserId && userIds.includes(currentUserId.trim()),
       }));
     },
     [currentUserId, reactionsByMessageId]
@@ -156,5 +204,7 @@ export const useMessageReactions = (
     reactionsByMessageId,
     getReactionsForMessage,
     toggleReaction,
+    loading,
+    refreshReactions: fetchReactionsForMessage,
   };
 };

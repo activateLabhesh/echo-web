@@ -15,17 +15,26 @@ import MessageInput from "./MessageInput";
 import MessageInputWithMentions from "./MessageInputWithMentions";
 import MessageContentWithMentions from "./MessageContentWithMentions";
 import MessageAttachment from "./MessageAttachment";
-import { fetchMessages, uploadMessage } from "@/api/message.api";
+import {
+  fetchMessages,
+  searchDmMessages,
+  searchServerMessages,
+  uploadMessage,
+} from "@/api/message.api";
 import { getUserAvatar, getUser } from "@/api/profile.api";
 import { getChannelPermissions } from "@/api/channel.api";
 import { createAuthSocket } from "@/socket";
 import MessageBubble from "./MessageBubble";
 import Toast from "@/components/Toast";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { getServerMembers } from "@/api/server.api";
 import { getAllRoles } from "@/api/roles.api";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useMessageReactions } from "@/hooks/useMessageReactions";
+import { usePinnedMessages } from "@/hooks/usePinnedMessages";
+import MessageSearchPanel from "./MessageSearchPanel";
+import PinnedMessagesBar from "./PinnedMessagesBar";
+import { MessageSearchResult } from "@/api/types/message.types";
 
 import { apiClient as mentionsApiClient } from "@/utils/apiClient";
 import { apiClient as profileApiClient } from "@/api/axios";
@@ -74,6 +83,8 @@ interface ChatWindowProps {
   localStream?: MediaStream | null;
   remoteStreams?: { id: string; stream: MediaStream }[];
   serverId?: string;
+  threadId?: string;
+  channelName?: string;
 }
 
 interface ChannelPermissions {
@@ -91,6 +102,8 @@ export default forwardRef(function ChatWindow(
     localStream = null,
     remoteStreams = [],
     serverId,
+    threadId,
+    channelName,
   }: ChatWindowProps,
   ref
 ) {
@@ -164,16 +177,33 @@ export default forwardRef(function ChatWindow(
   const { notifications: mentionNotifications, markAsRead: markMentionAsRead } =
     useNotifications();
 
-  const reactionStorageKey = useMemo(() => {
-    if (!currentUserId || !channelId) return null;
-    const scope = serverId ? `server:${serverId}` : "global";
-    return `channel-reactions:${scope}:${channelId}:${currentUserId}`;
-  }, [channelId, currentUserId, serverId]);
+  const [showSearch, setShowSearch] = useState(false);
 
-  const { getReactionsForMessage, toggleReaction } = useMessageReactions(
-    reactionStorageKey,
-    currentUserId
+  const messageIds = useMemo(
+    () => messages.map((msg) => msg.id).filter(Boolean),
+    [messages]
   );
+
+  const reactionMode = threadId && !serverId ? "dm" : "channel";
+
+  const { getReactionsForMessage, toggleReaction } = useMessageReactions({
+    mode: reactionMode,
+    currentUserId,
+    messageIds,
+  });
+
+  const {
+    pins,
+    isPinned,
+    togglePin,
+    unpin,
+    canPinMore,
+  } = usePinnedMessages({
+    channelId: reactionMode === "channel" ? channelId : null,
+    threadId: reactionMode === "dm" ? threadId : null,
+    onError: (message) =>
+      setToast({ message, type: "error", key: Date.now() }),
+  });
 
   const unreadMentionsForChannel = useMemo(
     () =>
@@ -1562,6 +1592,58 @@ export default forwardRef(function ChatWindow(
     "text/csv",
   ];
 
+  const handleSearch = useCallback(
+    async (query: string) => {
+      if (reactionMode === "dm" && threadId) {
+        return searchDmMessages(threadId, query);
+      }
+      if (!serverId) return [];
+      return searchServerMessages(serverId, query);
+    },
+    [reactionMode, threadId, serverId]
+  );
+
+  const handleSearchSelect = useCallback(
+    async (result: MessageSearchResult) => {
+      if (
+        reactionMode === "channel" &&
+        result.channel_id &&
+        result.channel_id !== channelId
+      ) {
+        setToast({
+          message: `This message is in #${result.channel_name || "another channel"}. Switch to that channel to view it.`,
+          type: "info",
+          key: Date.now(),
+        });
+        return;
+      }
+
+      const success = await scrollToMention(result.id, 6);
+      if (!success) {
+        setToast({
+          message: "Could not find that message in the loaded history.",
+          type: "error",
+          key: Date.now(),
+        });
+      }
+    },
+    [reactionMode, channelId, scrollToMention]
+  );
+
+  const handleJumpToPinned = useCallback(
+    async (messageId: string) => {
+      const success = await scrollToMention(messageId, 6);
+      if (!success) {
+        setToast({
+          message: "Could not find the pinned message.",
+          type: "error",
+          key: Date.now(),
+        });
+      }
+    },
+    [scrollToMention]
+  );
+
   const handleSend = async (text: string, files: File[]) => {
     const normalizedText = text.trim();
     const fileList = files || [];
@@ -1613,21 +1695,95 @@ export default forwardRef(function ChatWindow(
     }
   };
   return (
-  <div className="flex flex-col flex-1 h-full w-full overflow-hidden">
-    {toast && (
-      <div className="fixed top-6 right-6 z-[9999]">
-        <Toast
-          key={toast.key}
-          message={toast.message}
-          type={toast.type}
-          duration={4000}
-          onClose={() => setToast(null)}
-        />
-      </div>
-    )}
+    <div className="flex flex-col flex-1 h-full w-full overflow-hidden">
+      {(serverId || threadId) && (
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-800/80 bg-[#1e1f22]/80 px-4 py-2">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-100">
+              {channelName ? `#${channelName}` : threadId ? "Direct Message" : "Channel"}
+            </p>
+            <p className="text-[10px] text-slate-500">
+              {canPinMore
+                ? `Up to 3 pins allowed (${pins.length}/3)`
+                : `${pins.length}/3 pins used`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSearch(true)}
+            className="flex items-center gap-2 rounded-lg border border-slate-700/80 px-3 py-1.5 text-xs text-slate-300 transition hover:border-indigo-500/50 hover:text-white"
+            aria-label="Search messages"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span>Search</span>
+          </button>
+        </div>
+      )}
 
-    {/* ✅ Always mounted, hidden via CSS when no streams */}
-   
+      <PinnedMessagesBar
+        pins={pins}
+        onJumpTo={handleJumpToPinned}
+        onUnpin={(messageId) => unpin(messageId, reactionMode === "dm")}
+        isDm={reactionMode === "dm"}
+      />
+
+      <MessageSearchPanel
+        isOpen={showSearch}
+        onClose={() => setShowSearch(false)}
+        onSearch={handleSearch}
+        onSelectResult={handleSearchSelect}
+        placeholder={
+          reactionMode === "dm"
+            ? "Search in this conversation..."
+            : "Search messages in this server..."
+        }
+        title={
+          reactionMode === "dm" ? "Search Conversation" : "Search Server Messages"
+        }
+        showChannelName={reactionMode === "channel"}
+      />
+
+      {toast && (
+        <div className="fixed top-6 right-6 z-[9999]">
+          <Toast
+            key={toast.key}
+            message={toast.message}
+            type={toast.type}
+            duration={4000}
+            onClose={() => setToast(null)}
+          />
+        </div>
+      )}
+      {(localStream || (remoteStreams && remoteStreams.length > 0)) && (
+        <div className="p-4 pb-0 h-96 flex-shrink-0">
+          <div className="relative w-full h-full">
+            <VideoPanel
+              localStream={localStream || undefined}
+              remotes={remoteStreams}
+            />
+            <div className="absolute bottom-3 right-3 flex gap-2 z-10">
+              <button
+                onClick={() => setMicOn((v) => !v)}
+                className={`px-3 py-1 rounded-md text-sm ${
+                  micOn ? "bg-green-600/80" : "bg-red-600/80"
+                }`}
+                title={micOn ? "Mute mic" : "Unmute mic"}
+              >
+                {micOn ? "Mic On" : "Mic Off"}
+              </button>
+              <button
+                onClick={() => setCamOn((v) => !v)}
+                className={`px-3 py-1 rounded-md text-sm ${
+                  camOn ? "bg-green-600/80" : "bg-red-600/80"
+                }`}
+                title={camOn ? "Turn camera off" : "Turn camera on"}
+              >
+                {camOn ? "Cam On" : "Cam Off"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
@@ -1693,13 +1849,20 @@ export default forwardRef(function ChatWindow(
                     <MessageBubble
                       name={msg.username}
                       message={{
+                        id: msg.id,
                         content: msg.content,
                         replyTo: msg.replyTo || null,
+                        status: msg.status,
                       }}
                       reactions={getReactionsForMessage(msg.id)}
-                      onReact={(emoji) =>
-                        toggleReaction(msg.id, emoji, currentUserId)
-                      }
+                      onReact={(emoji) => {
+                        void toggleReaction(msg.id, emoji, currentUserId);
+                      }}
+                      showPinAction={!!msg.id && !String(msg.id).startsWith("temp-")}
+                      isPinned={isPinned(msg.id)}
+                      onPin={() => {
+                        void togglePin(msg.id, reactionMode === "dm");
+                      }}
                       avatarUrl={msg.avatarUrl}
                       isSender={msg.senderId === currentUserId}
                       timestamp={new Date(msg.timestamp).toLocaleTimeString(

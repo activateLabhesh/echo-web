@@ -24,6 +24,7 @@ import {
   uploaddm,
   markThreadAsRead,
   invalidateUserDmCache,
+  searchDmMessages,
 } from "@/api/message.api";
 import { fetchUserProfile } from "@/api/profile.api";
 import { Socket } from "socket.io-client";
@@ -38,6 +39,10 @@ import dynamic from "next/dynamic";
 import { Theme } from "emoji-picker-react";
 import UserProfileModal from "./UserProfileModal";
 import { useMessageReactions } from "@/hooks/useMessageReactions";
+import { usePinnedMessages } from "@/hooks/usePinnedMessages";
+import MessageSearchPanel from "./MessageSearchPanel";
+import PinnedMessagesBar from "./PinnedMessagesBar";
+import { MessageSearchResult } from "@/api/types/message.types";
 
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 
@@ -253,6 +258,7 @@ interface ChatWindowProps {
   messages: DirectMessage[];
   currentUser: User | null;
   partnerId: string | null;
+  threadId: string | null;
   allUsers: User[];
   onSendMessage: (
     message: string,
@@ -273,28 +279,36 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   messages,
   currentUser,
   partnerId,
+  threadId,
   allUsers,
   onSendMessage,
   onFileError,
   onToast,
   onOpenProfile,
 }) => {
-  const reactionStorageKey = useMemo(() => {
-    if (!currentUser?.id || !partnerId) return null;
-    const sortedIds = [currentUser.id, partnerId].sort().join("_");
-    return `dm-reactions:${sortedIds}`;
-  }, [currentUser?.id, partnerId]);
-
-  const { getReactionsForMessage, toggleReaction } = useMessageReactions(
-    reactionStorageKey,
-    currentUser?.id ?? null
+  const messageIds = useMemo(
+    () => messages.map((msg) => msg.id).filter(Boolean),
+    [messages]
   );
+
+  const { getReactionsForMessage, toggleReaction } = useMessageReactions({
+    mode: "dm",
+    currentUserId: currentUser?.id ?? null,
+    messageIds,
+  });
+
+  const { pins, isPinned, togglePin, unpin, canPinMore } = usePinnedMessages({
+    threadId,
+    onError: (message) => onToast(message, "error"),
+  });
 
   const { showToast } = useToast();
   const [draft, setDraft] = useState("");
   const [replyingTo, setReplyingTo] = useState<DMReplyTarget>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   interface SelectedFile {
     file: File;
     valid: boolean;
@@ -302,9 +316,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   }
   const [files, setFiles] = useState<SelectedFile[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const messageRefs = useRef<Record<string | number, HTMLDivElement | null>>(
-    {}
-  );
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const draftInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -383,30 +395,41 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     dayFormatter,
     timeFormatter,
   ]);
-  const resizeDraftInput = () => {
-    const textarea = draftInputRef.current;
-    if (!textarea) return;
+  const scrollToMessage = useCallback(async (messageId: string) => {
+    const el =
+      messageRefs.current[messageId] ??
+      (document.querySelector(
+        `[data-message-id="${messageId}"]`
+      ) as HTMLElement | null);
 
-    textarea.style.height = "auto";
-    textarea.style.height = `${textarea.scrollHeight}px`;
-  };
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("mention-highlight");
+      setTimeout(() => el.classList.remove("mention-highlight"), 1500);
+      return true;
+    }
+    return false;
+  }, []);
 
-  useEffect(() => {
-    resizeDraftInput();
-  }, [draft]);
+  const handleSearch = useCallback(
+    async (query: string) => {
+      if (!threadId) return [];
+      return searchDmMessages(threadId, query);
+    },
+    [threadId]
+  );
 
-  useEffect(() => {
-    setReplyingTo(null);
-  }, [partnerId]);
+  const handleSearchSelect = useCallback(
+    async (result: MessageSearchResult) => {
+      const success = await scrollToMessage(result.id);
+      if (!success) {
+        onToast("Could not find that message in this conversation.", "error");
+      }
+    },
+    [scrollToMessage, onToast]
+  );
 
-  const canSend = draft.trim().length > 0 || files.some((f) => f.valid);
-  const scrollToMessage = (messageId: string | number) => {
-    const el = messageRefs.current[messageId];
-    if (!el) return;
-
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
-
+  const canSend = draft.length > 0 || files.some((f) => f.valid);
   const handleSend = (value: string) => {
     const validFiles = files.filter((f) => f.valid).map((f) => f.file);
     if (value.trim().length === 0 && validFiles.length === 0) return;
@@ -562,18 +585,42 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             </p>
           </div>
         </div>
-        {/* <div className="flex items-center gap-2 text-slate-400">
-                    <button className="rounded-full border border-slate-800/70 p-2 transition-colors hover:border-indigo-500/50 hover:text-slate-100" aria-label="Search in conversation">
-                        <Search className="h-4 w-4" />
-                    </button>
-                    <button className="rounded-full border border-slate-800/70 p-2 transition-colors hover:border-indigo-500/50 hover:text-slate-100" aria-label="Notifications">
-                        <Bell className="h-4 w-4" />
-                    </button>
-                    <button className="rounded-full border border-slate-800/70 p-2 transition-colors hover:border-indigo-500/50 hover:text-slate-100" aria-label="More options">
-                        <MoreVertical className="h-4 w-4" />
-                    </button>
-                </div> */}
+        <div className="flex items-center gap-2 text-slate-400">
+          <button
+            type="button"
+            onClick={() => setShowSearch(true)}
+            disabled={!threadId}
+            className="rounded-full border border-slate-800/70 p-2 transition-colors hover:border-indigo-500/50 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Search in conversation"
+            title="Search messages"
+          >
+            <Search className="h-4 w-4" />
+          </button>
+          <span className="text-[10px] text-slate-500">
+            {canPinMore ? `${pins.length}/3 pins` : "3/3 pins"}
+          </span>
+        </div>
       </header>
+
+      <PinnedMessagesBar
+        pins={pins}
+        onJumpTo={(messageId) => {
+          void scrollToMessage(messageId);
+        }}
+        onUnpin={(messageId) => {
+          void unpin(messageId, true);
+        }}
+        isDm
+      />
+
+      <MessageSearchPanel
+        isOpen={showSearch}
+        onClose={() => setShowSearch(false)}
+        onSearch={handleSearch}
+        onSelectResult={handleSearchSelect}
+        placeholder="Search in this conversation..."
+        title="Search Conversation"
+      />
 
       <div className="chat-scroll flex-1 space-y-8 overflow-y-auto px-6 py-8">
         {groupedMessages.length === 0 ? (
@@ -602,51 +649,46 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                         }}
                       >
                         <MessageBubble
-                          isSender={group.isSender}
-                          message={{
-                            ...msg,
-                            replyTo: msg.replyTo || null,
-                          }}
-                          reactions={getReactionsForMessage(msg.id)}
-                          onReact={(emoji) =>
-                            currentUser?.id &&
-                            toggleReaction(msg.id, emoji, currentUser.id)
+                        isSender={group.isSender}
+                        message={msg}
+                        reactions={getReactionsForMessage(msg.id)}
+                        onReact={(emoji) => {
+                          if (currentUser?.id) {
+                            void toggleReaction(msg.id, emoji, currentUser.id);
                           }
-                          onReply={() =>
-                            setReplyingTo({
-                              id: msg.id,
-                              content: msg.content,
-                              author: group.isSender ? "You" : group.name,
-                              mediaUrl: msg.media_url,
-                              mediaType: msg.media_type,
-                            })
-                          }
-                          onReplyPreviewClick={scrollToMessage}
-                          timestamp={msg.timeLabel}
-                          name={
-                            !group.isSender && index === 0
-                              ? group.name
-                              : undefined
-                          }
-                          avatarUrl={group.avatarUrl}
-                          onProfileClick={
-                            group.isSender
-                              ? undefined
-                              : () =>
-                                  onOpenProfile(
-                                    group.senderId,
-                                    group.name,
-                                    group.avatarUrl
-                                  )
-                          }
-                        >
-                          {msg.media_url && (
-                            <MessageAttachment
-                              media_url={msg.media_url}
-                              media_type={msg.media_type}
-                            />
-                          )}
-                        </MessageBubble>
+                        }}
+                        showPinAction={
+                          !!msg.id && !String(msg.id).startsWith("temp-")
+                        }
+                        isPinned={isPinned(msg.id)}
+                        onPin={() => {
+                          void togglePin(msg.id, true);
+                        }}
+                        timestamp={msg.timeLabel}
+                        name={
+                          !group.isSender && index === 0
+                            ? group.name
+                            : undefined
+                        }
+                        avatarUrl={group.avatarUrl}
+                        onProfileClick={
+                          group.isSender
+                            ? undefined
+                            : () =>
+                                onOpenProfile(
+                                  group.senderId,
+                                  group.name,
+                                  group.avatarUrl
+                                )
+                        }
+                      >
+                        {msg.media_url && (
+                          <MessageAttachment
+                            media_url={msg.media_url}
+                            media_type={msg.media_type}
+                          />
+                        )}
+                      </MessageBubble>
                       </div>
                     ))}
                   </div>
@@ -898,6 +940,9 @@ function MessagesPageContentInner() {
           sender_id: sender,
           receiver_id: receiver,
           timestamp: String(incoming.timestamp ?? new Date().toISOString()),
+          thread_id: incoming.thread_id
+            ? String(incoming.thread_id)
+            : undefined,
           media_url: rawMediaUrl?.startsWith("blob:") ? null : rawMediaUrl,
           media_type: incoming.media_type,
           replyTo:
@@ -1068,6 +1113,14 @@ function MessagesPageContentInner() {
           const messagesMap = new Map<string, DirectMessage[]>();
 
           threads.forEach((thread: any) => {
+            const threadId = thread.thread_id
+              ? String(thread.thread_id)
+              : thread._id
+                ? String(thread._id)
+                : thread.id
+                  ? String(thread.id)
+                  : undefined;
+
             // Two possible shapes supported:
             // A) { other_user: { id, username/fullname/name, avatar_url }, messages: [...] }
             // B) { recipientId, recipientName, lastMessage, updatedAt, messages?: [...] }
@@ -1096,7 +1149,9 @@ function MessagesPageContentInner() {
                       m.receiver_id ?? m.receiverId ?? other.id
                     ),
                     timestamp: String(m.timestamp ?? new Date().toISOString()),
-                    thread_id: m.thread_id,
+                    thread_id: m.thread_id
+                      ? String(m.thread_id)
+                      : threadId,
                     media_url: m.media_url ?? m.mediaUrl ?? null,
                     media_type: m.media_type,
                     replyTo: m.reply_to_message
@@ -1136,7 +1191,9 @@ function MessagesPageContentInner() {
                     sender_id: String(m.sender_id ?? m.senderId ?? ""),
                     receiver_id: String(m.receiver_id ?? m.receiverId ?? rid),
                     timestamp: String(m.timestamp ?? new Date().toISOString()),
-                    thread_id: m.thread_id,
+                    thread_id: m.thread_id
+                      ? String(m.thread_id)
+                      : threadId,
                     media_url: m.media_url ?? m.mediaUrl ?? null,
                     media_type: m.media_type,
                     replyTo: m.reply_to_message
@@ -1335,6 +1392,9 @@ function MessagesPageContentInner() {
               next[idx] = {
                 ...next[idx],
                 id: String(saved.id ?? upload.tempId),
+                thread_id: saved.thread_id
+                  ? String(saved.thread_id)
+                  : next[idx].thread_id,
                 media_url: saved.media_url ?? saved.mediaUrl ?? null,
                 media_type: saved.media_type ?? next[idx].media_type,
                 content: saved.content ?? saved.message ?? next[idx].content,
@@ -1520,6 +1580,8 @@ function MessagesPageContentInner() {
   }, [allUsers, activeDmId]);
 
   const activeMessages = activeDmId ? messages.get(activeDmId) || [] : [];
+  const activeThreadId = activeMessages[0]?.thread_id ?? null;
+
   return (
     <div className="flex h-screen min-h-0 w-full bg-slate-950 text-slate-100">
       {toast && (
@@ -1592,6 +1654,7 @@ function MessagesPageContentInner() {
             messages={activeMessages}
             currentUser={currentUser}
             partnerId={activeDmId}
+            threadId={activeThreadId}
             allUsers={allUsers}
             onSendMessage={handleSendMessage}
             onFileError={(msg) => setFileError(msg)}

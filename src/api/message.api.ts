@@ -1,7 +1,26 @@
 import { api, apiClient } from "./axios";
-import { Message } from "./types/message.types";
+import {
+  Message,
+  MessageReaction,
+  MessageSearchResult,
+  PinnedMessage,
+} from "./types/message.types";
 import { ApiResponse } from "./types/common.types";
 import { getUser } from "./profile.api";
+
+type ReactionTarget = { message_id?: string; dm_message_id?: string };
+type PinContext = { channel_id?: string; thread_id?: string };
+
+const normalizeArray = <T>(payload: unknown): T[] => {
+  if (Array.isArray(payload)) return payload as T[];
+  if (payload && typeof payload === "object") {
+    const obj = payload as Record<string, unknown>;
+    for (const key of ["data", "messages", "results", "pins", "reactions"]) {
+      if (Array.isArray(obj[key])) return obj[key] as T[];
+    }
+  }
+  return [];
+};
 
 const DM_CACHE_TTL_MS = 2 * 60 * 1000;
 
@@ -246,4 +265,106 @@ export const markThreadAsRead = async (threadId: string): Promise<void> => {
   } catch (error: any) {
     console.error("Error marking thread as read:", error.message || error);
   }
+};
+
+export const getMessageReactions = async (
+  target: ReactionTarget
+): Promise<MessageReaction[]> => {
+  const response = await apiClient.get("/api/message/reactions", {
+    params: target,
+  });
+  return normalizeArray<MessageReaction>(response.data);
+};
+
+export const addMessageReaction = async (
+  body: ReactionTarget & { emoji: string }
+): Promise<void> => {
+  await apiClient.post("/api/message/reactions", body);
+};
+
+export const removeMessageReaction = async (
+  body: ReactionTarget & { emoji: string }
+): Promise<void> => {
+  await apiClient.delete("/api/message/reactions", { data: body });
+};
+
+export const searchServerMessages = async (
+  serverId: string,
+  query: string
+): Promise<MessageSearchResult[]> => {
+  const response = await apiClient.get(
+    `/api/message/search/server/${serverId}`,
+    { params: { q: query } }
+  );
+  return normalizeArray<MessageSearchResult>(response.data).map((item) => ({
+    ...item,
+    id: String(item.id ?? (item as any).message_id ?? ""),
+  }));
+};
+
+export const searchDmMessages = async (
+  threadId: string,
+  query: string
+): Promise<MessageSearchResult[]> => {
+  const response = await apiClient.get(`/api/message/search/dm/${threadId}`, {
+    params: { q: query },
+  });
+  return normalizeArray<MessageSearchResult>(response.data).map((item) => ({
+    ...item,
+    id: String(item.id ?? (item as any).dm_message_id ?? ""),
+  }));
+};
+
+export const getPinnedMessages = async (
+  context: PinContext
+): Promise<PinnedMessage[]> => {
+  const response = await apiClient.get("/api/message/pins", {
+    params: context,
+  });
+  return normalizeArray<PinnedMessage>(response.data).map((pin) => ({
+    ...pin,
+    id: String(
+      pin.id ??
+        pin.message_id ??
+        pin.dm_message_id ??
+        (pin as any).pin_id ??
+        ""
+    ),
+    message_id: pin.message_id
+      ? String(pin.message_id)
+      : (pin as any).message?.id
+        ? String((pin as any).message.id)
+        : undefined,
+    dm_message_id: pin.dm_message_id
+      ? String(pin.dm_message_id)
+      : undefined,
+    content:
+      pin.content ??
+      (pin as any).message?.content ??
+      (pin as any).message?.message ??
+      "",
+    username:
+      pin.username ??
+      pin.sender_name ??
+      (pin as any).message?.username ??
+      (pin as any).message?.sender?.username,
+    timestamp:
+      pin.timestamp ??
+      (pin as any).message?.timestamp ??
+      pin.pinned_at,
+  }));
+};
+
+export const pinMessage = async (body: {
+  message_id?: string;
+  dm_message_id?: string;
+}): Promise<void> => {
+  await apiClient.post("/api/message/pins", body);
+};
+
+export const unpinMessage = async (body: {
+  message_id?: string;
+  dm_message_id?: string;
+}): Promise<void> => {
+  await apiClient.delete("/api/message/pins", { data: body });
 };

@@ -1349,6 +1349,7 @@ const ServersPageContent: React.FC = () => {
                       localStream={null}
                       remoteStreams={[]}
                       serverId={selectedServerId ?? undefined}
+                      channelName={activeChannel.name}
                     />
                   )}
                 </div>

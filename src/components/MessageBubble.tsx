@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import type { EmojiClickData } from "emoji-picker-react";
 import { Theme } from "emoji-picker-react";
-import { Paperclip, Smile } from "lucide-react";
+import { Paperclip, Smile, Pin } from "lucide-react";
 
 /* -------------------- TYPES -------------------- */
 
@@ -43,6 +43,9 @@ interface MessageBubbleProps {
   onReplyPreviewClick?: (messageId: string | number) => void;
   onRetry?: () => void;
   onReact?: (emoji: string) => void;
+  onPin?: () => void;
+  isPinned?: boolean;
+  showPinAction?: boolean;
   reactions?: MessageReactionSummary[];
   children?: React.ReactNode;
   messageRenderer?: (content: string) => React.ReactNode;
@@ -96,6 +99,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   onReplyPreviewClick,
   onRetry,
   onReact,
+  onPin,
+  isPinned = false,
+  showPinAction = false,
   reactions = [],
   children,
   messageRenderer,
@@ -378,6 +384,21 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           {children && <div className="mt-3">{children}</div>}
 
           <div className="flex items-center gap-2 mt-1">
+            {/* {showPinAction && onPin && !isFailed && (
+              <button
+                onClick={onPin}
+                className={`text-xs flex items-center gap-1 transition ${
+                  isPinned
+                    ? "text-indigo-300 hover:text-indigo-200"
+                    : "text-[#949ba4] hover:text-[#dbdee1]"
+                }`}
+                aria-label={isPinned ? "Unpin message" : "Pin message"}
+                title={isPinned ? "Unpin message" : "Pin message"}
+              >
+                <Pin className={`h-3 w-3 ${isPinned ? "fill-current" : ""}`} />
+                <span>{isPinned ? "Unpin" : "Pin"}</span>
+              </button>
+            )} */}
             {onReply && !isFailed && (
               <button
                 onClick={onReply}

@@ -21,6 +21,7 @@ import {
   searchServerMessages,
   uploadMessage,
 } from "@/api/message.api";
+import { MoreVertical } from "lucide-react";
 import { getUserAvatar, getUser } from "@/api/profile.api";
 import { getChannelPermissions } from "@/api/channel.api";
 import { createAuthSocket } from "@/socket";
@@ -1697,27 +1698,52 @@ export default forwardRef(function ChatWindow(
   return (
     <div className="flex flex-col flex-1 h-full w-full overflow-hidden">
       {(serverId || threadId) && (
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-800/80 bg-[#1e1f22]/80 px-4 py-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-slate-100">
-              {channelName ? `#${channelName}` : threadId ? "Direct Message" : "Channel"}
-            </p>
-            {/* <p className="text-[10px] text-slate-500">
-              {canPinMore
-                ? `Up to 3 pins allowed (${pins.length}/3)`
-                : `${pins.length}/3 pins used`}
-            </p> */}
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowSearch(true)}
-            className="flex items-center gap-2 rounded-lg border border-slate-700/80 px-3 py-1.5 text-xs text-slate-300 transition hover:border-indigo-500/50 hover:text-white"
-            aria-label="Search messages"
-          >
-            <Search className="h-3.5 w-3.5" />
-            <span>Search</span>
-          </button>
+        
+
+    <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-slate-800 bg-[#1e1f22] px-5">
+
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="relative">
+
+          <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#1e1f22] bg-green-500" />
         </div>
+
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold text-white">
+            {channelName
+              ? `#${channelName}`
+              : threadId
+              ? "Direct Message"
+              : "Channel"}
+          </h2>
+
+          <p className="truncate text-xs text-slate-400">
+            {threadId ? "Private conversation" : "Channel discussion"}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => setShowSearch(true)}
+          className="rounded-full p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+          aria-label="Search messages"
+          title="Search"
+        >
+          <Search className="h-5 w-5" />
+        </button>
+
+        <button
+          type="button"
+          className="rounded-full p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+          aria-label="More options"
+          title="More options"
+        >
+          <MoreVertical className="h-5 w-5" />
+        </button>
+      </div>
+    </div>
       )}
 {/* 
       <PinnedMessagesBar

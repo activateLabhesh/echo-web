@@ -1,4 +1,4 @@
-// components/VideoPanel.tsx
+
 import { useEffect, useRef } from "react";
 
 type Remote = { id: string; stream: MediaStream };
@@ -24,37 +24,36 @@ export default function VideoPanel({
     }
   }, [localStream]);
 
-  const totalParticipants = 1 + remotes.length;
+  const total = 1 + remotes.length;
 
-  const getGridCols = (count: number) => {
-    if (count === 1) return "grid-cols-1";
-    if (count === 2) return "grid-cols-2";
-    if (count <= 4) return "grid-cols-2";
-    if (count <= 6) return "grid-cols-3";
-    return "grid-cols-4";
+  const getLayout = (count: number) => {
+    if (count === 1) return { cols: 1, rows: 1 };
+    if (count === 2) return { cols: 2, rows: 1 };
+    if (count === 3) return { cols: 3, rows: 1 };
+    if (count === 4) return { cols: 2, rows: 2 };
+    if (count <= 6) return { cols: 3, rows: 2 };
+    if (count <= 9) return { cols: 3, rows: 3 };
+    return { cols: 4, rows: Math.ceil(count / 4) };
   };
 
-  const getGridRows = (count: number) => {
-    if (count <= 2) return "grid-rows-1";
-    if (count <= 4) return "grid-rows-2";
-    if (count <= 6) return "grid-rows-2";
-    return "grid-rows-3";
-  };
+  const { cols, rows } = getLayout(total);
 
   if (collapsed) {
     return <div className="w-full h-0 overflow-hidden" />;
   }
 
   return (
-    // ➡️ FIX 1: Changed w-screen h-screen to w-full h-full
-    <div className="w-full h-full bg-black">
+    <div className="w-full h-full bg-black overflow-hidden">
       <div
-        className={`grid ${getGridCols(totalParticipants)} ${getGridRows(
-          totalParticipants
-        )} gap-2 w-full h-full p-2`} // Added p-2 for minor spacing
+        className="w-full h-full p-2 gap-2"
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gridTemplateRows: `repeat(${rows}, 1fr)`,
+        }}
       >
         {/* Local video */}
-        <div className="relative  aspect-video  rounded-lg overflow-hidden border-2 border-blue-500">
+        <div className="relative w-full h-full min-h-0 rounded-lg overflow-hidden border-2 border-blue-500 bg-zinc-900">
           {localStream ? (
             <video
               ref={localRef}
@@ -64,10 +63,10 @@ export default function VideoPanel({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-black">
+            <div className="w-full h-full flex items-center justify-center">
               <div className="text-center text-white">
                 <div className="w-16 h-16 mx-auto mb-2 bg-blue-500 rounded-full flex items-center justify-center">
-                  <span className="text-2xl font-bold">You</span>
+                  <span className="text-lg font-bold">You</span>
                 </div>
                 <p className="text-sm">Camera off</p>
               </div>
@@ -103,27 +102,14 @@ function RemoteVideo({
   }, [stream]);
 
   return (
-    <div className="relative aspect-video bg-black rounded-lg overflow-hidden border-2 border-gray-600">
-      {stream ? (
-        <video
-          ref={ref}
-          autoPlay
-          playsInline
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center bg-black">
-          <div className="text-center text-white">
-            <div className="w-12 h-12 mx-auto mb-2 bg-gray-600 rounded-full flex items-center justify-center">
-              <span className="text-lg font-bold">
-                {userId.charAt(0).toUpperCase()}
-              </span>
-            </div>
-            <p className="text-xs">Camera off</p>
-          </div>
-        </div>
-      )}
-      <div className="absolute bottom-2 left-2 bg-black text-white text-xs px-2 py-1 rounded">
+    <div className="relative w-full h-full min-h-0 rounded-lg overflow-hidden border-2 border-gray-600 bg-zinc-900">
+      <video
+        ref={ref}
+        autoPlay
+        playsInline
+        className="w-full h-full object-cover"
+      />
+      <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
         {userId}
       </div>
     </div>

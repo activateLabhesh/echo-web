@@ -3,7 +3,7 @@ import {
   Message,
   MessageReaction,
   MessageSearchResult,
-  PinnedMessage,
+  // PinnedMessage,
 } from "./types/message.types";
 import { ApiResponse } from "./types/common.types";
 import { getUser } from "./profile.api";
@@ -315,56 +315,56 @@ export const searchDmMessages = async (
   }));
 };
 
-export const getPinnedMessages = async (
-  context: PinContext
-): Promise<PinnedMessage[]> => {
-  const response = await apiClient.get("/api/message/pins", {
-    params: context,
-  });
-  return normalizeArray<PinnedMessage>(response.data).map((pin) => ({
-    ...pin,
-    id: String(
-      pin.id ??
-        pin.message_id ??
-        pin.dm_message_id ??
-        (pin as any).pin_id ??
-        ""
-    ),
-    message_id: pin.message_id
-      ? String(pin.message_id)
-      : (pin as any).message?.id
-        ? String((pin as any).message.id)
-        : undefined,
-    dm_message_id: pin.dm_message_id
-      ? String(pin.dm_message_id)
-      : undefined,
-    content:
-      pin.content ??
-      (pin as any).message?.content ??
-      (pin as any).message?.message ??
-      "",
-    username:
-      pin.username ??
-      pin.sender_name ??
-      (pin as any).message?.username ??
-      (pin as any).message?.sender?.username,
-    timestamp:
-      pin.timestamp ??
-      (pin as any).message?.timestamp ??
-      pin.pinned_at,
-  }));
-};
+// export const getPinnedMessages = async (
+//   context: PinContext
+// ): Promise<PinnedMessage[]> => {
+//   const response = await apiClient.get("/api/message/pins", {
+//     params: context,
+//   });
+//   return normalizeArray<PinnedMessage>(response.data).map((pin) => ({
+//     ...pin,
+//     id: String(
+//       pin.id ??
+//         pin.message_id ??
+//         pin.dm_message_id ??
+//         (pin as any).pin_id ??
+//         ""
+//     ),
+//     message_id: pin.message_id
+//       ? String(pin.message_id)
+//       : (pin as any).message?.id
+//         ? String((pin as any).message.id)
+//         : undefined,
+//     dm_message_id: pin.dm_message_id
+//       ? String(pin.dm_message_id)
+//       : undefined,
+//     content:
+//       pin.content ??
+//       (pin as any).message?.content ??
+//       (pin as any).message?.message ??
+//       "",
+//     username:
+//       pin.username ??
+//       pin.sender_name ??
+//       (pin as any).message?.username ??
+//       (pin as any).message?.sender?.username,
+//     timestamp:
+//       pin.timestamp ??
+//       (pin as any).message?.timestamp ??
+//       pin.pinned_at,
+//   }));
+// };
 
-export const pinMessage = async (body: {
-  message_id?: string;
-  dm_message_id?: string;
-}): Promise<void> => {
-  await apiClient.post("/api/message/pins", body);
-};
+// export const pinMessage = async (body: {
+//   message_id?: string;
+//   dm_message_id?: string;
+// }): Promise<void> => {
+//   await apiClient.post("/api/message/pins", body);
+// };
 
-export const unpinMessage = async (body: {
-  message_id?: string;
-  dm_message_id?: string;
-}): Promise<void> => {
-  await apiClient.delete("/api/message/pins", { data: body });
-};
+// export const unpinMessage = async (body: {
+//   message_id?: string;
+//   dm_message_id?: string;
+// }): Promise<void> => {
+//   await apiClient.delete("/api/message/pins", { data: body });
+// };

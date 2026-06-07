@@ -39,9 +39,9 @@ import dynamic from "next/dynamic";
 import { Theme } from "emoji-picker-react";
 import UserProfileModal from "./UserProfileModal";
 import { useMessageReactions } from "@/hooks/useMessageReactions";
-import { usePinnedMessages } from "@/hooks/usePinnedMessages";
+// import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import MessageSearchPanel from "./MessageSearchPanel";
-import PinnedMessagesBar from "./PinnedMessagesBar";
+// import PinnedMessagesBar from "./PinnedMessagesBar";
 import { MessageSearchResult } from "@/api/types/message.types";
 
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
@@ -297,10 +297,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     messageIds,
   });
 
-  const { pins, isPinned, togglePin, unpin, canPinMore } = usePinnedMessages({
-    threadId,
-    onError: (message) => onToast(message, "error"),
-  });
+  // const { pins, isPinned, togglePin, unpin, canPinMore } = usePinnedMessages({
+  //   threadId,
+  //   onError: (message) => onToast(message, "error"),
+  // });
 
   const { showToast } = useToast();
   const [draft, setDraft] = useState("");
@@ -596,13 +596,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           >
             <Search className="h-4 w-4" />
           </button>
-          <span className="text-[10px] text-slate-500">
+          {/* <span className="text-[10px] text-slate-500">
             {canPinMore ? `${pins.length}/3 pins` : "3/3 pins"}
-          </span>
+          </span> */}
         </div>
       </header>
 
-      <PinnedMessagesBar
+      {/* <PinnedMessagesBar
         pins={pins}
         onJumpTo={(messageId) => {
           void scrollToMessage(messageId);
@@ -611,7 +611,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           void unpin(messageId, true);
         }}
         isDm
-      />
+      /> */}
 
       <MessageSearchPanel
         isOpen={showSearch}
@@ -660,10 +660,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                         showPinAction={
                           !!msg.id && !String(msg.id).startsWith("temp-")
                         }
-                        isPinned={isPinned(msg.id)}
-                        onPin={() => {
-                          void togglePin(msg.id, true);
-                        }}
+                        // isPinned={isPinned(msg.id)}
+                        // onPin={() => {
+                        //   void togglePin(msg.id, true);
+                        // }}
                         timestamp={msg.timeLabel}
                         name={
                           !group.isSender && index === 0

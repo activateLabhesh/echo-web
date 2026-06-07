@@ -31,9 +31,9 @@ import { getServerMembers } from "@/api/server.api";
 import { getAllRoles } from "@/api/roles.api";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useMessageReactions } from "@/hooks/useMessageReactions";
-import { usePinnedMessages } from "@/hooks/usePinnedMessages";
+// import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import MessageSearchPanel from "./MessageSearchPanel";
-import PinnedMessagesBar from "./PinnedMessagesBar";
+// import PinnedMessagesBar from "./PinnedMessagesBar";
 import { MessageSearchResult } from "@/api/types/message.types";
 
 import { apiClient as mentionsApiClient } from "@/utils/apiClient";
@@ -192,18 +192,18 @@ export default forwardRef(function ChatWindow(
     messageIds,
   });
 
-  const {
-    pins,
-    isPinned,
-    togglePin,
-    unpin,
-    canPinMore,
-  } = usePinnedMessages({
-    channelId: reactionMode === "channel" ? channelId : null,
-    threadId: reactionMode === "dm" ? threadId : null,
-    onError: (message) =>
-      setToast({ message, type: "error", key: Date.now() }),
-  });
+  // const {
+  //   pins,
+  //   isPinned,
+  //   togglePin,
+  //   unpin,
+  //   canPinMore,
+  // } = usePinnedMessages({
+  //   channelId: reactionMode === "channel" ? channelId : null,
+  //   threadId: reactionMode === "dm" ? threadId : null,
+  //   onError: (message) =>
+  //     setToast({ message, type: "error", key: Date.now() }),
+  // });
 
   const unreadMentionsForChannel = useMemo(
     () =>
@@ -1630,19 +1630,19 @@ export default forwardRef(function ChatWindow(
     [reactionMode, channelId, scrollToMention]
   );
 
-  const handleJumpToPinned = useCallback(
-    async (messageId: string) => {
-      const success = await scrollToMention(messageId, 6);
-      if (!success) {
-        setToast({
-          message: "Could not find the pinned message.",
-          type: "error",
-          key: Date.now(),
-        });
-      }
-    },
-    [scrollToMention]
-  );
+  // const handleJumpToPinned = useCallback(
+  //   async (messageId: string) => {
+  //     const success = await scrollToMention(messageId, 6);
+  //     if (!success) {
+  //       setToast({
+  //         message: "Could not find the pinned message.",
+  //         type: "error",
+  //         key: Date.now(),
+  //       });
+  //     }
+  //   },
+  //   [scrollToMention]
+  // );
 
   const handleSend = async (text: string, files: File[]) => {
     const normalizedText = text.trim();
@@ -1702,11 +1702,11 @@ export default forwardRef(function ChatWindow(
             <p className="truncate text-sm font-semibold text-slate-100">
               {channelName ? `#${channelName}` : threadId ? "Direct Message" : "Channel"}
             </p>
-            <p className="text-[10px] text-slate-500">
+            {/* <p className="text-[10px] text-slate-500">
               {canPinMore
                 ? `Up to 3 pins allowed (${pins.length}/3)`
                 : `${pins.length}/3 pins used`}
-            </p>
+            </p> */}
           </div>
           <button
             type="button"
@@ -1719,13 +1719,13 @@ export default forwardRef(function ChatWindow(
           </button>
         </div>
       )}
-
+{/* 
       <PinnedMessagesBar
         pins={pins}
         onJumpTo={handleJumpToPinned}
         onUnpin={(messageId) => unpin(messageId, reactionMode === "dm")}
         isDm={reactionMode === "dm"}
-      />
+      /> */}
 
       <MessageSearchPanel
         isOpen={showSearch}
@@ -1859,10 +1859,10 @@ export default forwardRef(function ChatWindow(
                         void toggleReaction(msg.id, emoji, currentUserId);
                       }}
                       showPinAction={!!msg.id && !String(msg.id).startsWith("temp-")}
-                      isPinned={isPinned(msg.id)}
-                      onPin={() => {
-                        void togglePin(msg.id, reactionMode === "dm");
-                      }}
+                      // isPinned={isPinned(msg.id)}
+                      // onPin={() => {
+                      //   void togglePin(msg.id, reactionMode === "dm");
+                      // }}
                       avatarUrl={msg.avatarUrl}
                       isSender={msg.senderId === currentUserId}
                       timestamp={new Date(msg.timestamp).toLocaleTimeString(

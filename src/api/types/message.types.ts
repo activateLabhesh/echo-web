@@ -38,17 +38,17 @@ export interface MessageSearchResult {
   media_url?: string;
 }
 
-export interface PinnedMessage {
-  id: string;
-  message_id?: string;
-  dm_message_id?: string;
-  content?: string;
-  username?: string;
-  sender_name?: string;
-  timestamp?: string;
-  pinned_at?: string;
-  channel_id?: string;
-  thread_id?: string;
-}
+// export interface PinnedMessage {
+//   id: string;
+//   message_id?: string;
+//   dm_message_id?: string;
+//   content?: string;
+//   username?: string;
+//   sender_name?: string;
+//   timestamp?: string;
+//   pinned_at?: string;
+//   channel_id?: string;
+//   thread_id?: string;
+// }
 
-export const MAX_PINNED_MESSAGES = 3;
+// export const MAX_PINNED_MESSAGES = 3;

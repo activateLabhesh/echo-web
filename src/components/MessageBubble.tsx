@@ -119,6 +119,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   const reactionPickerRef = useRef<HTMLDivElement>(null);
   const reactionButtonRef = useRef<HTMLButtonElement>(null);
   const quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏", "👏"];
+  const isGifMessage = message.content?.startsWith("[GIF]");
 
   const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
     if (!mediaUrl) return false;
@@ -363,18 +364,19 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Message Bubble */}
         <div
-          className={`
-            px-4 py-2.5 w-fit max-w-96
-            ${bubbleStyles}
-            rounded-lg
-            ${
-              isMentioned
-                ? "bg-[rgba(250,204,21,0.15)] ring-1 ring-[#facc15]"
-                : ""
-            }
-            ${isFailed ? "ring-1 ring-red-500 bg-red-900/20" : ""}
-          `}
-        >
+  className={`
+    w-fit max-w-96
+    ${isGifMessage ? "p-1" : "px-4 py-2.5"}
+    ${bubbleStyles}
+    rounded-lg
+    ${
+      isMentioned
+        ? "bg-[rgba(250,204,21,0.15)] ring-1 ring-[#facc15]"
+        : ""
+    }
+    ${isFailed ? "ring-1 ring-red-500 bg-red-900/20" : ""}
+  `}
+>
           <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-left">
             {messageRenderer
               ? messageRenderer(message.content)

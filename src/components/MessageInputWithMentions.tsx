@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Smile, Send, Paperclip, X } from "lucide-react";
+import { Smile, Send, Paperclip, X, ImageIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { EmojiClickData } from "emoji-picker-react";
 import { Theme } from "emoji-picker-react";
@@ -72,7 +72,9 @@ export default function MessageInputWithMentions({
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [gifSearch, setGifSearch] = useState("");
+  const [gifs, setGifs] = useState<any[]>([]);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionPosition, setMentionPosition] = useState(0);
@@ -111,27 +113,27 @@ export default function MessageInputWithMentions({
     resizeTextArea();
   }, [text]);
 
-  useEffect(() => {
-    const handleGlobalClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
+  // useEffect(() => {
+  //   const handleGlobalClick = (e: MouseEvent) => {
+  //     const target = e.target as HTMLElement;
 
-      if (
-        target.closest("button") ||
-        target.closest('input[type="file"]') ||
-        emojiPickerRef.current?.contains(target) ||
-        mentionDropdownRef.current?.contains(target)
-      ) {
-        return;
-      }
+  //     if (
+  //       target.closest("button") ||
+  //       target.closest('input[type="file"]') ||
+  //       emojiPickerRef.current?.contains(target) ||
+  //       mentionDropdownRef.current?.contains(target)
+  //     ) {
+  //       return;
+  //     }
 
-      requestAnimationFrame(() => {
-        textInputRef.current?.focus();
-      });
-    };
+  //     requestAnimationFrame(() => {
+  //       textInputRef.current?.focus();
+  //     });
+  //   };
 
-    document.addEventListener("click", handleGlobalClick);
-    return () => document.removeEventListener("click", handleGlobalClick);
-  }, []);
+  //   document.addEventListener("click", handleGlobalClick);
+  //   return () => document.removeEventListener("click", handleGlobalClick);
+  // }, []);
 
   useEffect(() => {
     if (!showEmojiPicker) return;
@@ -365,6 +367,32 @@ export default function MessageInputWithMentions({
       handleSend();
     }
   };
+  const searchGifs = async (query: string) => {
+  try {
+    const res = await fetch(
+      `https://api.giphy.com/v1/gifs/search?api_key=${process.env.NEXT_PUBLIC_GIPHY_API_KEY}&q=${encodeURIComponent(
+        query
+      )}&limit=20&rating=g`
+    );
+
+    const data = await res.json();
+    setGifs(data.data || []);
+  } catch (error) {
+    console.error("Failed to fetch GIFs:", error);
+    setGifs([]);
+  }
+};
+  const sendGif = (url: string) => {
+  sendMessage(`[GIF]${url}`, []);
+};
+const loadTrendingGifs = async () => {
+  const res = await fetch(
+    `https://api.giphy.com/v1/gifs/trending?api_key=${process.env.NEXT_PUBLIC_GIPHY_API_KEY}&limit=20`
+  );
+
+  const data = await res.json();
+  setGifs(data.data || []);
+};
 
   return (
     <div className="relative pt-6">
@@ -374,7 +402,33 @@ export default function MessageInputWithMentions({
           <EmojiPicker theme={Theme.DARK} onEmojiClick={handleEmojiClick} />
         </div>
       )}
+      {showGifPicker && (
+        <div className="absolute bottom-24 left-4 w-96 h-96 bg-zinc-900 rounded-xl overflow-hidden z-50">
+          <input
+            value={gifSearch}
+            onChange={(e) => {
+              setGifSearch(e.target.value);
+              searchGifs(e.target.value);
+            }}
+            placeholder="Search GIFs..."
+            className="w-full p-3 bg-zinc-800 text-white"
+          />
 
+          <div className="grid grid-cols-2 gap-2 p-2 overflow-y-auto h-[330px]">
+            {gifs.map((gif) => (
+            <img
+              key={gif.id}
+              src={gif.images.fixed_width.url}
+              className="cursor-pointer rounded"
+              onClick={() => {
+                sendGif(gif.images.original.url);
+                setShowGifPicker(false);
+              }}
+            />
+          ))}
+          </div>
+        </div>
+      )}
       {/* Mention Dropdown */}
       {showMentionDropdown && (
         <div
@@ -533,6 +587,19 @@ export default function MessageInputWithMentions({
         <button onClick={() => setShowEmojiPicker((v) => !v)}>
           <Smile size={20} />
         </button>
+         <button
+        onClick={() => {
+        setShowGifPicker((v) => !v);
+
+        if (!showGifPicker) {
+          loadTrendingGifs();
+        }
+      }}
+        disabled={isSending}
+        className="p-2 rounded-full hover:bg-white/10 active:scale-95 transition"
+      >
+        <ImageIcon className="w-5 h-5" />
+      </button>
 
         <button
           onClick={handleSend}

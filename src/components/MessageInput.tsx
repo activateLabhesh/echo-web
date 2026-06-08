@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Smile, Send, Paperclip, X } from "lucide-react";
+import { Smile, Send, Paperclip, X, ImageIcon } from "lucide-react";
 import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
 import { useToast } from "@/contexts/ToastContext";
 
@@ -21,7 +21,9 @@ export default function MessageInput({
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [gifSearch, setGifSearch] = useState("");
+  const [gifs, setGifs] = useState<any[]>([]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -149,13 +151,38 @@ export default function MessageInput({
     e.target.style.height = "auto";
     e.target.style.height = `${e.target.scrollHeight}px`;
   };
+const searchGifs = async (query: string) => {
+  try {
+    const res = await fetch(
+      `https://api.giphy.com/v1/gifs/search?api_key=${process.env.NEXT_PUBLIC_GIPHY_API_KEY}&q=${encodeURIComponent(
+        query
+      )}&limit=20&rating=g`
+    );
 
+    const data = await res.json();
+    setGifs(data.data || []);
+  } catch (error) {
+    console.error("Failed to fetch GIFs:", error);
+    setGifs([]);
+  }
+};
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
+  const sendGif = (url: string) => {
+  sendMessage(`[GIF]${url}`, []);
+};
+const loadTrendingGifs = async () => {
+  const res = await fetch(
+    `https://api.giphy.com/v1/gifs/trending?api_key=${process.env.NEXT_PUBLIC_GIPHY_API_KEY}&limit=20`
+  );
+
+  const data = await res.json();
+  setGifs(data.data || []);
+};
 
   /* -------------------- RENDER -------------------- */
   return (
@@ -166,7 +193,33 @@ export default function MessageInput({
           <EmojiPicker theme={Theme.DARK} onEmojiClick={handleEmojiClick} />
         </div>
       )}
+      {showGifPicker && (
+        <div className="absolute bottom-24 left-4 w-96 h-96 bg-zinc-900 rounded-xl overflow-hidden z-50">
+          <input
+            value={gifSearch}
+            onChange={(e) => {
+              setGifSearch(e.target.value);
+              searchGifs(e.target.value);
+            }}
+            placeholder="Search GIFs..."
+            className="w-full p-3 bg-zinc-800 text-white"
+          />
 
+          <div className="grid grid-cols-2 gap-2 p-2 overflow-y-auto h-[330px]">
+            {gifs.map((gif) => (
+            <img
+              key={gif.id}
+              src={gif.images.fixed_width.url}
+              className="cursor-pointer rounded"
+              onClick={() => {
+                sendGif(gif.images.original.url);
+                setShowGifPicker(false);
+              }}
+            />
+          ))}
+          </div>
+        </div>
+      )}
       {/* File Preview */}
       {files.length > 0 && (
         <div className="mb-2 space-y-2">
@@ -225,6 +278,19 @@ export default function MessageInput({
         >
           <Smile className="w-5 h-5" />
         </button>
+        <button
+        onClick={() => {
+        setShowGifPicker((v) => !v);
+
+        if (!showGifPicker) {
+          loadTrendingGifs();
+        }
+      }}
+        disabled={isSending}
+        className="p-2 rounded-full hover:bg-white/10 active:scale-95 transition"
+      >
+        <ImageIcon className="w-5 h-5" />
+      </button>
 
         {/* TEXTAREA */}
         <textarea

@@ -1,11 +1,12 @@
 // src/components/VoiceChannel.tsx
-// Voice channel component using Amazon Chime SDK
-
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { VoiceVideoManager } from "@/lib/VoiceVideoManager";
-
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import {
+  VoiceVideoManager,
+  VoiceRosterMember,
+  VideoTileInfo,
+} from "@/lib/VoiceVideoManager";
 import {
   FaMicrophone,
   FaMicrophoneSlash,
@@ -17,18 +18,34 @@ import {
 } from "react-icons/fa";
 import { createAuthSocket } from "../socket";
 
+
+
 interface VoiceChannelProps {
   channelId: string;
   userId: string;
-  serverId?: string; // Added for minimize feature
-  channelName?: string; // Added for minimize feature
+  serverId?: string;
+  channelName?: string;
   onHangUp: () => void;
-  onMinimize?: () => void; // Added callback for minimize
+  onMinimize?: () => void;
   headless?: boolean;
   onLocalStreamChange?: (stream: MediaStream | null) => void;
   onRemoteStreamAdded?: (id: string, stream: MediaStream) => void;
   onRemoteStreamRemoved?: (id: string) => void;
   onVoiceRoster?: (members: any[]) => void;
+  externalManager?: VoiceVideoManager | null;
+  useExternalManager?: boolean;
+  currentUser?: { username: string };
+  debug?: boolean;
+  externalState?: {
+    participants: VoiceRosterMember[];
+    isConnected: boolean;
+    isConnecting: boolean;
+    localMediaState: any;
+    localVideoTileId: number | null;
+    videoTiles: Map<number, VideoTileInfo>;
+    permissionError: string | null;
+    connectionError: string | null;
+  };
 }
 
 interface VoiceMember {
@@ -46,8 +63,9 @@ interface VoiceState {
   video: boolean;
 }
 
+
+
 const VideoPlayer = ({
-  stream,
   isMuted = false,
   isLocal = false,
   username = "Unknown",
@@ -55,7 +73,6 @@ const VideoPlayer = ({
   manager,
   tileId,
 }: {
-  stream?: MediaStream | null;
   isMuted?: boolean;
   isLocal?: boolean;
   username?: string;
@@ -64,55 +81,35 @@ const VideoPlayer = ({
   tileId?: number | null;
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [hasVideo, setHasVideo] = useState(false);
 
+  // Bind/unbind Chime tile to video element
   useEffect(() => {
-    // Bind video element to Chime tile if available
-    if (
-      videoRef.current &&
-      manager &&
-      tileId !== undefined &&
-      tileId !== null
-    ) {
-      manager.bindVideoElement(tileId, videoRef.current);
-      setHasVideo(true);
+    if (!videoRef.current || !manager || tileId == null) return;
 
-      return () => {
-        if (manager && tileId !== undefined && tileId !== null) {
-          manager.unbindVideoElement(tileId);
-        }
-      };
-    }
+    manager.bindVideoElement(tileId, videoRef.current);
+
+    return () => {
+      manager.unbindVideoElement(tileId);
+    };
   }, [manager, tileId]);
 
-  // Fallback to direct stream assignment if no tile
-  useEffect(() => {
-    if (videoRef.current && stream && !tileId) {
-      videoRef.current.srcObject = stream;
-      const videoTracks = stream.getVideoTracks();
-      const hasVideoTracks =
-        videoTracks.length > 0 && videoTracks.some((track) => track.enabled);
-      setHasVideo(hasVideoTracks);
-    }
-  }, [stream, tileId]);
+  const showVideo = tileId != null && voiceState?.video;
 
-useEffect(() => {
-  if (tileId !== undefined && tileId !== null) return; 
-  if (voiceState) {
-    setHasVideo(voiceState.video);
-  }
-}, [voiceState, tileId]);
   return (
-    <div className="bg-gray-800 rounded-lg overflow-hidden relative aspect-video">
-      {hasVideo || tileId ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={isMuted || isLocal}
-          className={`w-full h-full object-cover ${isLocal ? "transform -scale-x-100" : ""}`}
-        />
-      ) : (
+    <div className="bg-gray-800 rounded-lg overflow-hidden relative w-full h-full min-h-0">
+      {/* Always render video element when we have a tile — never unmount it */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={isMuted || isLocal}
+        className={`w-full h-full object-cover ${
+          showVideo ? "block" : "hidden"
+        } ${isLocal ? "transform -scale-x-100" : ""}`}
+      />
+
+      {/* Avatar fallback when no video */}
+      {!showVideo && (
         <div className="w-full h-full bg-gray-700 flex items-center justify-center">
           <div className="text-center">
             <div className="w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center mb-2 mx-auto">
@@ -125,7 +122,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Voice state indicators */}
+      {/* Voice indicators */}
       <div className="absolute bottom-2 left-2 flex space-x-1">
         {voiceState?.muted && (
           <div className="bg-red-600 rounded-full p-1">
@@ -144,13 +141,15 @@ useEffect(() => {
         )}
       </div>
 
-      {/* Username overlay */}
+      {/* Username */}
       <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 rounded px-2 py-1">
         <span className="text-xs text-white">{username}</span>
       </div>
     </div>
   );
 };
+
+
 
 const VoiceChannel = ({
   channelId,
@@ -164,375 +163,462 @@ const VoiceChannel = ({
   onRemoteStreamAdded,
   onRemoteStreamRemoved,
   onVoiceRoster,
+  externalManager,
+  useExternalManager = false,
+  currentUser: currentUserProp,
+  externalState,
 }: VoiceChannelProps) => {
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(
-    new Map()
-  );
   const [isMuted, setIsMuted] = useState(false);
-  const [isCameraOn, setIsCameraOn] = useState(false); // Camera off by default
+  const [isCameraOn, setIsCameraOn] = useState(false);
   const [voiceMembers, setVoiceMembers] = useState<VoiceMember[]>([]);
-  const [isFetchingRoster, setIsFetchingRoster] = useState(false);
-  const socketRef = useRef<any>(null);
-  // Fetch channel members (roster) on mount and when channelId changes
-  useEffect(() => {
-    setIsFetchingRoster(true);
-    if (!userId || !channelId) return;
-    if (!socketRef.current) {
-      socketRef.current = createAuthSocket(userId);
-    }
-    const socket = socketRef.current;
-    const fetchRoster = () => {
-      socket.emit("get_voice_channel_roster", channelId, (data: any) => {
-        if (data && Array.isArray(data.members)) {
-          // Map to VoiceMember shape if needed
-          setVoiceMembers(
-            data.members.map((m: any) => ({
-              odattendeeId:
-                m.socketId || m.odattendeeId || m.attendeeId || m.id,
-              oduserId: m.userId || m.oduserId || m.username || m.id,
-              username:
-                m.username ||
-                m.userId ||
-                m.oduserId ||
-                `User ${(m.userId || m.socketId || "").slice(0, 8)}`,
-              muted: m.muted || false,
-              speaking: m.speaking || false,
-              video: m.video || false,
-            }))
-          );
-        }
-        setIsFetchingRoster(false);
-      });
-    };
-    fetchRoster();
-    // Optionally, listen for real-time updates
-    socket.on("voice_channel_roster", (data: any) => {
-      if (data && data.channelId === channelId && Array.isArray(data.members)) {
-        setVoiceMembers(
-          data.members.map((m: any) => ({
-            odattendeeId: m.socketId || m.odattendeeId || m.attendeeId || m.id,
-            oduserId: m.userId || m.oduserId || m.username || m.id,
-            username:
-              m.username ||
-              m.userId ||
-              m.oduserId ||
-              `User ${(m.userId || m.socketId || "").slice(0, 8)}`,
-            muted: m.muted || false,
-            speaking: m.speaking || false,
-            video: m.video || false,
-          }))
-        );
-      }
-    });
-    return () => {
-      if (socket) {
-        socket.off("voice_channel_roster");
-      }
-    };
-  }, [userId, channelId]);
   const [voiceStates, setVoiceStates] = useState<Map<string, VoiceState>>(
     new Map()
   );
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [videoTiles, setVideoTiles] = useState<Map<number, VideoTileInfo>>(
+    new Map()
+  );
+  const [localVideoTileId, setLocalVideoTileId] = useState<number | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(currentUserProp || null);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [hasPermissions, setHasPermissions] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isVoiceChannelConnected, setIsVoiceChannelConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isFetchingRoster, setIsFetchingRoster] = useState(false);
 
   const managerRef = useRef<VoiceVideoManager | null>(null);
   const isManagerInitialized = useRef(false);
+  const socketRef = useRef<any>(null);
+  const isMountedRef = useRef(true);
+  const onLocalStreamChangeRef = useRef(onLocalStreamChange);
+  const onRemoteStreamAddedRef = useRef(onRemoteStreamAdded);
+  const onRemoteStreamRemovedRef = useRef(onRemoteStreamRemoved);
+  const onVoiceRosterRef = useRef(onVoiceRoster);
 
-  // Handle minimize - keeps call active in background
-  const handleMinimize = () => {
-    onMinimize?.();
-  };
-
-  // Initialize manager
+  
   useEffect(() => {
-    let isMounted = true;
+    onLocalStreamChangeRef.current = onLocalStreamChange;
+  });
+  useEffect(() => {
+    onRemoteStreamAddedRef.current = onRemoteStreamAdded;
+  });
+  useEffect(() => {
+    onRemoteStreamRemovedRef.current = onRemoteStreamRemoved;
+  });
+  useEffect(() => {
+    onVoiceRosterRef.current = onVoiceRoster;
+  });
 
-    if (!managerRef.current) {
-      const manager = new VoiceVideoManager(userId);
-      managerRef.current = manager;
+
+  useEffect(() => {
+    if (!externalState || !useExternalManager) return;
+
+    setIsConnected(externalState.isConnected);
+    setIsVoiceChannelConnected(externalState.isConnected);
+    setConnectionError(externalState.connectionError);
+    setPermissionError(externalState.permissionError);
+    setVideoTiles(externalState.videoTiles);
+    setLocalVideoTileId(externalState.localVideoTileId);
+
+    if (externalState.localMediaState) {
+      setIsMuted(externalState.localMediaState.muted);
+      setIsCameraOn(externalState.localMediaState.video);
+    }
+
+    if (externalState.participants?.length > 0) {
+      setHasPermissions(true);
+      setIsVoiceChannelConnected(true);
+
+      const members: VoiceMember[] = externalState.participants.map((p) => ({
+        odattendeeId: p.attendeeId,
+        oduserId: p.oduserId || p.attendeeId,
+        username: p.name || p.oduserId || `User ${p.attendeeId.slice(0, 8)}`,
+        muted: p.muted ?? false,
+        speaking: p.speaking ?? false,
+        video: p.video ?? false,
+      }));
+      setVoiceMembers(members);
+
+      const states = new Map<string, VoiceState>();
+      externalState.participants.forEach((p) => {
+        states.set(p.attendeeId, {
+          muted: p.muted ?? false,
+          speaking: p.speaking ?? false,
+          video: p.video ?? false,
+        });
+      });
+      setVoiceStates(states);
+    }
+  }, [externalState, useExternalManager]);
+
+  // ── Reset state on channel change ───────────────────────────────────────
+  useEffect(() => {
+    setVoiceMembers([]);
+    setVoiceStates(new Map());
+    setVideoTiles(new Map());
+    setLocalVideoTileId(null);
+    setIsVoiceChannelConnected(false);
+    if (!useExternalManager) {
+      isManagerInitialized.current = false;
+    }
+  }, [channelId, useExternalManager]);
+
+  // ── Socket: roster sync ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!userId || !channelId) return;
+
+    if (!socketRef.current) {
+      socketRef.current = createAuthSocket(userId);
+    }
+    const socket = socketRef.current;
+
+    const mapMember = (m: any): VoiceMember => ({
+      odattendeeId: m.socketId || m.odattendeeId || m.attendeeId || m.id,
+      oduserId: m.userId || m.oduserId || m.username || m.id,
+      username:
+        m.username ||
+        m.userId ||
+        m.oduserId ||
+        `User ${(m.userId || m.socketId || "").slice(0, 8)}`,
+      muted: m.muted || false,
+      speaking: m.speaking || false,
+      video: m.video || false,
+    });
+
+    setIsFetchingRoster(true);
+    socket.emit("get_voice_channel_roster", channelId, (data: any) => {
+      if (!isMountedRef.current) return;
+      if (data && Array.isArray(data.members)) {
+        setVoiceMembers(data.members.map(mapMember));
+      }
+      setIsFetchingRoster(false);
+    });
+
+    const handleRoster = (data: any) => {
+      if (!isMountedRef.current) return;
+      if (data?.channelId === channelId && Array.isArray(data.members)) {
+        setVoiceMembers(data.members.map(mapMember));
+      }
+    };
+
+    socket.on("voice_channel_roster", handleRoster);
+
+    return () => {
+      socket.off("voice_channel_roster", handleRoster);
+      // Don't disconnect socket on channel change — only on full unmount
+    };
+  }, [userId, channelId]);
+
+  // Disconnect socket only on full unmount
+  useEffect(() => {
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, []);
+
+  // ── Manager init + event listeners ──────────────────────────────────────
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    // Use external manager or create own
+    if (useExternalManager && externalManager) {
+      managerRef.current = externalManager;
+      isManagerInitialized.current = true;
+      setHasPermissions(true);
+      setIsConnected(true);
+    } else if (!managerRef.current) {
+      managerRef.current = new VoiceVideoManager(userId);
     }
 
     const manager = managerRef.current;
     if (!manager) return;
 
-    // Initialize the manager and set up all event listeners once
-    const setupManagerAndListeners = async () => {
-      if (!isManagerInitialized.current) {
-        try {
-          setIsInitializing(true);
-          setPermissionError(null);
+    const setupListeners = () => {
+      manager.onVoiceRoster((members) => {
+        if (!isMountedRef.current) return;
 
-          await manager.initialize(true, true);
+        const mapped: VoiceMember[] = members.map((m) => ({
+          odattendeeId: m.attendeeId,
+          oduserId: m.oduserId || m.attendeeId,
+          username:
+            (m as any).odName ||
+            (m as any).name ||
+            m.oduserId ||
+            `User ${m.attendeeId.slice(0, 8)}`,
+          muted: m.muted ?? false,
+          speaking: m.speaking ?? false,
+          video: m.video ?? false,
+        }));
 
-          if (isMounted) {
-            const stream = manager.getLocalStream();
-            setLocalStream(stream);
-            setHasPermissions(manager.hasAnyPermissions());
-            setIsInitializing(false);
-            setIsConnected(true);
-          }
-          isManagerInitialized.current = true;
-        } catch (error: any) {
-          console.error("Failed to initialize media manager:", error);
-          if (isMounted) {
-            setIsInitializing(false);
-
-            if (
-              error.name === "NotAllowedError" ||
-              error.message?.includes("permission")
-            ) {
-              setPermissionError(
-                "Camera and microphone access denied. Please allow permissions and try again."
-              );
-            } else if (error.name === "NotFoundError") {
-              setPermissionError(
-                "No camera or microphone found. Please connect a device and try again."
-              );
-            } else if (error.name === "NotReadableError") {
-              setPermissionError(
-                "Camera or microphone is already in use by another application."
-              );
-            } else {
-              setPermissionError(
-                `Media access error: ${error.message || "Unknown error"}`
-              );
-            }
-          }
-          return;
-        }
-      }
-
-      // Set up event listeners
-      manager.onStream((stream: MediaStream, peerId: string) => {
-        if (isMounted) {
-          setRemoteStreams((prev) => new Map(prev).set(peerId, stream));
-          onRemoteStreamAdded?.(peerId, stream);
-        }
-      });
-
-      manager.onUserLeft((peerId: string) => {
-        if (isMounted) {
-          setRemoteStreams((prev) => {
-            const newStreams = new Map(prev);
-            newStreams.delete(peerId);
-            return newStreams;
-          });
-          setVoiceStates((prev) => {
-            const newStates = new Map(prev);
-            newStates.delete(peerId);
-            return newStates;
-          });
-          onRemoteStreamRemoved?.(peerId);
-        }
-      });
-
-      manager.onVoiceRoster((members: any[]) => {
-        if (isMounted) {
-          const voiceMembers: VoiceMember[] = members.map((member) => ({
-            odattendeeId: member.odattendeeId || member.attendeeId || member.id,
-            oduserId: member.oduserId || member.userId || member.user_id,
-            username:
-              member.odName ||
-              member.username ||
-              member.name ||
-              `User ${(member.oduserId || member.userId || "").slice(0, 8)}`,
-            muted: member.muted || false,
-            speaking: member.speaking || false,
-            video: member.video || false,
-          }));
-          setVoiceMembers(voiceMembers);
-          onVoiceRoster?.(members);
-
-          // Voice channel is connected when we receive roster
-          setIsVoiceChannelConnected(true);
-        }
-      });
-
-      manager.onUserJoined((odattendeeId: string, oduserId: string) => {
-        if (isMounted) {
-          setVoiceStates((prev) =>
-            new Map(prev).set(odattendeeId, {
-              muted: false,
-              speaking: false,
-              video: false,
-            })
-          );
-        }
-      });
-
-      // onMediaState now has 2 params: (attendeeId, state)
-      manager.onMediaState((attendeeId: string, state: any) => {
-        if (isMounted) {
-          setVoiceStates((prev) =>
-            new Map(prev).set(attendeeId, {
-              muted: state.muted || false,
-              speaking: state.speaking || false,
-              video: state.video || false,
-            })
-          );
-
-          // Update voice members with new state
-          setVoiceMembers((prev) =>
-            prev.map((member) =>
-              member.odattendeeId === attendeeId
-                ? { ...member, ...state }
-                : member
-            )
-          );
-        }
-      });
-
-      manager.onError((error: any) => {
-        console.error("Voice channel error:", error);
-        if (isMounted) {
-          setConnectionError(error.message || "An error occurred");
-        }
-      });
-    };
-
-    setupManagerAndListeners();
-
-    // Get current user info
-    if (typeof window !== "undefined") {
-      const userData = localStorage.getItem("user");
-      if (userData) {
-        setCurrentUser(JSON.parse(userData));
-      }
-    }
-
-    return () => {
-      isMounted = false;
-      if (managerRef.current) {
-        managerRef.current.disconnect();
-      }
-    };
-  }, [userId]);
-
-  // Handle channel changes - join the voice channel
-  useEffect(() => {
-    const manager = managerRef.current;
-
-    if (!manager || !isManagerInitialized.current) {
-      return;
-    }
-
-    if (!hasPermissions) {
-      return;
-    }
-
-    const joinChannel = async () => {
-      try {
-        setIsVoiceChannelConnected(false);
-        await manager.joinVoiceChannel(channelId);
-
-        setLocalStream(manager.getLocalStream());
-        onLocalStreamChange?.(manager.getLocalStream());
+        setVoiceMembers(mapped);
         setIsVoiceChannelConnected(true);
-      } catch (error: any) {
-        console.error("Failed to join voice channel:", error);
-        setPermissionError(
-          "Failed to connect to voice channel. Please check your connection and try again."
+        onVoiceRosterRef.current?.(members);
+      });
+
+      manager.onUserJoined((attendeeId) => {
+        if (!isMountedRef.current) return;
+        setVoiceStates((prev) =>
+          new Map(prev).set(attendeeId, {
+            muted: false,
+            speaking: false,
+            video: false,
+          })
         );
+      });
+
+      manager.onUserLeft((attendeeId) => {
+        if (!isMountedRef.current) return;
+        setVoiceStates((prev) => {
+          const next = new Map(prev);
+          next.delete(attendeeId);
+          return next;
+        });
+        setVoiceMembers((prev) =>
+          prev.filter((m) => m.odattendeeId !== attendeeId)
+        );
+        onRemoteStreamRemovedRef.current?.(attendeeId);
+      });
+
+      manager.onMediaState((attendeeId, state) => {
+        if (!isMountedRef.current) return;
+        setVoiceStates((prev) =>
+          new Map(prev).set(attendeeId, {
+            muted: state.muted ?? false,
+            speaking: state.speaking ?? false,
+            video: state.video ?? false,
+          })
+        );
+        setVoiceMembers((prev) =>
+          prev.map((m) =>
+            m.odattendeeId === attendeeId ? { ...m, ...state } : m
+          )
+        );
+      });
+
+      manager.onVideoTileUpdated((tile) => {
+        if (!isMountedRef.current) return;
+        setVideoTiles((prev) => new Map(prev).set(tile.tileId, tile));
+        if (tile.isLocal && !tile.isContent) {
+          setLocalVideoTileId(tile.tileId);
+        }
+      });
+
+      manager.onVideoTileRemoved((tileId) => {
+        if (!isMountedRef.current) return;
+        setVideoTiles((prev) => {
+          const next = new Map(prev);
+          next.delete(tileId);
+          return next;
+        });
+        setLocalVideoTileId((prev) => (prev === tileId ? null : prev));
+      });
+
+      manager.onConnectionStateChange((connected) => {
+        if (!isMountedRef.current) return;
+        setIsConnected(connected);
+        if (!connected) setIsVoiceChannelConnected(false);
+      });
+
+      manager.onError((error) => {
+        if (!isMountedRef.current) return;
+        setConnectionError(error.message);
+      });
+    };
+
+    const init = async () => {
+      if (useExternalManager) {
+        setupListeners();
+        return;
       }
-    };
 
-    joinChannel();
-
-    return () => {
-      manager.leaveVoiceChannel();
-      setIsVoiceChannelConnected(false);
-    };
-  }, [channelId, onLocalStreamChange, hasPermissions]);
-
-  const handleToggleMute = () => {
-    const newMutedState = !isMuted;
-    managerRef.current?.toggleAudio(!newMutedState);
-    setIsMuted(newMutedState);
-  };
-
-  const handleToggleCamera = async () => {
-    const newCameraState = !isCameraOn;
-    await managerRef.current?.toggleVideo(newCameraState);
-    setIsCameraOn(newCameraState);
-  };
-
-  const retryMediaAccess = async () => {
-    if (managerRef.current) {
-      const manager = managerRef.current;
-      isManagerInitialized.current = false;
+      if (isManagerInitialized.current) {
+        setupListeners();
+        return;
+      }
 
       try {
         setIsInitializing(true);
         setPermissionError(null);
 
-        await manager.initialize(true, true);
-        setLocalStream(manager.getLocalStream());
+        try {
+          await manager.initialize(true, true);
+        } catch {
+          try {
+            await manager.initializeAudioOnly();
+            setPermissionError("Video permission denied. Audio-only mode.");
+          } catch {
+            await manager.initializeVideoOnly();
+            setPermissionError("Audio permission denied. Video-only mode.");
+          }
+        }
+
+        if (!isMountedRef.current) return;
         setHasPermissions(manager.hasAnyPermissions());
         setIsInitializing(false);
+        setIsConnected(true);
         isManagerInitialized.current = true;
+
+        setupListeners();
       } catch (error: any) {
+        if (!isMountedRef.current) return;
         setIsInitializing(false);
 
         if (
           error.name === "NotAllowedError" ||
           error.message?.includes("permission")
         ) {
-          setPermissionError(
-            "Camera and microphone access denied. Please allow permissions and try again."
-          );
+          setPermissionError("Camera and microphone access denied.");
         } else if (error.name === "NotFoundError") {
-          setPermissionError(
-            "No camera or microphone found. Please connect a device and try again."
-          );
+          setPermissionError("No camera or microphone found.");
         } else if (error.name === "NotReadableError") {
-          setPermissionError(
-            "Camera or microphone is already in use by another application."
-          );
+          setPermissionError("Camera or microphone is in use by another app.");
         } else {
-          setPermissionError(
-            `Media access error: ${error.message || "Unknown error"}`
-          );
+          setPermissionError(`Media error: ${error.message}`);
         }
       }
+    };
+
+    init();
+
+    // Load current user from localStorage
+    if (typeof window !== "undefined" && !currentUserProp) {
+      try {
+        const stored = localStorage.getItem("user");
+        if (stored) setCurrentUser(JSON.parse(stored));
+      } catch {}
     }
+
+    return () => {
+      isMountedRef.current = false;
+      // Only disconnect if we own the manager
+      if (!useExternalManager && managerRef.current) {
+        managerRef.current.disconnect();
+        managerRef.current = null;
+        isManagerInitialized.current = false;
+      }
+    };
+  }, [userId, useExternalManager, externalManager]);
+
+  // ── Join voice channel ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (useExternalManager) return; // context handles joining
+
+    const manager = managerRef.current;
+    if (!manager || !isManagerInitialized.current || !hasPermissions) return;
+
+    let cancelled = false;
+
+    const join = async () => {
+      try {
+        setIsVoiceChannelConnected(false);
+        await manager.joinVoiceChannel(channelId);
+        if (cancelled) return;
+        onLocalStreamChangeRef.current?.(null);
+        setIsVoiceChannelConnected(true);
+      } catch (error: any) {
+        if (cancelled) return;
+        setPermissionError("Failed to connect to voice channel.");
+      }
+    };
+
+    join();
+
+    return () => {
+      cancelled = true;
+      manager.leaveVoiceChannel();
+      setIsVoiceChannelConnected(false);
+    };
+  }, [channelId, hasPermissions, useExternalManager]);
+
+  // ── Controls ─────────────────────────────────────────────────────────────
+  const handleToggleMute = useCallback(() => {
+    const manager = managerRef.current;
+    if (!manager) return;
+    const newMuted = !isMuted;
+    manager.toggleAudio(!newMuted);
+    setIsMuted(newMuted);
+  }, [isMuted]);
+
+  const handleToggleCamera = useCallback(async () => {
+    const manager = managerRef.current;
+    if (!manager) return;
+    const newCameraOn = !isCameraOn;
+    await manager.toggleVideo(newCameraOn);
+    setIsCameraOn(newCameraOn);
+  }, [isCameraOn]);
+
+  const retryMediaAccess = useCallback(async () => {
+    const manager = managerRef.current;
+    if (!manager) return;
+
+    isManagerInitialized.current = false;
+    setIsInitializing(true);
+    setPermissionError(null);
+
+    try {
+      await manager.initialize(true, true);
+      setHasPermissions(manager.hasAnyPermissions());
+      setIsInitializing(false);
+      isManagerInitialized.current = true;
+    } catch (error: any) {
+      setIsInitializing(false);
+      setPermissionError(`Media error: ${error.message}`);
+    }
+  }, []);
+
+ 
+ const getTileIdForAttendee = useCallback(
+   (attendeeId: string): number | null => {
+     const entries = Array.from(videoTiles.entries());
+     const found = entries.find(
+       ([_, tile]) =>
+         tile.attendeeId === attendeeId && !tile.isLocal && !tile.isContent
+     );
+     return found ? found[0] : null;
+   },
+   [videoTiles]
+ );
+  const currentUserVoiceState = useMemo<VoiceState>(
+    () => ({ muted: isMuted, speaking: false, video: isCameraOn }),
+    [isMuted, isCameraOn]
+  );
+
+  const currentUsername = useMemo(
+    () =>
+      currentUserProp?.username ||
+      currentUser?.username ||
+      currentUser?.fullname ||
+      "You",
+    [currentUserProp, currentUser]
+  );
+
+  // Filter out self from members list
+  const remoteMembers = useMemo(
+    () => voiceMembers.filter((m) => m.oduserId !== userId),
+    [voiceMembers, userId]
+  );
+
+
+  const total = 1 + remoteMembers.length;
+  const getLayout = (count: number) => {
+    if (count === 1) return { cols: 1, rows: 1 };
+    if (count === 2) return { cols: 2, rows: 1 };
+    if (count === 3) return { cols: 3, rows: 1 };
+    if (count === 4) return { cols: 2, rows: 2 };
+    if (count <= 6) return { cols: 3, rows: 2 };
+    if (count <= 9) return { cols: 3, rows: 3 };
+    return { cols: 4, rows: Math.ceil(count / 4) };
   };
+  const { cols, rows } = getLayout(total);
 
-  const openPermissionSettings = () => {
-    const instructions = `
-To enable camera and microphone:
+  // ── Early returns ─────────────────────────────────────────────────────────
+  if (headless) return null;
 
-1. Look for the camera/microphone icon in your browser's address bar
-2. Click on it and select "Allow"
-3. Refresh the page and try again
-
-Or go to:
-- Chrome: Settings -> Privacy and Security -> Site Settings -> Camera/Microphone
-- Firefox: Settings -> Privacy & Security -> Permissions
-- Safari: Preferences -> Websites -> Camera/Microphone
-
-Find this site (${window.location.origin}) and set permissions to "Allow"`;
-
-    alert(instructions);
-  };
-
-  if (headless) {
-    return null;
-  }
-
-  // Show permission error state
   if (permissionError && !hasPermissions) {
     return (
       <div className="p-6 bg-gray-900 rounded-lg flex flex-col items-center justify-center h-full text-center">
-        <div className="mb-4 text-red-400">
-          <FaVideoSlash size={48} />
-        </div>
+        <FaVideoSlash size={48} className="text-red-400 mb-4" />
         <h3 className="text-lg font-semibold text-white mb-2">
           Media Access Required
         </h3>
@@ -541,19 +627,13 @@ Find this site (${window.location.origin}) and set permissions to "Allow"`;
           <button
             onClick={retryMediaAccess}
             disabled={isInitializing}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 text-white rounded-lg transition-colors"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 text-white rounded-lg"
           >
             {isInitializing ? "Requesting..." : "Try Again"}
           </button>
           <button
-            onClick={openPermissionSettings}
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors"
-          >
-            Help
-          </button>
-          <button
             onClick={onHangUp}
-            className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
+            className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg"
           >
             Leave
           </button>
@@ -561,7 +641,6 @@ Find this site (${window.location.origin}) and set permissions to "Allow"`;
       </div>
     );
   }
-
 
   if (isInitializing) {
     return (
@@ -575,116 +654,165 @@ Find this site (${window.location.origin}) and set permissions to "Allow"`;
     );
   }
 
-  const getCurrentUserVoiceState = (): VoiceState => ({
-    muted: isMuted,
-    speaking: false,
-    video: isCameraOn,
-  });
+  // ── Render ────────────────────────────────────────────────────────────────
+  return (
+    <div className="p-2 bg-gray-900 rounded-lg flex flex-col h-full">
+      {/* Status bars */}
+      {connectionError && (
+        <div className="mb-2 p-2 bg-red-600 rounded text-center text-white text-sm">
+          {connectionError}
+        </div>
+      )}
+      {!isConnected && !connectionError && hasPermissions && (
+        <div className="mb-2 p-2 bg-yellow-600 rounded text-center text-white text-sm">
+          Reconnecting...
+        </div>
+      )}
+      {isConnected && !isVoiceChannelConnected && !connectionError && (
+        <div className="mb-2 p-2 bg-yellow-600 rounded text-center text-white text-sm">
+          Joining voice channel...
+        </div>
+      )}
 
-  const getCurrentUsername = () => {
-    return currentUser?.username || currentUser?.fullname || "You";
-  };
+      {/* Video grid */}
+      <div
+        className="flex-1 min-h-0 p-1 gap-2"
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gridTemplateRows: `repeat(${rows}, 1fr)`,
+        }}
+      >
+        {/* Local tile */}
+        <VideoPlayer
+          isLocal
+          isMuted
+          username={currentUsername}
+          voiceState={currentUserVoiceState}
+          manager={managerRef.current}
+          tileId={localVideoTileId}
+        />
 
-return (
-  <div className="p-2 bg-gray-900 rounded-lg flex flex-col h-full">
-    {connectionError && (
-      <div className="mb-2 p-2 bg-red-600 rounded text-center text-white text-sm">
-        {connectionError}
-      </div>
-    )}
-    {(!isConnected || !isVoiceChannelConnected) && !connectionError && hasPermissions && (
-      <div className="mb-2 p-2 bg-yellow-600 rounded text-center text-white text-sm">
-        {!isConnected ? "Reconnecting to server..." : "Connecting to voice channel..."}
-      </div>
-    )}
-
-    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto">
-
-      <VideoPlayer
-        stream={localStream}
-        isMuted={true}
-        isLocal={true}
-        username={getCurrentUsername()}
-        voiceState={getCurrentUserVoiceState()}
-        manager={managerRef.current}
-        tileId={managerRef.current?.getLocalVideoTileId()}
-      />
-
-
-      {voiceMembers
-        .filter((member) => member.oduserId !== userId) 
-        .map((member) => {
-          const stream = remoteStreams.get(member.odattendeeId);
-          const voiceState = voiceStates.get(member.odattendeeId);
+        {/* Remote tiles — one per member, no duplicates */}
+        {remoteMembers.map((member) => {
+          const tileId = getTileIdForAttendee(member.odattendeeId);
+          const voiceState = voiceStates.get(member.odattendeeId) ?? {
+            muted: member.muted,
+            speaking: member.speaking,
+            video: member.video,
+          };
           return (
             <VideoPlayer
               key={member.odattendeeId}
-              stream={stream}
-              username={member.username || `User ${member.odattendeeId.slice(0, 8)}`}
-              voiceState={
-                voiceState || {
-                  muted: member.muted,
-                  speaking: member.speaking,
-                  video: member.video,
-                }
+              username={
+                member.username || `User ${member.odattendeeId.slice(0, 8)}`
               }
+              voiceState={voiceState}
               manager={managerRef.current}
+              tileId={tileId}
             />
           );
         })}
-    </div>
+      </div>
 
-    {/* Control Bar */}
-    <div className="flex items-center justify-center space-x-4 mt-4 p-3 bg-gray-800 rounded-md">
-      <button
-        onClick={handleToggleMute}
-        className={`p-3 rounded-full transition ${isMuted ? "bg-red-600 hover:bg-red-500" : "bg-gray-700 hover:bg-gray-600"}`}
-      >
-        {isMuted ? <FaMicrophoneSlash size={20} className="text-white" /> : <FaMicrophone size={20} className="text-white" />}
-      </button>
-
-      <button
-        onClick={handleToggleCamera}
-        className={`p-3 rounded-full transition ${!isCameraOn ? "bg-red-600 hover:bg-red-500" : "bg-gray-700 hover:bg-gray-600"}`}
-      >
-        {isCameraOn ? <FaVideo size={20} className="text-white" /> : <FaVideoSlash size={20} className="text-white" />}
-      </button>
-
-      <button
-        onClick={onHangUp}
-        className="p-3 rounded-full bg-red-600 hover:bg-red-500 transition"
-      >
-        <FaPhoneSlash size={20} className="text-white" />
-      </button>
-
-      {serverId && channelName && (
+      {/* Controls */}
+      <div className="flex items-center justify-center space-x-4 mt-2 p-3 bg-gray-800 rounded-md flex-shrink-0">
         <button
-          onClick={handleMinimize}
-          className="p-3 rounded-full bg-blue-600 hover:bg-blue-500 transition"
+          onClick={handleToggleMute}
+          className={`p-3 rounded-full transition ${
+            isMuted
+              ? "bg-red-600 hover:bg-red-500"
+              : "bg-gray-700 hover:bg-gray-600"
+          }`}
+          title={isMuted ? "Unmute" : "Mute"}
         >
-          <FaMinus size={20} className="text-white" />
+          {isMuted ? (
+            <FaMicrophoneSlash size={20} className="text-white" />
+          ) : (
+            <FaMicrophone size={20} className="text-white" />
+          )}
         </button>
-      )}
-    </div>
 
-    <div className="mt-2 p-2 bg-gray-800 rounded-md">
-      <h4 className="text-sm font-medium text-gray-300 mb-2">
-        Voice Members ({voiceMembers.length})
-      </h4>
-      <div className="flex flex-wrap gap-1">
-        {voiceMembers.map((member) => {
-          const voiceState = voiceStates.get(member.odattendeeId);
-          return (
-            <div key={member.odattendeeId} className="flex items-center space-x-1 bg-gray-700 rounded px-2 py-1">
-              <span className="text-xs text-white">{member.username}</span>
-              {(voiceState?.muted ?? member.muted) && <FaMicrophoneSlash size={10} className="text-red-400" />}
-              {(voiceState?.speaking ?? member.speaking) && !(voiceState?.muted ?? member.muted) && <FaMicrophone size={10} className="text-green-400" />}
-              {!(voiceState?.video ?? member.video) && <FaVideoSlash size={10} className="text-gray-400" />}
-            </div>
-          );
-        })}
+        <button
+          onClick={handleToggleCamera}
+          className={`p-3 rounded-full transition ${
+            !isCameraOn
+              ? "bg-red-600 hover:bg-red-500"
+              : "bg-gray-700 hover:bg-gray-600"
+          }`}
+          title={isCameraOn ? "Turn off camera" : "Turn on camera"}
+        >
+          {isCameraOn ? (
+            <FaVideo size={20} className="text-white" />
+          ) : (
+            <FaVideoSlash size={20} className="text-white" />
+          )}
+        </button>
+
+        <button
+          onClick={onHangUp}
+          className="p-3 rounded-full bg-red-600 hover:bg-red-500 transition"
+          title="Leave"
+        >
+          <FaPhoneSlash size={20} className="text-white" />
+        </button>
+
+        {serverId && channelName && onMinimize && (
+          <button
+            onClick={onMinimize}
+            className="p-3 rounded-full bg-blue-600 hover:bg-blue-500 transition"
+            title="Go back to chat"
+          >
+            <FaMinus size={20} className="text-white" />
+          </button>
+        )}
+
+        {!hasPermissions && (
+          <button
+            onClick={retryMediaAccess}
+            className="p-3 rounded-full bg-yellow-600 hover:bg-yellow-500 transition"
+            title="Retry media access"
+          >
+            <FaRedo size={20} className="text-white" />
+          </button>
+        )}
+      </div>
+
+      {/* Members list */}
+      <div className="mt-2 p-2 bg-gray-800 rounded-md flex-shrink-0">
+        <h4 className="text-sm font-medium text-gray-300 mb-2">
+          Voice Members ({voiceMembers.length})
+        </h4>
+        {isFetchingRoster ? (
+          <div className="text-xs text-gray-400">Loading members...</div>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {voiceMembers.map((member) => {
+              const vs = voiceStates.get(member.odattendeeId);
+              return (
+                <div
+                  key={member.odattendeeId}
+                  className="flex items-center space-x-1 bg-gray-700 rounded px-2 py-1"
+                >
+                  <span className="text-xs text-white">{member.username}</span>
+                  {(vs?.muted ?? member.muted) && (
+                    <FaMicrophoneSlash size={10} className="text-red-400" />
+                  )}
+                  {(vs?.speaking ?? member.speaking) &&
+                    !(vs?.muted ?? member.muted) && (
+                      <FaMicrophone size={10} className="text-green-400" />
+                    )}
+                  {!(vs?.video ?? member.video) && (
+                    <FaVideoSlash size={10} className="text-gray-400" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
-  </div>
-);
-}
+  );
+};
+
+export default VoiceChannel;

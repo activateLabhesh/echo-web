@@ -77,6 +77,8 @@ export default function MessageInputWithMentions({
   const [gifs, setGifs] = useState<any[]>([]);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
+  const gifPickerRef = useRef<HTMLDivElement>(null);
+
   const [mentionPosition, setMentionPosition] = useState(0);
   const [mentionableUsers, setMentionableUsers] = useState<MentionableUser[]>(
     []
@@ -157,6 +159,30 @@ const getWordCount = (text: string) =>
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showEmojiPicker]);
+  useEffect(() => {
+    if (!showGifPicker) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        gifPickerRef.current &&
+        !gifPickerRef.current.contains(e.target as Node)
+      ) {
+        setShowGifPicker(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowGifPicker(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showGifPicker]);
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     setText((prev) => prev + emojiData.emoji);
@@ -442,7 +468,10 @@ const loadTrendingGifs = async () => {
         </div>
       )}
       {showGifPicker && (
-        <div className="absolute bottom-24 left-4 w-96 h-96 bg-zinc-900 rounded-xl overflow-hidden z-50">
+        <div
+          ref={gifPickerRef}
+          className="absolute bottom-24 left-4 w-96 h-96 bg-zinc-900 rounded-xl overflow-hidden z-50"
+        >
           <input
             value={gifSearch}
             onChange={(e) => {
@@ -455,16 +484,16 @@ const loadTrendingGifs = async () => {
 
           <div className="grid grid-cols-2 gap-2 p-2 overflow-y-auto h-[330px]">
             {gifs.map((gif) => (
-            <img
-              key={gif.id}
-              src={gif.images.fixed_width.url}
-              className="cursor-pointer rounded"
-              onClick={() => {
-                sendGif(gif.images.original.url);
-                setShowGifPicker(false);
-              }}
-            />
-          ))}
+              <img
+                key={gif.id}
+                src={gif.images.fixed_width.url}
+                className="cursor-pointer rounded"
+                onClick={() => {
+                  sendGif(gif.images.original.url);
+                  setShowGifPicker(false);
+                }}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -626,19 +655,19 @@ const loadTrendingGifs = async () => {
         <button onClick={() => setShowEmojiPicker((v) => !v)}>
           <Smile size={20} />
         </button>
-         <button
-        onClick={() => {
-        setShowGifPicker((v) => !v);
+        <button
+          onClick={() => {
+            setShowGifPicker((v) => !v);
 
-        if (!showGifPicker) {
-          loadTrendingGifs();
-        }
-      }}
-        disabled={isSending}
-        className="p-2 rounded-full hover:bg-white/10 active:scale-95 transition"
-      >
-        <ImageIcon className="w-5 h-5" />
-      </button>
+            if (!showGifPicker) {
+              loadTrendingGifs();
+            }
+          }}
+          disabled={isSending}
+          className="p-2 rounded-full hover:bg-white/10 active:scale-95 transition"
+        >
+          <ImageIcon className="w-5 h-5" />
+        </button>
 
         <button
           onClick={handleSend}

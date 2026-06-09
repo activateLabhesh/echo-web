@@ -503,7 +503,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 ))}
               </div>
             )}
-            {onReact && (
+            {/* {onReact && (
               <div ref={reactionPickerRef} className="relative">
                 <button
                   ref={reactionButtonRef}
@@ -516,7 +516,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   <Smile className="h-3 w-3 mt-0.5" />
                 </button>
               </div>
-            )}
+            )} */}
             {isFailed && onRetry && (
               <button
                 onClick={onRetry}

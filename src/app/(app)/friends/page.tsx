@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { usePageReady } from "@/components/RouteChangeLoader";
 import {
   FaUserFriends,
@@ -8,6 +8,7 @@ import {
   FaSearch,
   FaCommentAlt,
   FaUserMinus,
+  FaCircle,
 } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import {
@@ -17,12 +18,15 @@ import {
   removeFriend,
   respondToFriendRequest,
   searchUsers,
+  getUser,
 } from "@/api";
 import { fetchUserProfile } from "@/api/profile.api";
 import Loader from "@/components/Loader";
 import UserProfileModal from "@/components/UserProfileModal";
 import { useFriendNotifications } from "@/contexts/FriendNotificationContext";
 import { SearchUserResult } from "@/api/types/user.types";
+import { createAuthSocket } from "@/socket";
+import { Socket } from "socket.io-client";
 
 type RelationshipStatus = SearchUserResult["relationshipStatus"];
 
@@ -67,6 +71,23 @@ export default function FriendsPage() {
     roles?: string[];
   } | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
+  const presenceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Sort friends: online first, then alphabetical
+  const sortedFriends = useMemo(() => {
+    return [...friends].sort((a, b) => {
+      const aOnline = a.status === "online" ? 0 : 1;
+      const bOnline = b.status === "online" ? 0 : 1;
+      if (aOnline !== bOnline) return aOnline - bOnline;
+      return (a.username || "").localeCompare(b.username || "");
+    });
+  }, [friends]);
+
+  const onlineCount = useMemo(
+    () => friends.filter((f) => f.status === "online").length,
+    [friends]
+  );
 
   useEffect(() => {
     Promise.all([loadFriends(), loadRequests()]).finally(() => {
@@ -84,6 +105,69 @@ export default function FriendsPage() {
     } catch {
       setCurrentUserId(undefined);
     }
+  }, []);
+
+  // Socket-based presence tracking + periodic polling fallback
+  useEffect(() => {
+    let mounted = true;
+
+    const setupPresence = async () => {
+      try {
+        const user = await getUser();
+        if (!mounted || !user?.id) return;
+
+        // Create a dedicated socket for presence on the friends page
+        const socket = createAuthSocket(user.id);
+        socketRef.current = socket;
+
+        // Listen for real-time friend status changes if the backend emits them
+        socket.on("friend:status_change", (data: { userId: string; status: string }) => {
+          if (!mounted) return;
+          setFriends((prev) =>
+            prev.map((f) =>
+              f.id === data.userId ? { ...f, status: data.status } : f
+            )
+          );
+        });
+
+        // Also listen for generic user status updates
+        socket.on("user:status_update", (data: { userId: string; status: string }) => {
+          if (!mounted) return;
+          setFriends((prev) =>
+            prev.map((f) =>
+              f.id === data.userId ? { ...f, status: data.status } : f
+            )
+          );
+        });
+
+        // Periodic polling fallback: re-fetch friends every 30s to get fresh status
+        presenceIntervalRef.current = setInterval(async () => {
+          if (!mounted) return;
+          try {
+            const data = await fetchAllFriends();
+            if (mounted) setFriends(data as any);
+          } catch {
+            // Silently ignore polling errors
+          }
+        }, 30000);
+      } catch (err) {
+        console.error("Failed to set up presence tracking:", err);
+      }
+    };
+
+    setupPresence();
+
+    return () => {
+      mounted = false;
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      if (presenceIntervalRef.current) {
+        clearInterval(presenceIntervalRef.current);
+        presenceIntervalRef.current = null;
+      }
+    };
   }, []);
 
   const openUserProfile = useCallback(
@@ -477,69 +561,100 @@ export default function FriendsPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {friends.map((f) => (
-                <div
-                  key={f.id}
-                  className="group relative overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/60 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.25)] transition hover:-translate-y-1 hover:border-gray-700"
-                >
-                  <div className="relative flex items-center gap-3">
-                    <img
-                      src={f.avatar_url}
-                      alt={f.username}
-                      className="h-12 w-12 cursor-pointer rounded-xl bg-gray-700 object-cover"
-                      onClick={() =>
-                        openUserProfile(f.id, f.username, f.avatar_url)
-                      }
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = "/avatar.png";
-                      }}
-                    />
-                    <div
-                      className="min-w-0 flex-1 cursor-pointer"
-                      onClick={() =>
-                        openUserProfile(f.id, f.username, f.avatar_url)
-                      }
-                    >
-                      <div className="truncate text-base font-semibold">
-                        {f.username}
-                      </div>
-                      <div className="truncate text-xs text-white/50">
-                        {f.fullname}
-                      </div>
-                      {/* <div className="mt-2 flex items-center gap-2">
+            <>
+              {/* Online / Offline count header */}
+              <div className="mb-5 flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
+                  <span className="text-sm font-medium text-emerald-300">
+                    {onlineCount} Online
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-gray-500" />
+                  <span className="text-sm font-medium text-gray-400">
+                    {friends.length - onlineCount} Offline
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {sortedFriends.map((f) => (
+                  <div
+                    key={f.id}
+                    className={`group relative overflow-hidden rounded-2xl border p-4 shadow-[0_20px_60px_rgba(0,0,0,0.25)] transition hover:-translate-y-1 ${
+                      f.status === "online"
+                        ? "border-emerald-500/20 bg-gray-900/60 hover:border-emerald-500/40"
+                        : "border-gray-800 bg-gray-900/40 hover:border-gray-700"
+                    }`}
+                  >
+                    <div className="relative flex items-center gap-3">
+                      {/* Avatar with status dot */}
+                      <div className="relative flex-shrink-0">
+                        <img
+                          src={f.avatar_url}
+                          alt={f.username}
+                          className={`h-12 w-12 cursor-pointer rounded-xl bg-gray-700 object-cover transition ${
+                            f.status !== "online" ? "opacity-60 grayscale-[30%]" : ""
+                          }`}
+                          onClick={() =>
+                            openUserProfile(f.id, f.username, f.avatar_url)
+                          }
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = "/avatar.png";
+                          }}
+                        />
+                        {/* Status indicator dot on avatar */}
                         <span
-                          className={`h-2 w-2 rounded-full ${
+                          className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-gray-900 ${
                             f.status === "online"
-                              ? "bg-emerald-400"
-                              : "bg-white/30"
+                              ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]"
+                              : "bg-gray-500"
                           }`}
                         />
-                        <span className="text-xs text-white/50 capitalize">
-                          {f.status}
-                        </span>
-                      </div> */}
+                      </div>
+                      <div
+                        className="min-w-0 flex-1 cursor-pointer"
+                        onClick={() =>
+                          openUserProfile(f.id, f.username, f.avatar_url)
+                        }
+                      >
+                        <div className={`truncate text-base font-semibold ${
+                          f.status !== "online" ? "text-gray-400" : "text-white"
+                        }`}>
+                          {f.username}
+                        </div>
+                        <div className="truncate text-xs text-white/50">
+                          {f.fullname}
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className={`text-[11px] font-medium capitalize ${
+                            f.status === "online" ? "text-emerald-400" : "text-gray-500"
+                          }`}>
+                            {f.status === "online" ? "Online" : "Offline"}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleSendDM(f.id, f.username)}
+                        className="rounded-full bg-gray-800 p-2 text-white shadow-lg transition hover:bg-gray-700"
+                        title="Send message"
+                      >
+                        <FaCommentAlt className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleRemoveFriend(f.id)}
+                        disabled={removingFriendId === f.id}
+                        className="rounded-full border border-red-500/30 bg-red-500/10 p-2 text-red-200 shadow-lg transition hover:border-red-400/50 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                        title="Unfriend"
+                      >
+                        <FaUserMinus className="h-4 w-4" />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleSendDM(f.id, f.username)}
-                      className="rounded-full bg-gray-800 p-2 text-white shadow-lg transition hover:bg-gray-700"
-                      title="Send message"
-                    >
-                      <FaCommentAlt className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleRemoveFriend(f.id)}
-                      disabled={removingFriendId === f.id}
-                      className="rounded-full border border-red-500/30 bg-red-500/10 p-2 text-red-200 shadow-lg transition hover:border-red-400/50 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                      title="Unfriend"
-                    >
-                      <FaUserMinus className="h-4 w-4" />
-                    </button>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>

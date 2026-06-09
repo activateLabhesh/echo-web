@@ -35,6 +35,8 @@ const baseConfig: Partial<ManagerOptions & SocketOptions> = {
   path: SOCKET_PATH,
 };
 
+const HEARTBEAT_INTERVAL_MS = 30000;
+
 export const createAuthSocket = (
   userId: string,
   extraAuth?: Record<string, any>
@@ -45,6 +47,27 @@ export const createAuthSocket = (
     auth: { userId, ...(extraAuth || {}) },
   });
 
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+  const stopHeartbeat = () => {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+  };
+
+  const sendHeartbeat = () => {
+    if (socket.connected) {
+      socket.emit("presence:heartbeat");
+    }
+  };
+
+  const startHeartbeat = () => {
+    if (heartbeatTimer) return;
+    sendHeartbeat();
+    heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+  };
+
   // Minimal, consistent logging
   socket.on("connect", () => {
     console.log("✅ Socket connected", {
@@ -52,6 +75,7 @@ export const createAuthSocket = (
       url: API_URL,
       path: SOCKET_PATH,
     });
+    startHeartbeat();
   });
 
   socket.on("connect_error", (err) => {
@@ -63,6 +87,7 @@ export const createAuthSocket = (
 
   socket.on("disconnect", (reason) => {
     console.warn("⚠️ Socket disconnected:", reason);
+    stopHeartbeat();
     // server-initiated disconnects need an explicit reconnect
     if (reason === "io server disconnect") socket.connect();
   });

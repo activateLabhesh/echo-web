@@ -146,46 +146,6 @@ const IconCompress = ({ size = 16, className = "" }) => (
   </svg>
 );
 
-const IconVolumeUp = ({ size = 16, className = "" }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    aria-hidden="true"
-    focusable="false"
-  >
-    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-  </svg>
-);
-
-const IconVolumeOff = ({ size = 16, className = "" }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    aria-hidden="true"
-    focusable="false"
-  >
-    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-    <line x1="23" y1="9" x2="17" y2="15"></line>
-    <line x1="17" y1="9" x2="23" y2="15"></line>
-  </svg>
-);
-
 /* --------------------------------- TYPES ---------------------------------- */
 
 interface MediaState {
@@ -215,7 +175,6 @@ interface EnhancedVideoPanelProps {
   localMediaState?: MediaState;
   currentUser?: { username: string };
   collapsed?: boolean;
-  onParticipantVolumeChange?: (participantId: string, volume: number) => void;
   // Legacy props for backward compatibility
   localStream?: MediaStream | null;
   localScreenStream?: MediaStream | null;
@@ -231,7 +190,6 @@ const ParticipantVideo = memo(
     isFullscreen = false,
     variant = "default",
     onToggleFullscreen,
-    onVolumeChange,
   }: {
     participant: Participant;
     manager?: VoiceVideoManager | null;
@@ -239,19 +197,17 @@ const ParticipantVideo = memo(
     isFullscreen?: boolean;
     variant?: "default" | "stage" | "thumbnail";
     onToggleFullscreen?: () => void;
-    onVolumeChange?: (volume: number) => void;
   }) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const screenRef = useRef<HTMLVideoElement>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
 
-    const [volume, setVolume] = useState(1);
-    const [isMuted, setIsMuted] = useState(false);
-    const [showControls, setShowControls] = useState(false);
     const [isVideoBound, setIsVideoBound] = useState(false);
     const [isScreenBound, setIsScreenBound] = useState(false);
 
-    const hasVideoState = !!participant.mediaState.video;
+    const hasTileId =
+      participant.tileId !== undefined && participant.tileId !== null;
+    const hasVideoState = !!participant.mediaState.video || hasTileId;
     const hasScreenShareState = !!participant.mediaState.screenSharing;
     const hasScreenShareStream = !!(
       participant.screenStream && participant.mediaState.screenSharing
@@ -263,9 +219,6 @@ const ParticipantVideo = memo(
       hasVideoStream &&
       !!participant.stream?.getVideoTracks().some((t) => t.enabled);
 
-    // Check if we have Chime video/screen tiles to bind
-    const hasTileId =
-      participant.tileId !== undefined && participant.tileId !== null;
     const hasScreenTileId =
       participant.screenTileId !== undefined &&
       participant.screenTileId !== null;
@@ -290,9 +243,10 @@ const ParticipantVideo = memo(
       useLocalScreenStream;
     const shouldShowCameraPiP =
       hasVideoState && (hasActiveVideoTrack || hasTileId) && shouldShowScreenShare;
-    const shouldShowVideo = hasVideoState && !shouldShowScreenShare;
+    const shouldShowVideo =
+      (hasVideoState || hasTileId) && !shouldShowScreenShare;
     const shouldBindVideoTile =
-      hasVideoState && hasTileId && (shouldShowVideo || shouldShowCameraPiP);
+      hasTileId && !!manager && (shouldShowVideo || shouldShowCameraPiP);
 
     // Bind Chime video tile to video element
     // This effect handles binding the Chime SDK video tile to the HTML video element
@@ -485,22 +439,22 @@ const ParticipantVideo = memo(
     ]);
 
     // Legacy: track video stream changes (for non-Chime usage)
-    useEffect(() => {
-      const tracks = participant.stream?.getVideoTracks() || [];
-      const bump = () => setShowControls((s) => s);
-      tracks.forEach((t) => {
-        t.addEventListener("mute", bump);
-        t.addEventListener("unmute", bump);
-        t.addEventListener("ended", bump);
-      });
-      return () => {
-        tracks.forEach((t) => {
-          t.removeEventListener("mute", bump);
-          t.removeEventListener("unmute", bump);
-          t.removeEventListener("ended", bump);
-        });
-      };
-    }, [participant.stream]);
+    // useEffect(() => {
+    //   const tracks = participant.stream?.getVideoTracks() || [];
+    //   const bump = () => setShowControls((s) => s);
+    //   tracks.forEach((t) => {
+    //     t.addEventListener("mute", bump);
+    //     t.addEventListener("unmute", bump);
+    //     t.addEventListener("ended", bump);
+    //   });
+    //   return () => {
+    //     tracks.forEach((t) => {
+    //       t.removeEventListener("mute", bump);
+    //       t.removeEventListener("unmute", bump);
+    //       t.removeEventListener("ended", bump);
+    //     });
+    //   };
+    // }, [participant.stream]);
 
     // Legacy: bind stream to video element (fallback if no Chime tile)
     useEffect(() => {
@@ -517,7 +471,6 @@ const ParticipantVideo = memo(
         videoRef.current.play().catch((err) => {
           console.warn(`Video play failed for ${participant.username}`, err);
         });
-        videoRef.current.volume = isMuted ? 0 : volume;
       }
       return () => {
         if (videoRef.current && !participant.stream && !hasTileId) {
@@ -529,8 +482,6 @@ const ParticipantVideo = memo(
       participant.stream,
       participant.mediaState.video,
       participant.mediaState.screenSharing,
-      isMuted,
-      volume,
       hasTileId,
       manager,
     ]);
@@ -553,13 +504,10 @@ const ParticipantVideo = memo(
             err
           );
         });
-        screenRef.current.volume = isMuted ? 0 : volume;
       }
     }, [
       participant.screenStream,
       shouldShowScreenShare,
-      isMuted,
-      volume,
       useLocalScreenStream,
       useRemoteScreenTile,
       manager,
@@ -570,10 +518,9 @@ const ParticipantVideo = memo(
         if (audioRef.current.srcObject !== participant.stream) {
           audioRef.current.srcObject = participant.stream as any;
         }
-        audioRef.current.volume = isMuted ? 0 : volume;
         audioRef.current.play().catch(() => {});
       }
-    }, [participant.stream, isMuted, volume]);
+    }, [participant.stream]);
 
     useEffect(() => {
       return () => {
@@ -592,20 +539,6 @@ const ParticipantVideo = memo(
       };
     }, []);
 
-    const handleVolumeChange = (newVolume: number) => {
-      setVolume(newVolume);
-      if (videoRef.current) videoRef.current.volume = newVolume;
-      if (screenRef.current) screenRef.current.volume = newVolume;
-      if (audioRef.current) audioRef.current.volume = newVolume;
-      onVolumeChange?.(newVolume);
-    };
-
-    const toggleMute = () => {
-      const newMuted = !isMuted;
-      setIsMuted(newMuted);
-      handleVolumeChange(newMuted ? 0 : volume);
-    };
-
     const containerClass =
       variant === "stage"
         ? "w-full h-full"
@@ -622,8 +555,6 @@ const ParticipantVideo = memo(
             ? "border-green-500"
             : "border-gray-700"
         } ${containerClass}`}
-        onMouseEnter={() => setShowControls(true)}
-        onMouseLeave={() => setShowControls(false)}
       >
         {shouldShowScreenShare ? (
           <div className="relative w-full h-full">
@@ -708,42 +639,15 @@ const ParticipantVideo = memo(
           </span>
         </div>
 
-        {showControls && !isLocal && (
-          <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center space-x-4 opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="bg-black bg-opacity-70 rounded-lg p-2 flex items-center space-x-2">
-              <button
-                onClick={toggleMute}
-                className="text-white hover:text-gray-300 transition-colors"
-              >
-                {isMuted ? (
-                  <IconVolumeOff size={14} />
-                ) : (
-                  <IconVolumeUp size={14} />
-                )}
-              </button>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={isMuted ? 0 : volume}
-                onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                className="w-16"
-              />
-            </div>
-            {onToggleFullscreen && (
-              <button
-                onClick={onToggleFullscreen}
-                className="bg-black bg-opacity-70 rounded p-2 text-white hover:text-gray-300 transition-colors"
-              >
-                {isFullscreen ? (
-                  <IconCompress size={14} />
-                ) : (
-                  <IconExpand size={14} />
-                )}
-              </button>
-            )}
-          </div>
+        {onToggleFullscreen && !isFullscreen && (
+          <button
+            type="button"
+            onClick={onToggleFullscreen}
+            className="absolute top-2 right-2 rounded bg-black/60 p-1.5 text-white opacity-0 transition hover:bg-black/80 group-hover:opacity-100"
+            aria-label="Fullscreen"
+          >
+            <IconExpand size={14} />
+          </button>
         )}
 
         {isFullscreen && (
@@ -805,7 +709,6 @@ const EnhancedVideoPanel: React.FC<EnhancedVideoPanelProps> = ({
   },
   currentUser,
   collapsed = false,
-  onParticipantVolumeChange,
   // Legacy props
   localStream,
   localScreenStream,
@@ -948,13 +851,6 @@ const EnhancedVideoPanel: React.FC<EnhancedVideoPanelProps> = ({
     );
   };
 
-  const handleParticipantVolumeChange = (
-    participantId: string,
-    volume: number
-  ) => {
-    onParticipantVolumeChange?.(participantId, volume);
-  };
-
   if (collapsed) return <div className="w-full h-0 overflow-hidden" />;
 
   const isFullscreenMode = !!fullscreenParticipant;
@@ -976,9 +872,6 @@ const EnhancedVideoPanel: React.FC<EnhancedVideoPanelProps> = ({
               }
               variant="stage"
               onToggleFullscreen={() => toggleFullscreen(stageParticipant.id)}
-              onVolumeChange={(v) =>
-                handleParticipantVolumeChange(stageParticipant.id, v)
-              }
             />
           </div>
           <div className="shrink-0 px-2 pb-2">
@@ -988,7 +881,7 @@ const EnhancedVideoPanel: React.FC<EnhancedVideoPanelProps> = ({
                   key={`thumb-${participant.id}`}
                   type="button"
                   onClick={() => setFocusedStageId(participant.id)}
-                  className={`shrink-0 w-36 h-20 rounded-lg overflow-hidden border-2 transition-colors ${
+                  className={`shrink-0 w-64 h-36 rounded-lg overflow-hidden border-2 transition-colors ${
                     participant.id === stageParticipant.id
                       ? "border-blue-500"
                       : "border-gray-700 hover:border-gray-500"
@@ -1006,9 +899,6 @@ const EnhancedVideoPanel: React.FC<EnhancedVideoPanelProps> = ({
                       participant.id === "local" || participant.isLocal
                     }
                     variant="thumbnail"
-                    onVolumeChange={(v) =>
-                      handleParticipantVolumeChange(participant.id, v)
-                    }
                   />
                 </button>
               ))}
@@ -1029,9 +919,6 @@ const EnhancedVideoPanel: React.FC<EnhancedVideoPanelProps> = ({
                 isLocal={participant.id === "local" || participant.isLocal}
                 isFullscreen={participant.id === fullscreenParticipant}
                 onToggleFullscreen={() => toggleFullscreen(participant.id)}
-                onVolumeChange={(v) =>
-                  handleParticipantVolumeChange(participant.id, v)
-                }
               />
             ))}
         </div>

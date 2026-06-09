@@ -1,7 +1,7 @@
 "use client";
 
 export const dynamic = "force-dynamic";
-import { createAuthSocket } from "@/socket";
+import { getVoicePresenceSocket } from "@/lib/voicePresenceSocket";
 
 import React, {
   useState,
@@ -30,6 +30,7 @@ import {
   FaVolumeUp,
   FaMicrophone,
   FaMicrophoneSlash,
+  FaVideo,
   FaVideoSlash,
 } from "react-icons/fa";
 import VoiceChannel from "@/components/EnhancedVoiceChannel";
@@ -53,13 +54,6 @@ import { useVoiceCall } from "@/contexts/VoiceCallContext";
 import { supabase } from "@/lib/supabaseClient";
 import Toast from "@/components/Toast";
 
-
-type ChannelRoster = {
-  id: string;
-  username: string;
-  muted: boolean;
-  video: boolean;
-};
 
 interface Channel {
   id: string;
@@ -130,6 +124,7 @@ const ServersPageContent: React.FC = () => {
     username: string;
     muted: boolean;
     video: boolean;
+    speaking?: boolean;
   };
 
   const [channelRosters, setChannelRosters] = useState<
@@ -144,6 +139,7 @@ const {
   localMediaState,
   localVideoTileId,
   localScreenTileId,
+  localScreenStream,
   videoTiles,
   manager,
   joinCall,
@@ -157,6 +153,7 @@ const externalState = useMemo(
     localMediaState,
     localVideoTileId,
     localScreenTileId,
+    localScreenStream,
     videoTiles,
     isConnected,
     isConnecting,
@@ -168,6 +165,7 @@ const externalState = useMemo(
     localMediaState,
     localVideoTileId,
     localScreenTileId,
+    localScreenStream,
     videoTiles,
     isConnected,
     isConnecting,
@@ -175,6 +173,52 @@ const externalState = useMemo(
     connectionError,
   ]
 );
+
+  const displayRosters = useMemo(() => {
+    const merged = { ...channelRosters };
+
+    if (
+      activeCall &&
+      activeCall.serverId === selectedServerId &&
+      participants.length > 0
+    ) {
+      const fromCall: ChannelRoster[] = participants.map((member) => ({
+        id: member.oduserId || member.attendeeId,
+        username:
+          member.name ||
+          member.oduserId ||
+          `User ${member.attendeeId.slice(0, 8)}`,
+        muted: member.muted,
+        video: member.video,
+        speaking: member.speaking,
+      }));
+
+      const existing = merged[activeCall.channelId] || [];
+      const byId = new Map<string, ChannelRoster>();
+      for (const member of existing) byId.set(member.id, member);
+      for (const member of fromCall) {
+        const prev = byId.get(member.id);
+        byId.set(
+          member.id,
+          prev
+            ? {
+                ...prev,
+                ...member,
+                speaking: member.speaking || prev.speaking,
+              }
+            : member
+        );
+      }
+      merged[activeCall.channelId] = Array.from(byId.values());
+    }
+
+    return merged;
+  }, [
+    channelRosters,
+    activeCall,
+    selectedServerId,
+    participants,
+  ]);
   const isVoiceActiveForCurrentServer =
     activeCall?.serverId === selectedServerId;
 
@@ -259,16 +303,18 @@ const externalState = useMemo(
   useEffect(() => {
     if (!voiceChannels.length || !user?.id) return;
 
-    const socket = createAuthSocket(user.id);
+    const socket = getVoicePresenceSocket(user.id);
 
     const mapMember = (m: any): ChannelRoster => ({
       id: m.userId || m.socketId || m.attendeeId || m.id,
       username:
         m.username ||
+        m.name ||
         m.userId ||
         `User ${(m.userId || m.socketId || "").slice(0, 8)}`,
       muted: m.muted || false,
       video: m.video || false,
+      speaking: m.speaking || false,
     });
 
     const fetchAllRosters = () => {
@@ -295,11 +341,10 @@ const externalState = useMemo(
     };
 
     socket.on("voice_channel_roster", handleRoster);
-    const interval = setInterval(fetchAllRosters, 10000);
+    const interval = setInterval(fetchAllRosters, 5000);
 
     return () => {
       socket.off("voice_channel_roster", handleRoster);
-      socket.disconnect();
       clearInterval(interval);
     };
   }, [voiceChannels, user?.id]);
@@ -1100,36 +1145,47 @@ const externalState = useMemo(
                     Voice Channels
                   </h3>
                   {voiceChannels.map((channel) => {
-                    const isActive = activeCall?.channelId === channel.id;
-                    const roster = channelRosters[channel.id] || [];
+                    const isInThisChannel = activeCall?.channelId === channel.id;
+                    const roster = displayRosters[channel.id] || [];
+                    const isConnectedHere = isInThisChannel && isConnected;
 
                     return (
-                      <div key={channel.id} className="space-y-1">
+                      <div key={channel.id} className="mb-1">
                         <div
-                          className={`flex items-center justify-between p-2 text-sm rounded-md transition-all ${
-                            isActive && viewMode === "voice"
-                              ? "bg-[#2f3136] text-white"
-                              : "text-gray-400 hover:bg-[#2f3136] hover:text-white"
-                          } group/channel ${isActive ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+                          className={`group/channel flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition-all cursor-pointer ${
+                            isInThisChannel
+                              ? "bg-[#3ba55c]/15 text-[#3ba55c] ring-1 ring-[#3ba55c]/30"
+                              : "text-gray-400 hover:bg-[#2f3136] hover:text-gray-200"
+                          }`}
                           onClick={() => {
-                            if (isActive) return;
+                            if (isInThisChannel) {
+                              setViewMode("voice");
+                              return;
+                            }
                             handleJoinVoiceChannel(channel);
                           }}
                         >
-                          <span className="flex items-center gap-2">
-                            <FaVolumeUp size={12} />
-                            {channel.name}
+                          <span className="flex min-w-0 flex-1 items-center gap-2">
+                            <FaVolumeUp
+                              size={14}
+                              className={
+                                isInThisChannel ? "text-[#3ba55c]" : ""
+                              }
+                            />
+                            <span className="truncate font-medium">
+                              {channel.name}
+                            </span>
                             {roster.length > 0 && (
-                              <span className="text-xs text-gray-500">
+                              <span className="rounded-full bg-[#1e1f22] px-1.5 py-0.5 text-[10px] text-gray-400">
                                 {roster.length}
                               </span>
                             )}
-                            {isActive && (
+                            {isInThisChannel && (
                               <span
-                                className={`w-2 h-2 rounded-full ${
-                                  isConnected
-                                    ? "bg-green-500"
-                                    : "bg-yellow-500 animate-pulse"
+                                className={`h-2 w-2 flex-shrink-0 rounded-full ${
+                                  isConnectedHere
+                                    ? "bg-[#3ba55c]"
+                                    : "animate-pulse bg-yellow-500"
                                 }`}
                               />
                             )}
@@ -1144,42 +1200,45 @@ const externalState = useMemo(
                                 name: channel.name,
                               });
                             }}
-                            className={`ml-2 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-gray-400 transition hover:bg-[#1e1f22] hover:text-white focus:opacity-100 focus:outline-none ${
-                              isActive && viewMode === "voice"
-                                ? "opacity-100"
-                                : "opacity-0 group-hover/channel:opacity-100"
-                            }`}
+                            className="ml-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-gray-500 opacity-0 transition hover:bg-[#1e1f22] hover:text-white group-hover/channel:opacity-100"
                           >
-                            <FaCog className="h-3.5 w-3.5" />
+                            <FaCog className="h-3 w-3" />
                           </button>
                         </div>
 
-                        {/* ✅ Roster visible to everyone */}
                         {roster.length > 0 && (
-                          <div className="ml-6 space-y-1">
+                          <div className="ml-2 mt-0.5 border-l border-[#2f3136] pl-2">
                             {roster.map((member) => (
                               <div
                                 key={member.id}
-                                className="flex items-center justify-between px-2 py-1 rounded hover:bg-[#2f3136]"
+                                className="group/member flex items-center justify-between rounded px-2 py-1 hover:bg-[#2f3136]/60"
                               >
-                                <div className="flex items-center gap-2">
-                                  <div className="w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center flex-shrink-0">
-                                    <span className="text-[10px] text-white font-bold">
-                                      {member.username.charAt(0).toUpperCase()}
-                                    </span>
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <div
+                                    className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#5865f2] text-[10px] font-bold text-white ${
+                                      member.speaking && !member.muted
+                                        ? "ring-2 ring-[#3ba55c] ring-offset-1 ring-offset-[#111214]"
+                                        : ""
+                                    }`}
+                                  >
+                                    {member.username.charAt(0).toUpperCase()}
                                   </div>
-                                  <span className="text-xs text-gray-300 truncate max-w-[100px]">
+                                  <span className="truncate text-xs text-gray-300 group-hover/member:text-gray-100 max-w-[110px]">
                                     {member.username}
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1.5">
                                   {member.muted ? (
-                                    <FaMicrophoneSlash className="w-3 h-3 text-red-500" />
+                                    <FaMicrophoneSlash className="h-3 w-3 text-red-400" />
+                                  ) : member.speaking ? (
+                                    <FaMicrophone className="h-3 w-3 text-[#3ba55c]" />
                                   ) : (
-                                    <FaMicrophone className="w-3 h-3 text-gray-400" />
+                                    <FaMicrophone className="h-3 w-3 text-gray-500" />
                                   )}
-                                  {!member.video && (
-                                    <FaVideoSlash className="w-3 h-3 text-gray-500" />
+                                  {member.video ? (
+                                    <FaVideo className="h-3 w-3 text-gray-400" />
+                                  ) : (
+                                    <FaVideoSlash className="h-3 w-3 text-gray-500" />
                                   )}
                                 </div>
                               </div>

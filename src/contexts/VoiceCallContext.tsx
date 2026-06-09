@@ -19,6 +19,12 @@ import {
   VideoTileInfo,
   MediaState,
 } from "@/lib/VoiceVideoManager";
+import {
+  emitJoinVoiceChannel,
+  emitLeaveVoiceChannel,
+  emitVoiceStateUpdate,
+  getVoicePresenceSocket,
+} from "@/lib/voicePresenceSocket";
 
 // ==================== TYPES ====================
 
@@ -108,6 +114,8 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
   // Manager ref - persists across renders and page navigations
   const managerRef = useRef<VoiceVideoManager | null>(null);
   const isManagerCreated = useRef(false);
+  const listenersSetupRef = useRef(false);
+  const activeCallRef = useRef<ActiveCall | null>(null);
 
   // State
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
@@ -130,7 +138,10 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
-  // Get current user info from localStorage
+  useEffect(() => {
+    activeCallRef.current = activeCall;
+  }, [activeCall]);
+
   const getCurrentUser = useCallback(() => {
     if (typeof window === "undefined")
       return { id: "guest", username: "Guest" };
@@ -144,6 +155,28 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
       return { id: "guest", username: "Guest" };
     }
   }, []);
+
+  const broadcastVoicePresence = useCallback(
+    (state?: MediaState) => {
+      const call = activeCallRef.current;
+      if (!call) return;
+
+      const user = getCurrentUser();
+      getVoicePresenceSocket(user.id);
+
+      const media = state ?? managerRef.current?.getMediaState();
+      if (!media) return;
+
+      emitVoiceStateUpdate({
+        channelId: call.channelId,
+        serverId: call.serverId,
+        muted: media.muted,
+        video: media.video,
+        screenSharing: media.screenSharing,
+      });
+    },
+    [getCurrentUser]
+  );
 
   // Create manager instance (only once)
   const getOrCreateManager = useCallback(() => {
@@ -229,8 +262,9 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
 
     manager.onScreenSharing(() => {
       setParticipants(manager.getRoster());
+      broadcastVoicePresence(manager.getMediaState());
     });
-  }, []);
+  }, [broadcastVoicePresence]);
 
   // Initialize manager (request permissions)
   const initializeManager = useCallback(
@@ -316,12 +350,19 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
           throw new Error("Failed to create voice manager");
         }
 
+        const user = getCurrentUser();
+        getVoicePresenceSocket(user.id);
+
         // If already in a call, leave it first
         if (activeCall) {
           console.log(
             "[VoiceCallContext] Leaving previous call:",
             activeCall.channelId
           );
+          emitLeaveVoiceChannel({
+            channelId: activeCall.channelId,
+            serverId: activeCall.serverId,
+          });
           manager.leaveVoiceChannel();
           // Clear state
           setParticipants([]);
@@ -331,15 +372,17 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
           setLocalScreenStream(null);
         }
 
-        // Initialize if not done yet
         if (!isInitialized) {
           const success = await initializeManager(manager);
           if (!success) {
             setIsConnecting(false);
             return;
           }
-          // Setup listeners after initialization
+        }
+
+        if (!listenersSetupRef.current) {
           setupEventListeners(manager);
+          listenersSetupRef.current = true;
         }
 
         // Set active call state
@@ -350,12 +393,21 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
           serverName,
         });
 
-        // Join the voice channel
         await manager.joinVoiceChannel(channelId);
 
-        // Update local media state
-        setLocalMediaState(manager.getMediaState());
+        const mediaState = manager.getMediaState();
+        setLocalMediaState(mediaState);
         setIsConnecting(false);
+
+        emitJoinVoiceChannel({
+          channelId,
+          serverId,
+          userId: user.id,
+          username: user.username,
+          muted: mediaState.muted,
+          video: mediaState.video,
+        });
+        broadcastVoicePresence(mediaState);
 
         console.log("[VoiceCallContext] Successfully joined call:", channelId);
       } catch (error: any) {
@@ -369,14 +421,24 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
       activeCall,
       isInitialized,
       getOrCreateManager,
+      getCurrentUser,
       initializeManager,
       setupEventListeners,
+      broadcastVoicePresence,
     ]
   );
 
   // Leave current call
   const leaveCall = useCallback(() => {
     console.log("[VoiceCallContext] leaveCall");
+
+    const call = activeCallRef.current;
+    if (call) {
+      emitLeaveVoiceChannel({
+        channelId: call.channelId,
+        serverId: call.serverId,
+      });
+    }
 
     const manager = managerRef.current;
     if (manager) {
@@ -400,21 +462,24 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
     if (!manager) return;
 
     manager.toggleAudio(enabled);
-    setLocalMediaState(manager.getMediaState());
-  }, []);
+    const mediaState = manager.getMediaState();
+    setLocalMediaState(mediaState);
+    broadcastVoicePresence(mediaState);
+  }, [broadcastVoicePresence]);
 
-  // Toggle video (camera on/off)
   const toggleVideo = useCallback(async (enabled: boolean) => {
     const manager = managerRef.current;
     if (!manager) return;
 
     try {
       await manager.toggleVideo(enabled);
-      setLocalMediaState(manager.getMediaState());
+      const mediaState = manager.getMediaState();
+      setLocalMediaState(mediaState);
+      broadcastVoicePresence(mediaState);
     } catch (error) {
       console.error("[VoiceCallContext] Toggle video failed:", error);
     }
-  }, []);
+  }, [broadcastVoicePresence]);
 
   // Toggle screen share
   const toggleScreenShare = useCallback(async () => {
@@ -430,7 +495,9 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
         await manager.startScreenShare();
         setLocalScreenStream(manager.getLocalScreenStream());
       }
-      setLocalMediaState(manager.getMediaState());
+      const mediaState = manager.getMediaState();
+      setLocalMediaState(mediaState);
+      broadcastVoicePresence(mediaState);
     } catch (error: any) {
       // User cancelled - not an error
       if (error?.name === "NotAllowedError") {
@@ -439,7 +506,7 @@ export function VoiceCallProvider({ children }: VoiceCallProviderProps) {
       }
       console.error("[VoiceCallContext] Toggle screen share failed:", error);
     }
-  }, []);
+  }, [broadcastVoicePresence]);
 
   // Bind video element to tile
   const bindVideoElement = useCallback(

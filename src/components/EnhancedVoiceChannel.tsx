@@ -649,9 +649,7 @@ const EnhancedVoiceChannel: React.FC<EnhancedVoiceChannelProps> = ({
                     isLocal: tile.isLocal,
                     mediaState: {
                       ...updated[existingIndex].mediaState,
-                      video: tile.active
-                        ? true
-                        : updated[existingIndex].mediaState.video,
+                      video: true,
                     },
                   };
                   debugLog(
@@ -676,7 +674,7 @@ const EnhancedVoiceChannel: React.FC<EnhancedVoiceChannelProps> = ({
                   mediaState: {
                     muted: false,
                     speaking: false,
-                    video: !tile.isContent && tile.active,
+                    video: !tile.isContent,
                     screenSharing: tile.isContent,
                   },
                 };
@@ -912,7 +910,7 @@ const EnhancedVoiceChannel: React.FC<EnhancedVoiceChannelProps> = ({
           mediaState: {
             muted: !!member.muted,
             speaking: !!member.speaking,
-            video: !!member.video,
+            video: !!member.video || tileId !== undefined,
             screenSharing:
               !!member.screenSharing || screenTileId !== undefined,
           },

@@ -196,6 +196,7 @@ export class VoiceVideoManager
 
   // Roster (list of participants)
   private roster: Map<string, VoiceRosterMember> = new Map();
+  private currentRemoteVideoSources: VideoSource[] = [];
 
   // State
   private mediaState: MediaState = {
@@ -465,6 +466,9 @@ export class VoiceVideoManager
       // Start muted by default for privacy
       this.audioVideo.realtimeMuteLocalAudio();
       this.mediaState.muted = true;
+
+      // Late joiners: sync existing remote video sources after session starts
+      setTimeout(() => this.syncExistingRemoteVideo(), 300);
     } catch (error) {
       console.error("[VoiceVideoManager] Failed to start session:", error);
       throw error;
@@ -819,6 +823,7 @@ export class VoiceVideoManager
    */
   audioVideoDidStart(): void {
     this.callbacks.onConnectionStateChange?.(true);
+    setTimeout(() => this.syncExistingRemoteVideo(), 200);
   }
 
   /**
@@ -884,21 +889,14 @@ export class VoiceVideoManager
 
     console.log("[VoiceVideoManager] Video tile updated:", tileInfo);
 
-    // Only update video state for LOCAL tiles here
-    // Remote video state is handled by remoteVideoSourcesDidChange() to avoid race conditions
-    if (
-      tileState.localTile &&
-      tileState.boundAttendeeId &&
-      !tileState.isContent
-    ) {
-      const rosterMember = this.roster.get(tileState.boundAttendeeId);
-      if (rosterMember) {
-        const hadVideo = rosterMember.video;
-        rosterMember.video = tileState.active || false;
-        console.log(
-          `[VoiceVideoManager] Updated LOCAL roster member ${tileState.boundAttendeeId} video state: ${hadVideo} -> ${rosterMember.video}`
-        );
-        this.broadcastRoster();
+    if (tileState.boundAttendeeId && !tileState.isContent) {
+      const baseAttendeeId = this.getBaseAttendeeId(tileState.boundAttendeeId);
+      const rosterMember = this.roster.get(baseAttendeeId);
+      if (rosterMember && tileState.active !== false) {
+        if (!rosterMember.video) {
+          rosterMember.video = true;
+          this.broadcastRoster();
+        }
       }
     }
 
@@ -985,50 +983,56 @@ export class VoiceVideoManager
    * This is the PRIMARY callback for detecting remote video state changes!
    */
   remoteVideoSourcesDidChange(videoSources: VideoSource[]): void {
-    console.log(
-      "[VoiceVideoManager] *** remoteVideoSourcesDidChange called ***"
-    );
-    console.log(
-      "[VoiceVideoManager] Video sources count:",
-      videoSources.length
-    );
-    console.log(
-      "[VoiceVideoManager] Video sources:",
-      videoSources.map((vs) => ({
-        attendeeId: vs.attendee?.attendeeId,
-        externalUserId: vs.attendee?.externalUserId,
-      }))
-    );
+    this.currentRemoteVideoSources = videoSources;
+    this.applyRemoteVideoSourcesToRoster(videoSources);
+  }
 
-    // Get set of attendee IDs that currently have video
-    const attendeesWithVideo = new Set(
-      videoSources.map((source) => source.attendee?.attendeeId).filter(Boolean)
-    );
+  private applyRemoteVideoSourcesToRoster(videoSources: VideoSource[]): void {
+    const attendeesWithVideo = new Set<string>();
 
-    console.log(
-      "[VoiceVideoManager] Attendees with video:",
-      Array.from(attendeesWithVideo)
-    );
+    for (const source of videoSources) {
+      const attendeeId = source.attendee?.attendeeId;
+      if (!attendeeId || attendeeId.includes("#content")) continue;
+      attendeesWithVideo.add(this.getBaseAttendeeId(attendeeId));
+    }
 
-    // Update all roster members' video state
     let hasChanges = false;
     this.roster.forEach((member, attendeeId) => {
-      const hasVideo = attendeesWithVideo.has(attendeeId);
+      const baseId = this.getBaseAttendeeId(attendeeId);
+      const hasVideo = attendeesWithVideo.has(baseId);
       if (member.video !== hasVideo) {
-        console.log(
-          `[VoiceVideoManager] Updating ${attendeeId} video state: ${member.video} -> ${hasVideo}`
-        );
         member.video = hasVideo;
         hasChanges = true;
       }
     });
 
-    // Broadcast roster update if there were changes
     if (hasChanges) {
-      console.log(
-        "[VoiceVideoManager] Broadcasting roster update after video source change"
-      );
       this.broadcastRoster();
+    }
+
+    // Re-notify UI about existing tiles so late joiners bind video elements
+    this.videoTiles.forEach((tile) => {
+      if (!tile.isContent && tile.active) {
+        this.callbacks.onVideoTileUpdated?.(tile);
+      }
+    });
+  }
+
+  private syncExistingRemoteVideo(): void {
+    if (!this.audioVideo) return;
+
+    try {
+      const sources = this.audioVideo.getRemoteVideoSources?.() ?? [];
+      if (sources.length > 0) {
+        this.remoteVideoSourcesDidChange(sources);
+        return;
+      }
+    } catch (error) {
+      console.warn("[VoiceVideoManager] getRemoteVideoSources failed:", error);
+    }
+
+    if (this.currentRemoteVideoSources.length > 0) {
+      this.applyRemoteVideoSourcesToRoster(this.currentRemoteVideoSources);
     }
   }
 
@@ -1071,10 +1075,9 @@ export class VoiceVideoManager
 
       this.roster.set(attendeeId, member);
       this.callbacks.onUserJoined?.(attendeeId, userId);
-      console.log("[VoiceVideoManager] Attendee joined:", {
-        attendeeId,
-        userId,
-      });
+
+      // Late joiner: existing participants may already be sending video
+      this.syncExistingRemoteVideo();
 
       // Subscribe to volume indicator for this attendee
       this.audioVideo?.realtimeSubscribeToVolumeIndicator(

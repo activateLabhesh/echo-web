@@ -8,7 +8,6 @@ import React, { useEffect, useState } from "react";
 import {
   X,
   Phone,
-  PhoneOff,
   Mic,
   MicOff,
   Search,
@@ -159,7 +158,11 @@ const VoiceInviteModal: React.FC<VoiceInviteModalProps> = ({
     if (targetUserId === currentUserId) return;
 
     // Check if already in this voice channel
-    const alreadyInCall = participants.some((p) => p.oduserId === targetUserId);
+    const alreadyInCall = participants.some(
+      (p) =>
+        p.oduserId === targetUserId ||
+        p.oduserId === targetUsername
+    );
     if (alreadyInCall) return;
 
     socket.emit("send_voice_invite", {

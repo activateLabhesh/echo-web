@@ -941,12 +941,14 @@ const externalState = useMemo(
                           selectedServerId ||
                           searchParams.get("serverId") ||
                           (servers.length > 0 ? servers[0].id : null);
-                        if (targetId) {
-                          localStorage.setItem("currentServerId", targetId);
-                          router.push(`/server-settings?serverId=${targetId}`);
-                        } else {
+
+                        if (!targetId) {
                           alert("Please select a server first");
+                          return;
                         }
+
+                        localStorage.setItem("currentServerId", targetId);
+                        router.push(`/server-settings?serverId=${targetId}`);
                       }}
                     >
                       <FaCog className="w-5 h-5 text-[#b5bac1] hover:text-white" />
@@ -1145,7 +1147,8 @@ const externalState = useMemo(
                     Voice Channels
                   </h3>
                   {voiceChannels.map((channel) => {
-                    const isInThisChannel = activeCall?.channelId === channel.id;
+                    const isInThisChannel =
+                      activeCall?.channelId === channel.id;
                     const roster = displayRosters[channel.id] || [];
                     const isConnectedHere = isInThisChannel && isConnected;
 

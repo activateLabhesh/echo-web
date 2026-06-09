@@ -108,67 +108,67 @@ export default function FriendsPage() {
   }, []);
 
   // Socket-based presence tracking + periodic polling fallback
-  useEffect(() => {
-    let mounted = true;
+  // useEffect(() => {
+  //   let mounted = true;
 
-    const setupPresence = async () => {
-      try {
-        const user = await getUser();
-        if (!mounted || !user?.id) return;
+  //   const setupPresence = async () => {
+  //     try {
+  //       const user = await getUser();
+  //       if (!mounted || !user?.id) return;
 
-        // Create a dedicated socket for presence on the friends page
-        const socket = createAuthSocket(user.id);
-        socketRef.current = socket;
+  //       // Create a dedicated socket for presence on the friends page
+  //       const socket = createAuthSocket(user.id);
+  //       socketRef.current = socket;
 
-        // Listen for real-time friend status changes if the backend emits them
-        socket.on("friend:status_change", (data: { userId: string; status: string }) => {
-          if (!mounted) return;
-          setFriends((prev) =>
-            prev.map((f) =>
-              f.id === data.userId ? { ...f, status: data.status } : f
-            )
-          );
-        });
+  //       // Listen for real-time friend status changes if the backend emits them
+  //       socket.on("friend:status_change", (data: { userId: string; status: string }) => {
+  //         if (!mounted) return;
+  //         setFriends((prev) =>
+  //           prev.map((f) =>
+  //             f.id === data.userId ? { ...f, status: data.status } : f
+  //           )
+  //         );
+  //       });
 
-        // Also listen for generic user status updates
-        socket.on("user:status_update", (data: { userId: string; status: string }) => {
-          if (!mounted) return;
-          setFriends((prev) =>
-            prev.map((f) =>
-              f.id === data.userId ? { ...f, status: data.status } : f
-            )
-          );
-        });
+  //       // Also listen for generic user status updates
+  //       socket.on("user:status_update", (data: { userId: string; status: string }) => {
+  //         if (!mounted) return;
+  //         setFriends((prev) =>
+  //           prev.map((f) =>
+  //             f.id === data.userId ? { ...f, status: data.status } : f
+  //           )
+  //         );
+  //       });
 
-        // Periodic polling fallback: re-fetch friends every 30s to get fresh status
-        presenceIntervalRef.current = setInterval(async () => {
-          if (!mounted) return;
-          try {
-            const data = await fetchAllFriends();
-            if (mounted) setFriends(data as any);
-          } catch {
-            // Silently ignore polling errors
-          }
-        }, 30000);
-      } catch (err) {
-        console.error("Failed to set up presence tracking:", err);
-      }
-    };
+  //       // Periodic polling fallback: re-fetch friends every 30s to get fresh status
+  //       presenceIntervalRef.current = setInterval(async () => {
+  //         if (!mounted) return;
+  //         try {
+  //           const data = await fetchAllFriends();
+  //           if (mounted) setFriends(data as any);
+  //         } catch {
+  //           // Silently ignore polling errors
+  //         }
+  //       }, 30000);
+  //     } catch (err) {
+  //       console.error("Failed to set up presence tracking:", err);
+  //     }
+  //   };
 
-    setupPresence();
+  //   setupPresence();
 
-    return () => {
-      mounted = false;
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-      if (presenceIntervalRef.current) {
-        clearInterval(presenceIntervalRef.current);
-        presenceIntervalRef.current = null;
-      }
-    };
-  }, []);
+  //   return () => {
+  //     mounted = false;
+  //     if (socketRef.current) {
+  //       socketRef.current.disconnect();
+  //       socketRef.current = null;
+  //     }
+  //     if (presenceIntervalRef.current) {
+  //       clearInterval(presenceIntervalRef.current);
+  //       presenceIntervalRef.current = null;
+  //     }
+  //   };
+  // }, []);
 
   const openUserProfile = useCallback(
     async (userId: string, fallbackName?: string, fallbackAvatar?: string) => {
@@ -563,7 +563,7 @@ export default function FriendsPage() {
           ) : (
             <>
               {/* Online / Offline count header */}
-              <div className="mb-5 flex items-center gap-4">
+              {/* <div className="mb-5 flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
                   <span className="text-sm font-medium text-emerald-300">
@@ -576,7 +576,7 @@ export default function FriendsPage() {
                     {friends.length - onlineCount} Offline
                   </span>
                 </div>
-              </div>
+              </div> */}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {sortedFriends.map((f) => (
                   <div
@@ -605,13 +605,13 @@ export default function FriendsPage() {
                           }}
                         />
                         {/* Status indicator dot on avatar */}
-                        <span
+                        {/* <span
                           className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-gray-900 ${
                             f.status === "online"
                               ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]"
                               : "bg-gray-500"
                           }`}
-                        />
+                        /> */}
                       </div>
                       <div
                         className="min-w-0 flex-1 cursor-pointer"
@@ -627,13 +627,13 @@ export default function FriendsPage() {
                         <div className="truncate text-xs text-white/50">
                           {f.fullname}
                         </div>
-                        <div className="mt-1 flex items-center gap-1.5">
+                        {/* <div className="mt-1 flex items-center gap-1.5">
                           <span className={`text-[11px] font-medium capitalize ${
                             f.status === "online" ? "text-emerald-400" : "text-gray-500"
                           }`}>
                             {f.status === "online" ? "Online" : "Offline"}
                           </span>
-                        </div>
+                        </div> */}
                       </div>
                       <button
                         onClick={() => handleSendDM(f.id, f.username)}

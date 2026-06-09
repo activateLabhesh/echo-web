@@ -189,13 +189,15 @@ const ParticipantVideo = memo(
     isLocal = false,
     isFullscreen = false,
     variant = "default",
+    cameraOnly = false,
     onToggleFullscreen,
   }: {
     participant: Participant;
     manager?: VoiceVideoManager | null;
     isLocal?: boolean;
     isFullscreen?: boolean;
-    variant?: "default" | "stage" | "thumbnail";
+    variant?: "default" | "stage" | "thumbnail" | "grid";
+    cameraOnly?: boolean;
     onToggleFullscreen?: () => void;
   }) {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -237,10 +239,11 @@ const ParticipantVideo = memo(
     const useRemoteScreenTile = !isLocal && hasScreenTileId && !!manager;
 
     const shouldShowScreenShare =
-      hasScreenShareStream ||
-      hasScreenShareState ||
-      useRemoteScreenTile ||
-      useLocalScreenStream;
+      !cameraOnly &&
+      (hasScreenShareStream ||
+        hasScreenShareState ||
+        useRemoteScreenTile ||
+        useLocalScreenStream);
     const shouldShowCameraPiP =
       hasVideoState && (hasActiveVideoTrack || hasTileId) && shouldShowScreenShare;
     const shouldShowVideo =
@@ -541,12 +544,15 @@ const ParticipantVideo = memo(
 
     const containerClass =
       variant === "stage"
-        ? "w-full h-full"
-        : variant === "thumbnail"
-          ? "w-full h-full min-w-[9rem]"
+        ? "absolute inset-0 h-full w-full"
+        : variant === "thumbnail" || variant === "grid"
+          ? "h-full w-full"
           : isFullscreen
             ? "fixed inset-0 z-50"
-            : "aspect-video";
+            : "h-full w-full";
+
+    const avatarSizeClass =
+      variant === "thumbnail" ? "h-8 w-8 text-sm" : "h-16 w-16 text-2xl";
 
     return (
       <div
@@ -569,8 +575,8 @@ const ParticipantVideo = memo(
               <IconDesktop size={12} className="text-white" />
               <span className="text-xs text-white">Screen</span>
             </div>
-            {shouldShowCameraPiP && (
-              <div className="absolute bottom-4 right-4 w-32 h-24 bg-gray-800 rounded border border-gray-600 overflow-hidden z-10">
+            {shouldShowCameraPiP && variant !== "thumbnail" && (
+              <div className="absolute bottom-4 right-4 h-24 w-32 bg-gray-800 rounded border border-gray-600 overflow-hidden z-10">
                 <video
                   ref={videoRef}
                   autoPlay
@@ -591,18 +597,24 @@ const ParticipantVideo = memo(
             style={{ backgroundColor: "black" }}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-800">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center mb-2 mx-auto">
-                <span className="text-2xl font-bold text-white">
+          <div className="flex h-full w-full items-center justify-center bg-gray-800">
+            <div className="text-center px-2">
+              <div
+                className={`mx-auto mb-1 flex items-center justify-center rounded-full bg-gray-600 font-bold text-white ${avatarSizeClass}`}
+              >
+                <span>
                   {participant.username?.charAt(0).toUpperCase() || "U"}
                 </span>
               </div>
-              <p className="text-sm text-gray-300">
-                {participant.username || `User ${participant.oduserId}`}
-              </p>
-              {!participant.mediaState.video && (
-                <p className="text-xs text-gray-500 mt-1">Camera off</p>
+              {variant !== "thumbnail" && (
+                <>
+                  <p className="truncate text-sm text-gray-300">
+                    {participant.username || `User ${participant.oduserId}`}
+                  </p>
+                  {!participant.mediaState.video && (
+                    <p className="mt-1 text-xs text-gray-500">Camera off</p>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -632,14 +644,23 @@ const ParticipantVideo = memo(
           )}
         </div>
 
-        <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 rounded px-2 py-1">
-          <span className="text-xs text-white">
-            {participant.username || `User ${participant.oduserId}`}
-            {isLocal && ` (You)`}
-          </span>
-        </div>
+        {variant !== "thumbnail" && (
+          <div className="absolute bottom-2 right-2 max-w-[45%] rounded bg-black/70 px-2 py-1">
+            <span className="block truncate text-xs text-white">
+              {participant.username || `User ${participant.oduserId}`}
+              {isLocal && " (You)"}
+            </span>
+          </div>
+        )}
 
-        {onToggleFullscreen && !isFullscreen && (
+        {variant === "thumbnail" && (
+          <div className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/80 to-transparent px-1.5 pb-1 pt-4 text-[10px] text-white">
+            {participant.username || "User"}
+            {isLocal && " (You)"}
+          </div>
+        )}
+
+        {onToggleFullscreen && !isFullscreen && variant !== "thumbnail" && (
           <button
             type="button"
             onClick={onToggleFullscreen}
@@ -680,6 +701,7 @@ const ParticipantVideo = memo(
       prev.isLocal === next.isLocal &&
       prev.isFullscreen === next.isFullscreen &&
       prev.variant === next.variant &&
+      prev.cameraOnly === next.cameraOnly &&
       prev.manager === next.manager;
     return same;
   }
@@ -721,6 +743,7 @@ const EnhancedVideoPanel: React.FC<EnhancedVideoPanelProps> = ({
     string | null
   >(null);
   const [focusedStageId, setFocusedStageId] = useState<string | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   const togglePanelFullscreen = async () => {
     if (!panelRef.current) return;
@@ -818,32 +841,35 @@ const EnhancedVideoPanel: React.FC<EnhancedVideoPanelProps> = ({
     }
 
     setFocusedStageId((current) => {
-      if (current && allParticipants.some((p) => p.id === current)) {
+      if (current && screenSharers.some((p) => p.id === current)) {
         return current;
       }
-      return screenSharers[screenSharers.length - 1]?.id ?? null;
+      const nextId = screenSharers[screenSharers.length - 1]?.id ?? null;
+      setHighlightedId((prev) => prev ?? nextId);
+      return nextId;
     });
-  }, [hasStageLayout, screenSharers, allParticipants]);
+  }, [hasStageLayout, screenSharers]);
 
   const stageParticipant = useMemo(() => {
     if (!hasStageLayout || !focusedStageId) return null;
     return allParticipants.find((p) => p.id === focusedStageId) ?? null;
   }, [hasStageLayout, focusedStageId, allParticipants]);
 
-  const getGridLayout = (count: number, hasFullscreen: boolean) => {
-    if (hasFullscreen) return { cols: "grid-cols-1", rows: "grid-rows-1" };
-    if (count === 1) return { cols: "grid-cols-1", rows: "grid-rows-1" };
-    if (count === 2) return { cols: "grid-cols-2", rows: "grid-rows-1" };
-    if (count <= 4) return { cols: "grid-cols-2", rows: "grid-rows-2" };
-    if (count <= 6) return { cols: "grid-cols-3", rows: "grid-rows-2" };
-    if (count <= 9) return { cols: "grid-cols-3", rows: "grid-rows-3" };
-    return { cols: "grid-cols-4", rows: "grid-rows-3" };
-  };
+  const gridColumnClass = useMemo(() => {
+    if (totalParticipants <= 1) return "grid-cols-1";
+    if (totalParticipants <= 2) return "grid-cols-2";
+    if (totalParticipants <= 4) return "grid-cols-2";
+    if (totalParticipants <= 6) return "grid-cols-3";
+    if (totalParticipants <= 9) return "grid-cols-3";
+    return "grid-cols-4";
+  }, [totalParticipants]);
 
-  const layout = useMemo(
-    () => getGridLayout(totalParticipants, !!fullscreenParticipant),
-    [totalParticipants, fullscreenParticipant]
-  );
+  const handleFilmstripSelect = (participant: Participant) => {
+    setHighlightedId(participant.id);
+    if (isParticipantScreenSharing(participant)) {
+      setFocusedStageId(participant.id);
+    }
+  };
 
   const toggleFullscreen = (participantId: string) => {
     setFullscreenParticipant((prev) =>
@@ -858,39 +884,97 @@ const EnhancedVideoPanel: React.FC<EnhancedVideoPanelProps> = ({
   return (
     <div
       ref={panelRef}
-      className="w-full h-full bg-black relative overflow-hidden"
+      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-black"
     >
       {hasStageLayout && stageParticipant && !isFullscreenMode ? (
-        <div className="flex flex-col w-full h-full">
-          <div className="flex-1 min-h-0 p-2 pb-1">
-            <ParticipantVideo
-              key={`stage-${stageParticipant.id}`}
-              participant={stageParticipant}
-              manager={manager}
-              isLocal={
-                stageParticipant.id === "local" || stageParticipant.isLocal
-              }
-              variant="stage"
-              onToggleFullscreen={() => toggleFullscreen(stageParticipant.id)}
-            />
+        <>
+          {/* Main stage: screen share */}
+          <div className="relative min-h-0 flex-1 overflow-hidden p-2">
+            <div className="relative h-full w-full overflow-hidden rounded-lg">
+              <ParticipantVideo
+                key={`stage-${stageParticipant.id}`}
+                participant={stageParticipant}
+                manager={manager}
+                isLocal={
+                  stageParticipant.id === "local" || stageParticipant.isLocal
+                }
+                variant="stage"
+                onToggleFullscreen={() =>
+                  toggleFullscreen(stageParticipant.id)
+                }
+              />
+            </div>
           </div>
-          <div className="shrink-0 px-2 pb-2">
-            <div className="flex gap-2 overflow-x-auto py-1">
-              {allParticipants.map((participant) => (
-                <button
-                  key={`thumb-${participant.id}`}
-                  type="button"
-                  onClick={() => setFocusedStageId(participant.id)}
-                  className={`shrink-0 w-64 h-36 rounded-lg overflow-hidden border-2 transition-colors ${
-                    participant.id === stageParticipant.id
-                      ? "border-blue-500"
-                      : "border-gray-700 hover:border-gray-500"
-                  }`}
-                  title={
-                    isParticipantScreenSharing(participant)
-                      ? `${participant.username || "User"} — screen sharing`
-                      : participant.username || "User"
-                  }
+
+          {/* Filmstrip: fixed-height participant row */}
+          <div className="shrink-0 border-t border-gray-800 bg-[#111214] px-2 py-2">
+            <div className="flex h-[88px] gap-2 overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-gray-700">
+              {allParticipants.map((participant) => {
+                const isPresenter = participant.id === stageParticipant.id;
+                const isSharing = isParticipantScreenSharing(participant);
+                const isHighlighted =
+                  participant.id === highlightedId || isPresenter;
+
+                return (
+                  <div
+                    key={`thumb-${participant.id}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleFilmstripSelect(participant)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleFilmstripSelect(participant);
+                      }
+                    }}
+                    className={`relative h-full w-[124px] shrink-0 cursor-pointer overflow-hidden rounded-lg border-2 transition-colors ${
+                      isPresenter
+                        ? "border-blue-500 ring-1 ring-blue-500/40"
+                        : isHighlighted
+                          ? "border-gray-500"
+                          : "border-gray-700 hover:border-gray-500"
+                    }`}
+                    title={
+                      isSharing
+                        ? `${participant.username || "User"} — presenting`
+                        : participant.username || "User"
+                    }
+                  >
+                    <ParticipantVideo
+                      participant={participant}
+                      manager={manager}
+                      isLocal={
+                        participant.id === "local" || participant.isLocal
+                      }
+                      variant="thumbnail"
+                      cameraOnly={isSharing}
+                    />
+                    {isSharing && (
+                      <div className="pointer-events-none absolute left-1 top-1 flex items-center gap-0.5 rounded bg-blue-600/90 px-1 py-0.5">
+                        <IconDesktop size={8} className="text-white" />
+                        <span className="text-[8px] font-medium text-white">
+                          LIVE
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-2">
+          <div
+            className={`grid ${gridColumnClass} auto-rows-fr gap-2`}
+            style={{ gridAutoRows: "minmax(140px, 1fr)" }}
+          >
+            {allParticipants
+              .filter((p) => !isFullscreenMode || p.id === fullscreenParticipant)
+              .map((participant) => (
+                <div
+                  key={participant.id}
+                  className="aspect-video w-full min-h-[120px]"
                 >
                   <ParticipantVideo
                     participant={participant}
@@ -898,53 +982,35 @@ const EnhancedVideoPanel: React.FC<EnhancedVideoPanelProps> = ({
                     isLocal={
                       participant.id === "local" || participant.isLocal
                     }
-                    variant="thumbnail"
+                    isFullscreen={participant.id === fullscreenParticipant}
+                    variant="grid"
+                    onToggleFullscreen={() =>
+                      toggleFullscreen(participant.id)
+                    }
                   />
-                </button>
+                </div>
               ))}
-            </div>
           </div>
-        </div>
-      ) : (
-        <div
-          className={`grid ${layout.cols} ${layout.rows} gap-2 w-full h-full p-2`}
-        >
-          {allParticipants
-            .filter((p) => !isFullscreenMode || p.id === fullscreenParticipant)
-            .map((participant) => (
-              <ParticipantVideo
-                key={participant.id}
-                participant={participant}
-                manager={manager}
-                isLocal={participant.id === "local" || participant.isLocal}
-                isFullscreen={participant.id === fullscreenParticipant}
-                onToggleFullscreen={() => toggleFullscreen(participant.id)}
-              />
-            ))}
         </div>
       )}
 
       <button
+        type="button"
         onClick={togglePanelFullscreen}
-        className="absolute bottom-4 right-4 bg-black/80 text-white px-4 py-2 rounded-lg text-sm hover:bg-black transition z-50"
+        className={`absolute right-3 z-50 rounded-lg bg-black/80 px-3 py-1.5 text-xs text-white transition hover:bg-black ${
+          hasStageLayout && !isFullscreenMode ? "bottom-[6.75rem]" : "bottom-3"
+        }`}
       >
         {isPanelFullscreen ? "Exit Fullscreen" : "Fullscreen"}
       </button>
 
       {!isFullscreenMode && totalParticipants > 1 && (
-        <div className="absolute top-4 left-4 bg-black bg-opacity-70 rounded px-3 py-1 z-40">
-          <span className="text-white text-sm">
-            {totalParticipants} participant{totalParticipants !== 1 ? "s" : ""}
+        <div className="pointer-events-none absolute left-3 top-3 z-40 rounded bg-black/70 px-3 py-1">
+          <span className="text-xs text-white sm:text-sm">
+            {totalParticipants} participant
+            {totalParticipants !== 1 ? "s" : ""}
             {screenSharers.length > 0 &&
-              ` · ${screenSharers.length} sharing screen`}
-          </span>
-        </div>
-      )}
-
-      {!isFullscreenMode && !hasStageLayout && totalParticipants > 12 && (
-        <div className="absolute bottom-16 right-4 bg-black bg-opacity-70 rounded px-3 py-1">
-          <span className="text-white text-sm">
-            +{totalParticipants - 12} more
+              ` · ${screenSharers[0]?.username || "Someone"} presenting`}
           </span>
         </div>
       )}

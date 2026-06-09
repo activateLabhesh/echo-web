@@ -143,7 +143,7 @@ const VideoPlayer = ({
 
       {/* Username */}
       <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 rounded px-2 py-1">
-        <span className="text-xs text-white">{username}</span>
+        <span className="block truncate text-xs text-white">{username}</span>
       </div>
     </div>
   );
@@ -896,7 +896,7 @@ const VoiceChannel = ({
                   key={member.odattendeeId}
                   className="flex items-center space-x-1 bg-gray-700 rounded px-2 py-1"
                 >
-                  <span className="text-xs text-white">{member.username}</span>
+                  <span className="block truncate text-xs text-white">{member.username}</span>
                   {(vs?.muted ?? member.muted) && (
                     <FaMicrophoneSlash size={10} className="text-red-400" />
                   )}

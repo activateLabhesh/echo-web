@@ -1180,7 +1180,7 @@ const EnhancedVoiceChannel: React.FC<EnhancedVoiceChannelProps> = ({
   }));
 
   return (
-    <div className="flex flex-col h-full bg-black ">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-black">
       {/* Partial permissions warning */}
       {permissionError && hasAnyPermissions && (
         <div className="bg-yellow-900/50 border-l-4 border-yellow-400 p-4 text-yellow-100">
@@ -1209,7 +1209,7 @@ const EnhancedVoiceChannel: React.FC<EnhancedVoiceChannelProps> = ({
       )}
 
       {/* Video Panel */}
-      <div className="flex-1">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <EnhancedVideoPanel
           manager={managerRef.current}
           participants={panelParticipants}

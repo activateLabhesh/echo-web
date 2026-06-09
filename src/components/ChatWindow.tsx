@@ -21,13 +21,14 @@ import {
   searchServerMessages,
   uploadMessage,
 } from "@/api/message.api";
+
 import { MoreVertical } from "lucide-react";
 import { getUserAvatar, getUser } from "@/api/profile.api";
 import { getChannelPermissions } from "@/api/channel.api";
 import { createAuthSocket } from "@/socket";
 import MessageBubble from "./MessageBubble";
 import Toast from "@/components/Toast";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Search , Hash} from "lucide-react";
 import { getServerMembers } from "@/api/server.api";
 import { getAllRoles } from "@/api/roles.api";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -1705,50 +1706,41 @@ const isCodeBlock = (content?: string) => {
       {(serverId || threadId) && (
         
 
-    <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-slate-800 bg-[#1e1f22] px-5">
 
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="relative">
+<div className="h-12 flex items-center justify-between px-4 border-b border-[#1f2124] bg-[#313338] shadow-sm">
+  {/* Left Section */}
+  <div className="flex items-center min-w-0">
+    <Hash className="w-6 h-6 text-[#80848e] mr-2 flex-shrink-0" />
 
-          <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#1e1f22] bg-green-500" />
-        </div>
+    <div className="min-w-0">
+      <h2 className="truncate text-white font-semibold text-[15px]">
+        {channelName}
+      </h2>
 
-        <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold text-white">
-            {channelName
-              ? `#${channelName}`
-              : threadId
-              ? "Direct Message"
-              : "Channel"}
-          </h2>
-
-          <p className="truncate text-xs text-slate-400">
-            {threadId ? "Private conversation" : "Channel discussion"}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={() => setShowSearch(true)}
-          className="rounded-full p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
-          aria-label="Search messages"
-          title="Search"
-        >
-          <Search className="h-5 w-5" />
-        </button>
-
-        <button
-          type="button"
-          className="rounded-full p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
-          aria-label="More options"
-          title="More options"
-        >
-          <MoreVertical className="h-5 w-5" />
-        </button>
-      </div>
+      <p className="truncate text-[12px] text-[#949ba4]">
+        {threadId
+          ? "Private conversation"
+          : "Channel discussion"}
+      </p>
     </div>
+  </div>
+
+  {/* Right Section */}
+  <div className="flex items-center gap-1">
+    <button
+      onClick={() => setShowSearch(true)}
+      className="p-2 rounded-md text-[#b5bac1] hover:text-white hover:bg-[#3f4248] transition"
+    >
+      <Search className="w-5 h-5" />
+    </button>
+
+    <button
+      className="p-2 rounded-md text-[#b5bac1] hover:text-white hover:bg-[#3f4248] transition"
+    >
+      <MoreVertical className="w-5 h-5" />
+    </button>
+  </div>
+</div>
       )}
 {/* 
       <PinnedMessagesBar

@@ -665,7 +665,7 @@ const ParticipantVideo = memo(
             type="button"
             onClick={onToggleFullscreen}
             className="absolute top-2 right-2 rounded bg-black/60 p-1.5 text-white opacity-0 transition hover:bg-black/80 group-hover:opacity-100"
-            aria-label="Fullscreen"
+            aria-label="Full screen"
           >
             <IconExpand size={14} />
           </button>
@@ -994,7 +994,7 @@ const EnhancedVideoPanel: React.FC<EnhancedVideoPanelProps> = ({
         </div>
       )}
 
-      <button
+      {/* <button
         type="button"
         onClick={togglePanelFullscreen}
         className={`absolute right-3 z-50 rounded-lg bg-black/80 px-3 py-1.5 text-xs text-white transition hover:bg-black ${
@@ -1002,7 +1002,7 @@ const EnhancedVideoPanel: React.FC<EnhancedVideoPanelProps> = ({
         }`}
       >
         {isPanelFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-      </button>
+      </button> */}
 
       {!isFullscreenMode && totalParticipants > 1 && (
         <div className="pointer-events-none absolute left-3 top-3 z-40 rounded bg-black/70 px-3 py-1">

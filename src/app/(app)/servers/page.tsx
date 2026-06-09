@@ -1332,7 +1332,7 @@ const externalState = useMemo(
                 </div>
 
                 {/* Bottom bar when in call but viewing chat */}
-                {activeCall && viewMode === "chat" && (
+                {/* {activeCall && viewMode === "chat" && (
                   <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 bg-[#1a1b1e] border-t border-gray-800">
                     <div className="flex items-center gap-2">
                       <span
@@ -1364,11 +1364,11 @@ const externalState = useMemo(
                       </button>
                     </div>
                   </div>
-                )}
+                )} */}
 
                 {/* Chat UI */}
                 <div
-                  className={`flex-1 overflow-y-auto px-6 pb-6 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 rounded-lg ${
+                  className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 rounded-lg ${
                     !showVoiceUI && activeChannel ? "flex flex-col" : "hidden"
                   }`}
                 >
@@ -1376,6 +1376,7 @@ const externalState = useMemo(
                     <Chatwindow
                       ref={chatWindowRef}
                       channelId={activeChannel.id}
+                      channelName={activeChannel.name}
                       isDM={false}
                       currentUserId={user.id}
                       localStream={null}

@@ -1293,13 +1293,13 @@ function MessagesPageContentInner() {
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
 
-       setMessages((prev) => {
-         const next = new Map(prev);
+        setMessages((prev) => {
+          const next = new Map(prev);
 
-         next.set(activeDmId, [...parsed, ...(next.get(activeDmId) || [])]);
+          next.set(activeDmId, parsed);
 
-         return next;
-       });
+          return next;
+        });
 
       setDmOffsets(prev => {
         const next = new Map(prev);

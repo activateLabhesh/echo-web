@@ -79,6 +79,7 @@ interface Message {
 }
 
 interface ChatWindowProps {
+  onLoadOlderMessages?: () => void;
   channelId: string;
   isDM: boolean;
   currentUserId: string;
@@ -106,6 +107,7 @@ export default forwardRef(function ChatWindow(
     serverId,
     threadId,
     channelName,
+    onLoadOlderMessages,
   }: ChatWindowProps,
   ref
 ) {
@@ -1011,6 +1013,7 @@ export default forwardRef(function ChatWindow(
       container.scrollHeight - container.scrollTop - container.clientHeight <
       50;
 
+
     if (
       isAtBottom &&
       hasUserScrolledRef.current &&
@@ -1086,6 +1089,18 @@ export default forwardRef(function ChatWindow(
     currentUserId,
     lastReadTimestamp,
   ]);
+
+
+  const handleDmScroll = () => {
+         const container = messagesContainerRef.current;
+       
+         if (!container) return;
+       
+         if (container.scrollTop < 100) {
+           onLoadOlderMessages?.();
+         }
+  };
+    
 
   const jumpToNextMention = useCallback(() => {
     if (unreadMentionsForChannel.length === 0) return;

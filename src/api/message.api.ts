@@ -166,6 +166,21 @@ export const fetchMessages = async (
   }
 };
 
+//fetches the dm messages of the user 
+export const getDmThreadMessages = async (
+  threadId: string,
+  offset = 0
+) => {
+  const response = await apiClient.get(
+    `/api/message/dm/${threadId}`,
+    {
+      params: { offset }
+    }
+  );
+
+  return response.data;
+};
+
 //Fetches the DM of the users
 export const getUserDMs = async (
   options: { forceRefresh?: boolean; cacheTtlMs?: number } = {}

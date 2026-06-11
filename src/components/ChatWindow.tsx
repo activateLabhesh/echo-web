@@ -22,7 +22,7 @@ import {
   uploadMessage,
 } from "@/api/message.api";
 
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, Paperclip } from "lucide-react";
 import { getUserAvatar, getUser } from "@/api/profile.api";
 import { getChannelPermissions } from "@/api/channel.api";
 import { createAuthSocket } from "@/socket";
@@ -789,18 +789,29 @@ export default forwardRef(function ChatWindow(
             const avatarUrl = await resolveAvatarUrl(senderId, msg);
 
             let replyTo = null;
-            if (msg.reply_to_message) {
+            if (msg.reply_to_message && typeof msg.reply_to_message === "object") {
               replyTo = {
-                id: msg.reply_to_message.id,
-                content: msg.reply_to_message.content,
+                id: String(msg.reply_to_message.id ?? msg.reply_to_message.message_id ?? ""),
+                content: String(msg.reply_to_message.content ?? msg.reply_to_message.message ?? ""),
                 author: msg.reply_to_message.users?.username || "Unknown",
-                avatarUrl:
-                  msg.reply_to_message.users?.avatar_url || "/User_profil.png",
-                mediaUrl:
-                  msg.reply_to_message.media_url ||
-                  msg.reply_to_message.mediaUrl ||
-                  null,
+                avatarUrl: msg.reply_to_message.users?.avatar_url || "/User_profil.png",
+                mediaUrl: msg.reply_to_message.media_url || msg.reply_to_message.mediaUrl || null,
                 mediaType: msg.reply_to_message.media_type,
+              };
+            } else if (msg.reply_to && typeof msg.reply_to === "object") {
+              replyTo = {
+                id: String(msg.reply_to.id ?? msg.reply_to.message_id ?? ""),
+                content: String(msg.reply_to.content ?? msg.reply_to.message ?? ""),
+                author: msg.reply_to.users?.username || "Unknown",
+                avatarUrl: msg.reply_to.users?.avatar_url || "/User_profil.png",
+                mediaUrl: msg.reply_to.media_url || msg.reply_to.mediaUrl || null,
+                mediaType: msg.reply_to.media_type,
+              };
+            } else if (typeof msg.reply_to === "string" || typeof msg.reply_to === "number") {
+              replyTo = {
+                id: String(msg.reply_to),
+                content: "Loading...",
+                author: "Unknown",
               };
             }
 
@@ -832,7 +843,35 @@ export default forwardRef(function ChatWindow(
           return;
         }
 
-        const sorted = formattedMessages.reverse();
+        const messageMap = new Map(formattedMessages.map((m) => [String(m.id), m]));
+        const resolvedMessages = formattedMessages.map((msg) => {
+          if (msg.replyTo) {
+            const parent = messageMap.get(String(msg.replyTo.id));
+            if (parent) {
+              return {
+                ...msg,
+                replyTo: {
+                  ...msg.replyTo,
+                  content: msg.replyTo.content === "Loading..." || !msg.replyTo.content 
+                    ? parent.content 
+                    : msg.replyTo.content,
+                  author: msg.replyTo.author === "Unknown" ? (parent.username || "User") : msg.replyTo.author,
+                  mediaUrl: msg.replyTo.mediaUrl || parent.mediaUrl,
+                  mediaType: msg.replyTo.mediaType || parent.mediaType,
+                  avatarUrl: msg.replyTo.avatarUrl === "/User_profil.png" ? parent.avatarUrl : msg.replyTo.avatarUrl,
+                },
+              };
+            } else if (msg.replyTo.content === "Loading...") {
+              return {
+                ...msg,
+                replyTo: { ...msg.replyTo, content: "Original message unavailable" },
+              };
+            }
+          }
+          return msg;
+        });
+
+        const sorted = resolvedMessages.reverse();
 
         if (loadMore) {
           setMessages((prev) => {
@@ -1333,17 +1372,31 @@ export default forwardRef(function ChatWindow(
           return prev;
         }
 
-        const filtered = prev.filter(
-          (msg) =>
-            !(
+        let tempReplyToFallback: any = null;
+        const filtered = prev.filter((msg) => {
+          const isDuplicate =
               msg.senderId === currentUserId &&
               msg.content === newMessage.content &&
               Math.abs(
                 new Date(msg.timestamp).getTime() -
                   new Date(newMessage.timestamp).getTime()
-              ) < 5000
-            )
-        );
+              ) < 5000;
+          
+          if (isDuplicate && msg.replyTo) {
+            tempReplyToFallback = msg.replyTo;
+          }
+          return !isDuplicate;
+        });
+
+        if (tempReplyToFallback && newMessage.replyTo) {
+           newMessage.replyTo = {
+             ...newMessage.replyTo,
+             mediaUrl: newMessage.replyTo.mediaUrl || tempReplyToFallback.mediaUrl,
+             mediaType: newMessage.replyTo.mediaType || tempReplyToFallback.mediaType
+           };
+        } else if (tempReplyToFallback && !newMessage.replyTo) {
+           newMessage.replyTo = tempReplyToFallback;
+        }
 
         const updated = [...filtered, newMessage].sort(
           (a, b) =>
@@ -1463,6 +1516,17 @@ const isCodeBlock = (content?: string) => {
   return /```(?:\w+)?\n?[\s\S]*?```/.test(content);
 };
 
+const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
+  if (!mediaUrl) return false;
+  const ext = mediaUrl.split("?")[0].split(".").pop()?.toLowerCase() || "";
+  const imageExts = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
+  return (
+    mediaUrl.startsWith("blob:") ||
+    imageExts.includes(ext) ||
+    Boolean(mediaType?.startsWith("image/"))
+  );
+};
+
   const validateRoleMentions = (message: string) => {
     const roleMentionRegex = /@&([^\s@]+)/g;
     let match: RegExpExecArray | null;
@@ -1573,7 +1637,25 @@ const isCodeBlock = (content?: string) => {
       });
       console.log("[Upload Message] Response:", response);
 
-      setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
+      setMessages((prev) => {
+        const idx = prev.findIndex((msg) => msg.id === tempId);
+        if (idx !== -1) {
+          const next = [...prev];
+          next[idx] = {
+            ...next[idx],
+            id: String(response.id || tempId),
+            mediaUrl: response.media_url || response.mediaUrl || next[idx].mediaUrl,
+            status: "sent",
+            replyTo: next[idx].replyTo
+          };
+          return next;
+        }
+        return prev;
+      });
+
+      if (response.id) {
+        receivedMessageIdsRef.current.add(String(response.id));
+      }
     } catch (err: any) {
       console.error("💔 Failed to upload message:", err);
       const errorMessage =
@@ -1999,9 +2081,26 @@ const isCodeBlock = (content?: string) => {
   .split("\n")[0]}
     </div>
   ) : (
-    <span className="italic truncate">
-      {replyingTo.content}
-    </span>
+    <>
+      {replyingTo.mediaUrl &&
+        (isReplyImage(
+          replyingTo.mediaUrl,
+          replyingTo.mediaType
+        ) ? (
+          <img
+            src={replyingTo.mediaUrl}
+            alt="Reply attachment"
+            className="h-9 w-9 flex-shrink-0 rounded object-cover border border-slate-600"
+          />
+        ) : (
+          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded border border-slate-600 bg-slate-800 text-slate-300">
+            <Paperclip className="h-4 w-4" />
+          </span>
+        ))}
+      <span className="italic truncate">
+        {replyingTo.content || (replyingTo.mediaUrl ? "Attachment" : "")}
+      </span>
+    </>
   )}
 </div>
 </div>

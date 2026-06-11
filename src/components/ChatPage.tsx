@@ -86,6 +86,22 @@ interface SelectedFile {
   errorReason?: string;
 }
 
+const isCodeBlock = (content?: string) => {
+  if (!content) return false;
+  return /```(?:\w+)?\n?[\s\S]*?```/.test(content);
+};
+
+const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
+  if (!mediaUrl) return false;
+  const ext = mediaUrl.split("?")[0].split(".").pop()?.toLowerCase() || "";
+  const imageExts = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
+  return (
+    mediaUrl.startsWith("blob:") ||
+    imageExts.includes(ext) ||
+    Boolean(mediaType?.startsWith("image/"))
+  );
+};
+
 const parseDmTimestamp = (timestamp: string) => {
   const parsed = Date.parse(timestamp);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -107,7 +123,7 @@ const normalizeDmMessage = (message: any): DirectMessage => ({
         id: String(
           message.reply_to_message.id ?? message.reply_to_message.message_id ?? ""
         ),
-        content: String(message.reply_to_message.content ?? ""),
+        content: String(message.reply_to_message.content ?? message.reply_to_message.message ?? ""),
         author:
           message.reply_to_message.users?.username ??
           message.reply_to_message.user?.username ??
@@ -119,19 +135,43 @@ const normalizeDmMessage = (message: any): DirectMessage => ({
           null,
         mediaType: message.reply_to_message.media_type,
       }
-    : message.replyTo && typeof message.replyTo === "object"
+    : message.reply_to && typeof message.reply_to === "object"
       ? {
-          id: String(message.replyTo.id ?? message.replyTo.message_id ?? ""),
-          content: String(message.replyTo.content ?? ""),
+          id: String(message.reply_to.id ?? message.reply_to.message_id ?? ""),
+          content: String(message.reply_to.content ?? message.reply_to.message ?? ""),
           author:
-            message.replyTo.users?.username ??
-            message.replyTo.user?.username ??
-            message.replyTo.author ??
+            message.reply_to.users?.username ??
+            message.reply_to.user?.username ??
+            message.reply_to.author ??
             "User",
-          mediaUrl: message.replyTo.media_url ?? message.replyTo.mediaUrl ?? null,
-          mediaType: message.replyTo.media_type,
+          mediaUrl: message.reply_to.media_url ?? message.reply_to.mediaUrl ?? null,
+          mediaType: message.reply_to.media_type,
         }
-      : null,
+      : message.replyTo && typeof message.replyTo === "object"
+        ? {
+            id: String(message.replyTo.id ?? message.replyTo.message_id ?? ""),
+            content: String(message.replyTo.content ?? message.replyTo.message ?? ""),
+            author:
+              message.replyTo.users?.username ??
+              message.replyTo.user?.username ??
+              message.replyTo.author ??
+              "User",
+            mediaUrl: message.replyTo.media_url ?? message.replyTo.mediaUrl ?? null,
+            mediaType: message.replyTo.media_type,
+          }
+        : typeof message.reply_to === "string" || typeof message.reply_to === "number"
+          ? {
+              id: String(message.reply_to),
+              content: "Loading...",
+              author: "User",
+            }
+          : typeof message.replyTo === "string" || typeof message.replyTo === "number"
+            ? {
+                id: String(message.replyTo),
+                content: "Loading...",
+                author: "User",
+              }
+            : null,
 });
 
 const sortDmMessages = (messages: DirectMessage[]) =>
@@ -149,6 +189,47 @@ const mergeDmMessages = (...messageGroups: DirectMessage[][]) => {
   });
 
   return sortDmMessages(Array.from(mergedById.values()));
+};
+
+const resolveRepliesForThread = (
+  threadMessages: DirectMessage[],
+  allUsers: any[],
+  currentUserId?: string
+): DirectMessage[] => {
+  if (!threadMessages || threadMessages.length === 0) return [];
+  const messageMap = new Map(threadMessages.map((m) => [m.id, m]));
+
+  return threadMessages.map((msg) => {
+    if (msg.replyTo && msg.replyTo.content === "Loading...") {
+      const parent = messageMap.get(msg.replyTo.id);
+      if (parent) {
+        const isCurrentUser = parent.sender_id === currentUserId;
+        const authorObj = allUsers.find((u) => u.id === parent.sender_id);
+        const authorName = isCurrentUser
+          ? "You"
+          : authorObj?.fullname || authorObj?.username || "User";
+        return {
+          ...msg,
+          replyTo: {
+            ...msg.replyTo,
+            content: parent.content,
+            author: authorName,
+            mediaUrl: parent.media_url,
+            mediaType: parent.media_type,
+          },
+        };
+      } else {
+        return {
+          ...msg,
+          replyTo: {
+            ...msg.replyTo,
+            content: "Original message unavailable",
+          },
+        };
+      }
+    }
+    return msg;
+  });
 };
 
 const getInitials = (name: string = "") => {
@@ -475,11 +556,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     dayFormatter,
     timeFormatter,
   ]);
-  const scrollToMessage = useCallback(async (messageId: string) => {
+  const scrollToMessage = useCallback(async (messageId: string | number) => {
+    const idStr = String(messageId);
     const el =
-      messageRefs.current[messageId] ??
+      messageRefs.current[idStr] ??
       (document.querySelector(
-        `[data-message-id="${messageId}"]`
+        `[data-message-id="${idStr}"]`
       ) as HTMLElement | null);
 
     if (el) {
@@ -760,6 +842,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                           // onPin={() => {
                           //   void togglePin(msg.id, true);
                           // }}
+                          onReply={() => {
+                            setReplyingTo({
+                              id: msg.id,
+                              content: msg.content,
+                              author: group.isSender ? "You" : group.name,
+                              mediaUrl: msg.media_url,
+                              mediaType: msg.media_type,
+                            });
+                          }}
+                          onReplyPreviewClick={scrollToMessage}
                           timestamp={msg.timeLabel}
                           name={
                             !group.isSender && index === 0
@@ -840,16 +932,62 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         {replyingTo && (
           <div className="mb-2 rounded-lg border-l-4 border-blue-500 bg-slate-800 px-4 py-2">
             <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 truncate text-sm text-slate-300">
-                Replying to{" "}
-                <span className="font-semibold">
-                  {replyingTo.author || "User"}
+              <div className="flex items-center gap-2 min-w-0 text-sm text-slate-300">
+                <span className="shrink-0">
+                  Replying to{" "}
+                  <span className="font-semibold">
+                    {replyingTo.author || "User"}
+                  </span>
+                  :
                 </span>
-                : <span className="italic">{replyingTo.content}</span>
+                
+                {replyingTo.content?.startsWith("[GIF]") ? (
+                  <img
+                    src={replyingTo.content.replace("[GIF]", "")}
+                    alt="GIF preview"
+                    className="h-10 w-10 rounded object-cover border border-slate-600 flex-shrink-0"
+                  />
+                ) : isCodeBlock(replyingTo.content) ? (
+                  <div className="max-w-xs truncate rounded bg-slate-900 border border-slate-700 px-2 font-mono text-xs text-green-400">
+                  {(
+                replyingTo.content.match(
+                  /```(?:\w+)?\n?([\s\S]*?)```/
+                )?.[1] || ""
+              )
+                .trim()
+                .split("\n")[0]}
+                  </div>
+                ) : (
+                  <>
+                    {replyingTo.mediaUrl &&
+                      (isReplyImage(
+                        replyingTo.mediaUrl,
+                        replyingTo.mediaType
+                      ) ? (
+                        <img
+                          src={replyingTo.mediaUrl}
+                          alt="Reply attachment"
+                          className="h-9 w-9 flex-shrink-0 rounded object-cover border border-slate-600"
+                        />
+                      ) : (
+                        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded border border-slate-600 bg-slate-800 text-slate-300">
+                          <Paperclip className="h-4 w-4" />
+                        </span>
+                      ))}
+                    <span className="italic truncate">
+                      {replyingTo.content || (replyingTo.mediaUrl ? "Attachment" : "")}
+                    </span>
+                  </>
+                )}
               </div>
               <button
-                onClick={() => setReplyingTo(null)}
-                className="text-slate-400 transition hover:text-white"
+                onClick={() => {
+                  setReplyingTo(null);
+                  requestAnimationFrame(() => {
+                    draftInputRef.current?.focus();
+                  });
+                }}
+                className="ml-3 text-slate-400 transition hover:text-white"
                 aria-label="Cancel reply"
               >
                 ✕
@@ -1322,7 +1460,7 @@ function MessagesPageContentInner() {
                 avatar_url: other.avatar_url ?? null,
               });
 
-              const threadMessages = Array.isArray(thread.messages)
+              let threadMessages = Array.isArray(thread.messages)
                 ? sortDmMessages(
                     thread.messages.map((message: any) =>
                       normalizeDmMessage(message)
@@ -1331,6 +1469,7 @@ function MessagesPageContentInner() {
                 : [];
 
               if (threadMessages.length > 0) {
+                threadMessages = resolveRepliesForThread(threadMessages, allUsers, currentUser.id);
                 initialMessages.set(otherId, threadMessages);
                 initialOffsets.set(otherId, threadMessages.length);
                 initialHasMore.set(
@@ -1449,8 +1588,12 @@ function MessagesPageContentInner() {
     try {
       const result = await getDmThreadMessages(threadId, 0);
 
-      const parsed = sortDmMessages(
-        (result.data || []).map((m: any) => normalizeDmMessage(m))
+      const parsed = resolveRepliesForThread(
+        sortDmMessages(
+          (result.data || []).map((m: any) => normalizeDmMessage(m))
+        ),
+        allUsers,
+        currentUser?.id
       );
 
         setMessages((prev) => {
@@ -1510,9 +1653,14 @@ const loadOlderMessages = async (container?: HTMLDivElement | null) => {
 
     const result = await getDmThreadMessages(threadId, offset);
 
-    const parsed = sortDmMessages(
-      (result.data || []).map((m: any) => normalizeDmMessage(m))
+    const parsed = resolveRepliesForThread(
+      sortDmMessages(
+        (result.data || []).map((m: any) => normalizeDmMessage(m))
+      ),
+      allUsers,
+      currentUser?.id
     );
+    
     setMessages((prev) => {
       const next = new Map(prev);
       const current = next.get(activeDmId) || [];

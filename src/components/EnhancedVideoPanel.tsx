@@ -200,6 +200,7 @@ const ParticipantVideo = memo(
     cameraOnly?: boolean;
     onToggleFullscreen?: () => void;
   }) {
+    const containerRef = useRef<HTMLDivElement>(null); // Added container ref for native fullscreen
     const videoRef = useRef<HTMLVideoElement>(null);
     const screenRef = useRef<HTMLVideoElement>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
@@ -212,7 +213,8 @@ const ParticipantVideo = memo(
     const hasVideoState = !!participant.mediaState.video || hasTileId;
     const hasScreenShareState = !!participant.mediaState.screenSharing;
     const hasScreenShareStream = !!(
-      participant.screenStream && participant.mediaState.screenSharing
+      participant.screenStream &&
+      participant.screenStream.getVideoTracks().length > 0
     );
     const hasVideoStream = !!(
       participant.stream && participant.stream.getVideoTracks().length > 0
@@ -220,12 +222,10 @@ const ParticipantVideo = memo(
     const hasActiveVideoTrack =
       hasVideoStream &&
       !!participant.stream?.getVideoTracks().some((t) => t.enabled);
-
     const hasScreenTileId =
       participant.screenTileId !== undefined &&
       participant.screenTileId !== null;
 
-    // Local sharer must use the capture MediaStream — Chime tile bind shows black locally
     const useLocalScreenStream =
       isLocal &&
       (hasScreenShareState ||
@@ -235,7 +235,6 @@ const ParticipantVideo = memo(
       isLocal &&
       !!participant.screenStream &&
       participant.screenStream.getVideoTracks().length > 0;
-    // Never tile-bind local screen share (always black); remote viewers use tiles
     const useRemoteScreenTile = !isLocal && hasScreenTileId && !!manager;
 
     const shouldShowScreenShare =
@@ -245,11 +244,47 @@ const ParticipantVideo = memo(
         useRemoteScreenTile ||
         useLocalScreenStream);
     const shouldShowCameraPiP =
-      hasVideoState && (hasActiveVideoTrack || hasTileId) && shouldShowScreenShare;
+      hasVideoState &&
+      (hasActiveVideoTrack || hasTileId) &&
+      shouldShowScreenShare;
     const shouldShowVideo =
       (hasVideoState || hasTileId) && !shouldShowScreenShare;
     const shouldBindVideoTile =
       hasTileId && !!manager && (shouldShowVideo || shouldShowCameraPiP);
+
+    // Native Cross-Browser Fullscreen Logic
+    const handleNativeFullscreen = async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const container = containerRef.current as any;
+      const video = videoRef.current as any;
+      const screen = screenRef.current as any;
+      const doc = document as any;
+
+      if (!container) return;
+
+      const isFs = doc.fullscreenElement || doc.webkitFullscreenElement;
+
+      try {
+        if (!isFs) {
+          if (container.requestFullscreen) await container.requestFullscreen();
+          else if (container.webkitRequestFullscreen)
+            await container.webkitRequestFullscreen();
+          // Fallback for iOS Safari which only allows fullscreen directly on media elements
+          else if (video && video.webkitEnterFullscreen)
+            video.webkitEnterFullscreen();
+          else if (screen && screen.webkitEnterFullscreen)
+            screen.webkitEnterFullscreen();
+        } else {
+          if (doc.exitFullscreen) await doc.exitFullscreen();
+          else if (doc.webkitExitFullscreen) await doc.webkitExitFullscreen();
+        }
+      } catch (err: any) {
+        console.error("Fullscreen failed:", err);
+        alert(`Fullscreen blocked by browser: ${err.message}`);
+      }
+    };
 
     // Bind Chime video tile to video element
     // This effect handles binding the Chime SDK video tile to the HTML video element
@@ -331,7 +366,11 @@ const ParticipantVideo = memo(
     useEffect(() => {
       const screenTileId = participant.screenTileId;
 
-      if (!useRemoteScreenTile || screenTileId === undefined || screenTileId === null) {
+      if (
+        !useRemoteScreenTile ||
+        screenTileId === undefined ||
+        screenTileId === null
+      ) {
         return;
       }
 
@@ -658,19 +697,21 @@ const ParticipantVideo = memo(
             {participant.username || "User"}
             {isLocal && " (You)"}
           </div>
-        )}
+        )} 
 
-        {onToggleFullscreen && !isFullscreen && variant !== "thumbnail" && (
-          <button
-            type="button"
-            onClick={onToggleFullscreen}
-            className="absolute top-2 right-2 rounded bg-black/60 p-1.5 text-white opacity-0 transition hover:bg-black/80 group-hover:opacity-100"
-            aria-label="Full screen"
+       
+
+       { /* onToggleFullscreen && !isFullscreen && variant !== "thumbnail" && (
+    //      <button
+    //        type="button"
+    //</div>        onClick={onToggleFullscreen}
+       //     className="absolute top-2 right-2 rounded bg-black/60 p-1.5 text-white opacity-0 transition hover:bg-black/80 group-hover:opacity-100"
+     //       aria-label="Full screen"
           >
-            <IconExpand size={14} />
-          </button>
-        )}
-
+  //          <IconExpand size={14} />
+   //       </button>
+   //     )}
+  ///
         {isFullscreen && (
           <button
             onClick={onToggleFullscreen}

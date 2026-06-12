@@ -5,6 +5,19 @@ import { useRouter } from "next/navigation";
 import { Send, UserMinus, UserPlus, X } from "lucide-react";
 import { addFriend, fetchAllFriends, removeFriend, searchUsers } from "@/api";
 
+
+const getInitials = (name: string) => {
+  if (!name) return "?";
+  const parts = name
+    .trim()
+    .split(/[^a-zA-Z0-9\u00C0-\u024F]/)
+    .filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return name.substring(0, 2).toUpperCase();
+};
+
 type RelationshipStatus = "none" | "pending" | "accepted" | "rejected";
 
 interface UserProfileModalProps {
@@ -44,6 +57,9 @@ export default function UserProfileModal({
   const [internalActionLoading, setInternalActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
 
+ 
+  const [imageError, setImageError] = useState(false);
+
   const activeRelationshipStatus =
     relationshipStatus ?? internalRelationshipStatus;
   const isFriendActionLoading = friendActionLoading || internalActionLoading;
@@ -54,6 +70,11 @@ export default function UserProfileModal({
     user.username.toLowerCase() === currentUsername.toLowerCase())
 );
   const bioText = (user?.about || "No bio yet...").slice(0, 160);
+
+ 
+  useEffect(() => {
+    setImageError(false);
+  }, [user?.id, user?.avatarUrl]);
 
   useEffect(() => {
     setInternalRelationshipStatus(relationshipStatus);
@@ -155,6 +176,11 @@ export default function UserProfileModal({
 
   if (!isOpen || !user) return null;
 
+ 
+  const hasRealAvatar =
+    user.avatarUrl &&
+    user.avatarUrl !== "/User_profil.png";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 px-4 py-6 backdrop-blur-md">
       <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-[#1E1F22]/95 text-white shadow-2xl animate-fadeIn">
@@ -168,16 +194,24 @@ export default function UserProfileModal({
         </button>
 
         <div className="flex w-full flex-col items-center gap-4 px-6 py-7">
+          {/* Avatar Rendering Block */}
           <div className="relative">
             <div className="absolute inset-0 rounded-full bg-white/10 blur-xl" />
-            <img
-              src={user.avatarUrl || "/User_profil.png"}
-              alt={user.username}
-              className="relative h-24 w-24 rounded-full border-4 border-gray-600 bg-gray-800 object-cover shadow-xl"
-              onError={(e) => {
-                e.currentTarget.src = "/User_profil.png";
-              }}
-            />
+
+            {hasRealAvatar && !imageError ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.username}
+                className="relative h-24 w-24 rounded-full border-4 border-gray-600 bg-gray-800 object-cover shadow-xl"
+                onError={() => setImageError(true)} 
+              />
+            ) : (
+              <div className="relative flex h-24 w-24 items-center justify-center rounded-full border-4 border-gray-600 bg-gray-600 shadow-xl">
+                <span className="text-3xl font-bold text-white tracking-widest shadow-sm">
+                  {getInitials(user.username)}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="w-full min-w-0 text-center">
@@ -211,11 +245,16 @@ export default function UserProfileModal({
               </h3>
               <div className="flex flex-wrap gap-2">
                 {user.roles.map((role, index) => {
-                  const roleName = typeof role === "string" ? role : role.name;
+                  const isString = typeof role === "string";
+                  const roleName = isString ? role : role.name;
+                  const roleColor =
+                    !isString && role.color ? role.color : "#374151";
+
                   return (
                     <span
                       key={`${roleName}-${index}`}
-                      className="rounded-full border border-gray-600 bg-gray-700/70 px-3 py-1 text-xs font-medium text-gray-200"
+                      className="rounded-full px-3 py-1 text-xs font-medium text-white shadow-sm"
+                      style={{ backgroundColor: roleColor }}
                     >
                       {roleName}
                     </span>

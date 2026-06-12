@@ -575,93 +575,79 @@ export default forwardRef(function ChatWindow(
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  const openProfile = useCallback(
-    async (msg: Message) => {
-      if (!msg.senderId) return;
+ const openProfile = useCallback(
+   async (msg: Message) => {
+     if (!msg.senderId) return;
 
-      // console.log("Opening profile for user:", msg.senderId, "in server:", serverId);
+     // Set basic user info first
+     setSelectedUser({
+       id: msg.senderId,
+       username: msg.username || "Unknown",
+       avatarUrl: msg.avatarUrl || "/User_profil.png",
+       about: "Loading bio...",
+       roles: [],
+     });
+     setIsProfileOpen(true);
 
-      // Set basic user info first
-      setSelectedUser({
-        id: msg.senderId,
-        username: msg.username || "Unknown",
-        avatarUrl: msg.avatarUrl || "/User_profil.png",
-        about: "Loading bio...",
-        roles: [],
-      });
-      setIsProfileOpen(true);
+     // Fetch user details including roles
+     try {
+       const token = localStorage.getItem("access_token");
+       if (!token || !serverId) return;
 
-      // Fetch user details including roles
-      try {
-        const token = localStorage.getItem("access_token");
-        if (!token || !serverId) {
-          console.error("Missing token or serverId:", {
-            token: !!token,
-            serverId,
-          });
-          return;
-        }
+       const url = `${process.env.NEXT_PUBLIC_API_URL}/api/newserver/${serverId}/members/${msg.senderId}`;
+       const response = await fetch(url, {
+         headers: { Authorization: `Bearer ${token}` },
+       });
 
-        const url = `${process.env.NEXT_PUBLIC_API_URL}/api/newserver/${serverId}/members/${msg.senderId}`;
-        // console.log("Fetching member data from:", url);
+       if (!response.ok) return;
 
-        const response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+       const memberData = await response.json();
 
-        // console.log("Response status:", response.status);
+       setSelectedUser({
+         id: msg.senderId,
+         username: msg.username || "Unknown",
+         avatarUrl: msg.avatarUrl || "/User_profil.png",
+         about: memberData.user?.bio || "No bio yet...",
+         // ✅ FIX: Map the full object with color instead of just the name string!
+         roles:
+           memberData.roles?.map((role: any) => ({
+             id: role.id || role.role_id,
+             name: role.name,
+             color: role.color || "#374151",
+           })) || [],
+       });
+     } catch (error) {
+       console.error("Error fetching user details:", error);
+     }
+   },
+   [serverId]
+ );
 
-        if (!response.ok) {
-          console.warn(
-            "Member not found in server (non-blocking):",
-            msg.senderId
-          );
-          return;
-        }
+const handleUsernameClick = useCallback(
+  async (userId: string, username: string) => {
+    const existingMessage = messages.find(
+      (msg) => msg.senderId === userId || msg.username === username
+    );
 
-        const memberData = await response.json();
+    let mockMessage: Message;
 
-        setSelectedUser({
-          id: msg.senderId,
-          username: msg.username || "Unknown",
-          avatarUrl: msg.avatarUrl || "/User_profil.png",
-          about: memberData.user?.bio || "No bio yet...",
-          roles: memberData.roles?.map((role: any) => role.name) || [],
-        });
-      } catch (error) {
-        console.error("Error fetching user details:", error);
-      }
-    },
-    [serverId]
-  );
+    if (existingMessage) {
+      mockMessage = existingMessage;
+    } else {
+      mockMessage = {
+        id: `temp-${userId}`,
+        content: "",
+        senderId: userId,
+        timestamp: new Date().toISOString(),
+        username,
+        avatarUrl: avatarCacheRef.current[userId]?.url || "/User_profil.png",
+      };
+    }
 
-  const handleUsernameClick = useCallback(
-    async (userId: string, username: string) => {
-      const existingMessage = messages.find(
-        (msg) => msg.senderId === userId || msg.username === username
-      );
-
-      let mockMessage: Message;
-
-      if (existingMessage) {
-        mockMessage = existingMessage;
-      } else {
-        mockMessage = {
-          id: `temp-${userId}`,
-          content: "",
-          senderId: userId,
-          timestamp: new Date().toISOString(),
-          username,
-          avatarUrl: avatarCacheRef.current[userId]?.url || "/User_profil.png",
-        };
-      }
-
-      await openProfile(mockMessage);
-    },
-    [messages, openProfile]
-  );
+    await openProfile(mockMessage); // openProfile will handle fetching the roles!
+  },
+  [messages, openProfile]
+);
 
   const handleRoleMentionClick = useCallback(
     async (roleName: string) => {

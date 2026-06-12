@@ -201,7 +201,9 @@ const resolveRepliesForThread = (
 
   return threadMessages.map((msg) => {
     if (msg.replyTo && msg.replyTo.content === "Loading...") {
-      const parent = messageMap.get(msg.replyTo.id);
+      // ✅ FIX: Wrap msg.replyTo.id in String() to satisfy the Map's string key requirement
+      const parent = messageMap.get(String(msg.replyTo.id));
+
       if (parent) {
         const isCurrentUser = parent.sender_id === currentUserId;
         const authorObj = allUsers.find((u) => u.id === parent.sender_id);

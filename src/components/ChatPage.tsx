@@ -1360,44 +1360,44 @@ function MessagesPageContentInner() {
       router.push("/");
     }
   }, [router]);
-  useEffect(() => {
-    const handleProfileUpdate = () => {
-      const userItem = localStorage.getItem("user");
-      if (!userItem) return;
+ useEffect(() => {
+   const handleProfileUpdate = () => {
+     const userItem = localStorage.getItem("user");
+     if (!userItem) return;
 
-      const updatedUser = JSON.parse(userItem) as User;
-      setCurrentUser(updatedUser);
+     const updatedUser = JSON.parse(userItem) as User;
+     setCurrentUser(updatedUser);
 
-      setAllUsers((prev) =>
-        prev.map((u) =>
-          u.id === updatedUser.id
-            ? {
-                ...u,
-                fullname: updatedUser.fullname,
-                avatar_url: updatedUser.avatar_url
-                  ? `${updatedUser.avatar_url}?t=${Date.now()}`
-                  : u.avatar_url,
-              }
-            : u
-        )
-      );
-    };
+     setAllUsers((prev) =>
+       prev.map((u) =>
+         u.id === updatedUser.id
+           ? {
+               ...u,
+               fullname: updatedUser.fullname,
+              
+               avatar_url: updatedUser.avatar_url,
+             }
+           : u
+       )
+     );
+   };
 
-    window.addEventListener("user-profile-updated", handleProfileUpdate);
-    return () =>
-      window.removeEventListener("user-profile-updated", handleProfileUpdate);
-  }, []);
-  useEffect(() => {
-    if (!currentUser?.id || !currentUser.avatar_url) return;
+   window.addEventListener("user-profile-updated", handleProfileUpdate);
+   return () =>
+     window.removeEventListener("user-profile-updated", handleProfileUpdate);
+ }, []);
+ useEffect(() => {
+   if (!currentUser?.id || !currentUser.avatar_url) return;
 
-    const bustedUrl = `${currentUser.avatar_url}?t=${Date.now()}`;
 
-    setAllUsers((prev) =>
-      prev.map((u) =>
-        u.id === currentUser.id ? { ...u, avatar_url: bustedUrl } : u
-      )
-    );
-  }, [currentUser?.avatar_url]);
+   setAllUsers((prev) =>
+     prev.map((u) =>
+       u.id === currentUser?.id
+         ? { ...u, avatar_url: currentUser.avatar_url }
+         : u
+     )
+   );
+ }, [currentUser?.avatar_url, currentUser?.id]);
 
   // Removed duplicate socket setup effect; handled in single effect above
 
@@ -1946,51 +1946,53 @@ const loadOlderMessages = async (container?: HTMLDivElement | null) => {
     [router]
   );
 
-  const openUserProfile = useCallback(
-    async (userId: string, fallbackName?: string, fallbackAvatar?: string) => {
-      if (!userId) return;
+ const openUserProfile = useCallback(
+   async (userId: string, fallbackName?: string, fallbackAvatar?: string) => {
+     if (!userId) return;
 
-      setSelectedUser({
-        id: userId,
-        username: fallbackName || "Unknown User",
-        avatarUrl: fallbackAvatar || "/User_profil.png",
-        about: "Loading bio...",
-        roles: [],
-      });
-      setIsProfileOpen(true);
-      
+     setSelectedUser({
+       id: userId,
+       username: fallbackName || "Unknown User",
+       avatarUrl: fallbackAvatar || "/User_profil.png",
+       about: "Loading bio...",
+       roles: [],
+     });
+     setIsProfileOpen(true);
 
-      try {
-        const profile = await fetchUserProfile(userId);
-        if (!profile) return;
+     try {
+       const profile = await fetchUserProfile(userId);
+       if (!profile) throw new Error("Profile not found");
 
-        setSelectedUser((prev) => {
-          if (!prev || prev.id !== userId) return prev;
-          return {
-            id: userId,
-            username:
-              profile.username ||
-              profile.fullname ||
-              fallbackName ||
-              "Unknown User",
-            avatarUrl:
-              profile.avatar_url || fallbackAvatar || "/User_profil.png",
-            about: profile.bio || "No bio yet...",
-            roles: Array.isArray(profile.roles)
-              ? profile.roles
-                  .map((role: any) =>
-                    typeof role === "string" ? role : role?.name
-                  )
-                  .filter(Boolean)
-              : [],
-          };
-        });
-      } catch (profileError) {
-        console.error("Failed to open DM user profile:", profileError);
-      }
-    },
-    []
-  );
+       setSelectedUser((prev) => {
+         if (!prev || prev.id !== userId) return prev;
+         return {
+           id: userId,
+           username:
+             profile.username ||
+             profile.fullname ||
+             fallbackName ||
+             "Unknown User",
+           avatarUrl:
+             profile.avatar_url || fallbackAvatar || "/User_profil.png",
+           about: profile.bio || "No bio yet...",
+           roles: Array.isArray(profile.roles)
+             ? profile.roles
+                 .map((role: any) =>
+                   typeof role === "string" ? role : role?.name
+                 )
+                 .filter(Boolean)
+             : [],
+         };
+       });
+     } catch (profileError) {
+       console.error("Failed to open DM user profile:", profileError);
+       setSelectedUser((prev) =>
+         prev ? { ...prev, about: "No bio available." } : null
+       );
+     }
+   },
+   []
+ );
 
   // Mark thread as read when user opens a DM
   useEffect(() => {

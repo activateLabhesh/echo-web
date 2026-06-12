@@ -570,61 +570,101 @@ export default forwardRef(function ChatWindow(
     username: string;
     avatarUrl: string;
     about?: string;
-    roles?: string[];
+    roles?: { id: string; name: string; color: string }[];
   } | null>(null);
-
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
- const openProfile = useCallback(
-   async (msg: Message) => {
-     if (!msg.senderId) return;
+const openProfile = useCallback(
+  async (userId: string, username?: string, fallbackAvatar?: string) => {
+    if (!userId) return;
 
-     // Set basic user info first
-     setSelectedUser({
-       id: msg.senderId,
-       username: msg.username || "Unknown",
-       avatarUrl: msg.avatarUrl || "/User_profil.png",
-       about: "Loading bio...",
-       roles: [],
-     });
-     setIsProfileOpen(true);
+    let realUserId = userId;
+    const safeUsername = username || "Unknown";
+    let safeAvatar = fallbackAvatar || "/User_profil.png";
 
-     // Fetch user details including roles
-     try {
-       const token = localStorage.getItem("access_token");
-       if (!token || !serverId) return;
+    // Fix for @mentions: If userId doesn't have a hyphen, it's a username, not a UUID!
+    // We must find their real UUID in the local chat history first.
+    if (!realUserId.includes("-")) {
+      const found = messages.find(
+        (m) => m.username === realUserId || m.senderId === realUserId
+      );
+      if (found && String(found.senderId).includes("-")) {
+        realUserId = String(found.senderId);
+        safeAvatar = found.avatarUrl || safeAvatar;
+      } else {
+        // If they aren't in chat history, we can't fetch their profile. Exit gracefully.
+        setSelectedUser({
+          id: realUserId,
+          username: safeUsername,
+          avatarUrl: safeAvatar,
+          about: "No bio available.",
+          roles: [],
+        });
+        setIsProfileOpen(true);
+        return;
+      }
+    }
 
-       const url = `${process.env.NEXT_PUBLIC_API_URL}/api/newserver/${serverId}/members/${msg.senderId}`;
-       const response = await fetch(url, {
-         headers: { Authorization: `Bearer ${token}` },
-       });
+    // 1. Open the modal instantly
+    setSelectedUser({
+      id: realUserId,
+      username: safeUsername,
+      avatarUrl: safeAvatar,
+      about: "Loading bio...",
+      roles: [],
+    });
+    setIsProfileOpen(true);
 
-       if (!response.ok) return;
+    // 2. Fetch the rich user details
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token || !serverId) return;
 
-       const memberData = await response.json();
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/newserver/${serverId}/members/${realUserId}`;
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-       setSelectedUser({
-         id: msg.senderId,
-         username: msg.username || "Unknown",
-         avatarUrl: msg.avatarUrl || "/User_profil.png",
-         about: memberData.user?.bio || "No bio yet...",
-         // ✅ FIX: Map the full object with color instead of just the name string!
-         roles:
-           memberData.roles?.map((role: any) => ({
-             id: role.id || role.role_id,
-             name: role.name,
-             color: role.color || "#374151",
-           })) || [],
-       });
-     } catch (error) {
-       console.error("Error fetching user details:", error);
-     }
-   },
-   [serverId]
- );
+      if (!response.ok) throw new Error("Failed to fetch user");
 
+      const memberData = await response.json();
+
+      // Pure fallback, absolutely NO URL modifications!
+      const freshAvatar =
+        memberData.user?.avatar_url ||
+        memberData.users?.avatar_url ||
+        memberData.avatar_url;
+
+      setSelectedUser({
+        id: realUserId,
+        username:
+          memberData.user?.username ||
+          memberData.users?.username ||
+          safeUsername,
+        avatarUrl: freshAvatar || safeAvatar,
+        about:
+          memberData.user?.bio ||
+          memberData.users?.bio ||
+          memberData.bio ||
+          "No bio yet...",
+        roles:
+          memberData.roles?.map((role: any) => ({
+            id: role.id || role.role_id,
+            name: role.name,
+            color: role.color || "#374151",
+          })) || [],
+      });
+    } catch (error) {
+      setSelectedUser((prev) =>
+        prev ? { ...prev, about: "No bio available." } : null
+      );
+    }
+  },
+  [serverId, messages] // Make sure messages is in the dependency array!
+);
 const handleUsernameClick = useCallback(
   async (userId: string, username: string) => {
+    const avatarUrl = avatarCacheRef.current[userId]?.url || "/User_profil.png";
     const existingMessage = messages.find(
       (msg) => msg.senderId === userId || msg.username === username
     );
@@ -644,11 +684,10 @@ const handleUsernameClick = useCallback(
       };
     }
 
-    await openProfile(mockMessage); // openProfile will handle fetching the roles!
+    await openProfile(userId, username, avatarUrl);
   },
-  [messages, openProfile]
+  [openProfile]
 );
-
   const handleRoleMentionClick = useCallback(
     async (roleName: string) => {
       if (!serverId) return;
@@ -1981,7 +2020,7 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
                       )}
                       onReply={() => handleReply(msg)}
                       onReplyPreviewClick={scrollToMessage}
-                      onProfileClick={() => openProfile(msg)}
+                      onProfileClick={() => openProfile(msg.senderId, msg.username, msg.avatarUrl)}
 
                       messageRenderer={(content: string) => {
                       if (typeof content !== "string") {

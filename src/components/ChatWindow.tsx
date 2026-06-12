@@ -578,36 +578,13 @@ const openProfile = useCallback(
   async (userId: string, username?: string, fallbackAvatar?: string) => {
     if (!userId) return;
 
-    let realUserId = userId;
+    console.log("openProfile called:", { userId, username }); // ← ADD
+
     const safeUsername = username || "Unknown";
-    let safeAvatar = fallbackAvatar || "/User_profil.png";
+    const safeAvatar = fallbackAvatar || "/User_profil.png";
 
-    // Fix for @mentions: If userId doesn't have a hyphen, it's a username, not a UUID!
-    // We must find their real UUID in the local chat history first.
-    if (!realUserId.includes("-")) {
-      const found = messages.find(
-        (m) => m.username === realUserId || m.senderId === realUserId
-      );
-      if (found && String(found.senderId).includes("-")) {
-        realUserId = String(found.senderId);
-        safeAvatar = found.avatarUrl || safeAvatar;
-      } else {
-        // If they aren't in chat history, we can't fetch their profile. Exit gracefully.
-        setSelectedUser({
-          id: realUserId,
-          username: safeUsername,
-          avatarUrl: safeAvatar,
-          about: "No bio available.",
-          roles: [],
-        });
-        setIsProfileOpen(true);
-        return;
-      }
-    }
-
-    // 1. Open the modal instantly
     setSelectedUser({
-      id: realUserId,
+      id: userId,
       username: safeUsername,
       avatarUrl: safeAvatar,
       about: "Loading bio...",
@@ -615,78 +592,107 @@ const openProfile = useCallback(
     });
     setIsProfileOpen(true);
 
-    // 2. Fetch the rich user details
     try {
       const token = localStorage.getItem("access_token");
-      if (!token || !serverId) return;
+      if (!token || !serverId) {
+        console.log("No token or serverId:", { token: !!token, serverId }); // ← ADD
+        return;
+      }
 
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/newserver/${serverId}/members/${realUserId}`;
-      const response = await fetch(url, {
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/newserver/${serverId}/members/${userId}`;
+      console.log("Fetching:", url); // ← ADD
+
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) throw new Error("Failed to fetch user");
+      console.log("Response status:", res.status); // ← ADD
 
-      const memberData = await response.json();
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      // Pure fallback, absolutely NO URL modifications!
-      const freshAvatar =
-        memberData.user?.avatar_url ||
-        memberData.users?.avatar_url ||
-        memberData.avatar_url;
+      const data = await res.json();
+      console.log("Member data received:", data); // ← ADD
 
       setSelectedUser({
-        id: realUserId,
+        id: userId,
         username:
-          memberData.user?.username ||
-          memberData.users?.username ||
+          data.user?.username ||
+          data.users?.username ||
+          data.username ||
           safeUsername,
-        avatarUrl: freshAvatar || safeAvatar,
-        about:
-          memberData.user?.bio ||
-          memberData.users?.bio ||
-          memberData.bio ||
-          "No bio yet...",
+        avatarUrl:
+          data.user?.avatar_url ||
+          data.users?.avatar_url ||
+          data.avatar_url ||
+          safeAvatar,
+        about: data.user?.bio || data.users?.bio || data.bio || "No bio yet...",
         roles:
-          memberData.roles?.map((role: any) => ({
-            id: role.id || role.role_id,
-            name: role.name,
-            color: role.color || "#374151",
+          data.roles?.map((r: any) => ({
+            id: r.id || r.role_id,
+            name: r.name,
+            color: r.color || "#374151",
           })) || [],
       });
-    } catch (error) {
+    } catch (err) {
+      console.error("openProfile error:", err);
       setSelectedUser((prev) =>
         prev ? { ...prev, about: "No bio available." } : null
       );
     }
   },
-  [serverId, messages] // Make sure messages is in the dependency array!
+  [serverId, messages]
 );
 const handleUsernameClick = useCallback(
   async (userId: string, username: string) => {
-    const avatarUrl = avatarCacheRef.current[userId]?.url || "/User_profil.png";
-    const existingMessage = messages.find(
-      (msg) => msg.senderId === userId || msg.username === username
+    // Step 1: Check already-loaded messages for real UUID
+    const fromMessages = messages.find(
+      (msg) =>
+        msg.username?.toLowerCase() === username.toLowerCase() &&
+        msg.senderId &&
+        !String(msg.senderId).startsWith("temp-") &&
+        // Make sure senderId is a real UUID, not another username string
+        String(msg.senderId) !== msg.username
     );
 
-    let mockMessage: Message;
-
-    if (existingMessage) {
-      mockMessage = existingMessage;
-    } else {
-      mockMessage = {
-        id: `temp-${userId}`,
-        content: "",
-        senderId: userId,
-        timestamp: new Date().toISOString(),
-        username,
-        avatarUrl: avatarCacheRef.current[userId]?.url || "/User_profil.png",
-      };
+    if (fromMessages?.senderId) {
+      const avatarUrl =
+        avatarCacheRef.current[String(fromMessages.senderId)]?.url ||
+        fromMessages.avatarUrl ||
+        "/User_profil.png";
+      await openProfile(String(fromMessages.senderId), username, avatarUrl);
+      return;
     }
 
-    await openProfile(userId, username, avatarUrl);
+    // Step 2: Resolve UUID from server members list
+    if (serverId) {
+      try {
+        const members = await getServerMembers(serverId);
+        const match = members?.find(
+          (m: any) =>
+            m?.users?.username?.toLowerCase() === username.toLowerCase()
+        );
+
+        if (match) {
+          const realId =
+            match.user_id || match.userId || match.users?.id || match.id;
+
+          const avatarUrl =
+            match.users?.avatar_url || match.avatar_url || "/User_profil.png";
+
+          if (realId) {
+            await openProfile(String(realId), username, avatarUrl);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to resolve UUID from members list:", err);
+      }
+    }
+
+
+    await openProfile(userId, username, "/User_profil.png");
   },
-  [openProfile]
+  [openProfile, messages, serverId]
 );
   const handleRoleMentionClick = useCallback(
     async (roleName: string) => {

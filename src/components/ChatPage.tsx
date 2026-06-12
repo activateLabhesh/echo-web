@@ -1960,21 +1960,56 @@ const loadOlderMessages = async (container?: HTMLDivElement | null) => {
      setIsProfileOpen(true);
 
      try {
-       const profile = await fetchUserProfile(userId);
+       const token = localStorage.getItem("access_token");
+
+       // Try the generic profile endpoint with exhaustive field names
+       const url = `${process.env.NEXT_PUBLIC_API_URL}/api/profile/${userId}`;
+       const response = await fetch(url, {
+         headers: { Authorization: `Bearer ${token || ""}` },
+       });
+
+       let profile: any = null;
+
+       if (response.ok) {
+         profile = await response.json();
+       } else {
+         // Fallback to the existing fetchUserProfile helper
+         profile = await fetchUserProfile(userId);
+       }
+
        if (!profile) throw new Error("Profile not found");
+
+       // Exhaustive extraction — covers user/users nesting and flat shapes
+       const resolvedUsername =
+         profile.user?.username ||
+         profile.users?.username ||
+         profile.username ||
+         profile.fullname ||
+         profile.name ||
+         fallbackName ||
+         "Unknown User";
+
+       const resolvedAvatar =
+         profile.user?.avatar_url ||
+         profile.users?.avatar_url ||
+         profile.avatar_url ||
+         fallbackAvatar ||
+         "/User_profil.png";
+
+       const resolvedBio =
+         profile.user?.bio ||
+         profile.users?.bio ||
+         profile.bio ||
+         profile.about ||
+         "No bio yet...";
 
        setSelectedUser((prev) => {
          if (!prev || prev.id !== userId) return prev;
          return {
            id: userId,
-           username:
-             profile.username ||
-             profile.fullname ||
-             fallbackName ||
-             "Unknown User",
-           avatarUrl:
-             profile.avatar_url || fallbackAvatar || "/User_profil.png",
-           about: profile.bio || "No bio yet...",
+           username: resolvedUsername,
+           avatarUrl: resolvedAvatar,
+           about: resolvedBio,
            roles: Array.isArray(profile.roles)
              ? profile.roles
                  .map((role: any) =>
@@ -1984,8 +2019,8 @@ const loadOlderMessages = async (container?: HTMLDivElement | null) => {
              : [],
          };
        });
-     } catch (profileError) {
-       console.error("Failed to open DM user profile:", profileError);
+     } catch (error) {
+       console.error("openUserProfile fetch failed:", error);
        setSelectedUser((prev) =>
          prev ? { ...prev, about: "No bio available." } : null
        );
@@ -1993,7 +2028,6 @@ const loadOlderMessages = async (container?: HTMLDivElement | null) => {
    },
    []
  );
-
   // Mark thread as read when user opens a DM
   useEffect(() => {
     if (!activeDmId || !currentUser?.id) return;

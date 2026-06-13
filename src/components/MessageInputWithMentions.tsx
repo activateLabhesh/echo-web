@@ -628,7 +628,7 @@ const loadTrendingGifs = async () => {
       )}
 
       {/* Input Bar */}
-      <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-3">
+      <div className="mb-2 flex items-center gap-2 bg-gray-800 rounded-lg p-3">
         <textarea
           ref={textInputRef}
           rows={1}

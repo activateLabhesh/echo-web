@@ -274,12 +274,12 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             <button
               type="button"
               onClick={() => copyCodeBlock(segment.value, segmentIndex)}
-              className="rounded-md border border-slate-600 px-2 py-1 text-slate-200 transition hover:bg-slate-700"
+              className="rounded-md border border-slate-600 mx-2 px-2 py-1 text-slate-200 transition hover:bg-slate-700"
             >
               {isCopied ? "Copied" : "Copy"}
             </button>
           </div>
-          <pre className="overflow-x-auto text-sm leading-6 text-slate-100">
+          <pre className="p-2 overflow-x-auto text-sm leading-6 text-slate-100">
             <code className="font-mono whitespace-pre-wrap break-words">
               {segment.value}
             </code>
@@ -292,13 +292,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   return (
     <div
       data-message-id={message.id}
-      className={`group flex mb-3 ${isSender ? "justify-end" : "justify-start"} ${
+      className={`group flex mb-3 mx-0 ${isSender ? "justify-end" : "justify-start"} ${
         isPending ? "opacity-70" : ""
       }`}
     >
       {/* Left Avatar (receiver) */}
       {!isSender && (
-        <div className="mx-3 mr-3">
+        <div className="mx-1 mr-2">
           <MessageAvatar
             name={name}
             avatarUrl={avatarUrl}
@@ -348,7 +348,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   <span className="truncate text-slate-400">GIF</span>
                 </>
               ) : message.replyTo.content?.trim().startsWith("```") ? (
-                <div className="max-w-xs overflow-hidden rounded bg-slate-900 border border-slate-700 px-2 py-1">
+                <div className="max-w-xs overflow-hidden rounded bg-slate-900 border mx-2  border-slate-700 px-4 py-2">
                   <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap">
                    {message.replyTo.content
               .replace(/^```[\w]*\n?/, "")

@@ -789,7 +789,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       <div
         ref={messagesContainerRef}
         onScroll={handleDmScroll}
-        className="chat-scroll flex-1 space-y-8 overflow-y-auto px-6 py-8 pr-3 scrollbar-thin scrollbar-thumb-slate-500 scrollbar-track-slate-900"
+        className="chat-scroll flex-1 space-y-0 overflow-y-auto px-6 py-6 pr-3 scrollbar-thin scrollbar-thumb-slate-500 scrollbar-track-slate-900"
       >
         {isLoadingOlderMessages && (
           <div className="flex justify-center py-2">

@@ -704,15 +704,10 @@ const externalState = useMemo(
                 placeholder="channel-name"
                 disabled={isSavingChannel || isDeletingChannel}
               />
-              <div className="mt-6 border-t border-gray-800 pt-4">
-                <div className="mb-3">
-                  <h3 className="text-sm font-semibold text-red-300">
-                    Delete Channel
-                  </h3>
-                  <p className="mt-1 text-xs text-gray-400">
-                    This removes the channel from this server.
-                  </p>
-                </div>
+              
+              <div className="mt-5 flex justify-end gap-2">
+           
+              
                 <button
                   type="button"
                   onClick={handleDeleteChannel}
@@ -720,10 +715,9 @@ const externalState = useMemo(
                   className="flex w-full items-center justify-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-500 disabled:opacity-60"
                 >
                   <FaTrash className="h-3.5 w-3.5" />
-                  {isDeletingChannel ? "Deleting..." : "Delete Channel"}
+                  {isDeletingChannel ? "Deleting..." : "Delete"}
                 </button>
-              </div>
-              <div className="mt-5 flex justify-end gap-2">
+              
                 <button
                   type="button"
                   onClick={closeChannelSettings}
@@ -738,7 +732,7 @@ const externalState = useMemo(
                   disabled={isSavingChannel || isDeletingChannel}
                   className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
                 >
-                  {isSavingChannel ? "Saving..." : "Save Changes"}
+                  {isSavingChannel ? "Saving..." : "Save"}
                 </button>
               </div>
             </div>
@@ -1311,8 +1305,8 @@ const externalState = useMemo(
             </div>
 
             {/* Main area */}
-            <div className="flex-1 min-w-0 relative text-white bg-[radial-gradient(ellipse_at_top,rgba(59,130,246,0.12)_0%,rgba(0,0,0,1)_65%)] flex flex-col">
-              <button
+            <div className="flex-1 min-w-0 relative text-white bg-black flex flex-col">
+              {/* <button
                 onClick={() => setIsChannelSidebarCollapsed((prev) => !prev)}
                 className={`absolute top-4 ${
                   isChannelSidebarCollapsed ? "left-4" : "left-[-1.5rem]"
@@ -1328,7 +1322,7 @@ const externalState = useMemo(
                 ) : (
                   <FaAngleLeft className="w-6 h-6" />
                 )}
-              </button>
+              </button> */}
 
               <>
                 {/* Voice UI */}
@@ -1390,7 +1384,7 @@ const externalState = useMemo(
 
                 {/* Chat UI */}
                 <div
-                  className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 rounded-lg ${
+                  className={`mx-2 -px-6 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 rounded-lg ${
                     !showVoiceUI && activeChannel ? "flex flex-col" : "hidden"
                   }`}
                 >

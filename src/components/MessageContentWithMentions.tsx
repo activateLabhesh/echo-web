@@ -322,12 +322,12 @@ export default function MessageContentWithMentions({
             <button
               type="button"
               onClick={() => copyCodeBlock(segment.value, segmentIndex)}
-              className="rounded-md border border-slate-600 px-2 py-1 text-slate-200 transition hover:bg-slate-700"
+              className="rounded-md border border-slate-600 mx-2 px-2 py-1 text-slate-200 transition hover:bg-slate-700"
             >
               {isCopied ? "Copied" : "Copy"}
             </button>
           </div>
-          <pre className="overflow-x-auto p-3 text-sm leading-6 text-slate-100">
+          <pre className="overflow-x-auto p-3 mx-2 text-sm leading-6 text-slate-100">
             <code className="font-mono whitespace-pre-wrap break-words">
               {segment.value}
             </code>

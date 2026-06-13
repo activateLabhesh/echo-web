@@ -2073,7 +2073,7 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
         )}
       </div>
 
-      <div className="flex-shrink-0 px-6">
+      <div className="flex-shrink-0 px-0">
         {permissionError && (
           <div className="mx-6 mb-2 px-4 py-3 bg-red-900/50 border border-red-500 rounded-lg flex items-center gap-3">
             <span className="text-red-400 text-xl">🔒</span>
@@ -2168,7 +2168,7 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
         
 
         {channelPermissions && !channelPermissions.canSend ? (
-          <div className="mx-6 p-4 bg-slate-800/70 border-2 border-slate-700 rounded-lg text-center">
+          <div className=" mb-3 p-4 bg-slate-800/70 border-2 border-slate-700 rounded-lg text-center">
             <div className="flex items-center justify-center gap-2 mb-2">
               <span className="text-2xl">
                 {channelPermissions.channelType === "read_only" ? "📢" : "🔒"}

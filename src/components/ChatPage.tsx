@@ -1261,23 +1261,27 @@ function MessagesPageContentInner() {
          const newMap = new Map(prevMap);
          const currentDms = newMap.get(partnerId) || [];
 
-         // De-duplicate: remove optimistic message with same sender+content close in time
-         const thresholdMs = 60_000; // 60s window
          const incTime = Date.parse(incomingMsg.timestamp);
 
+         let replaced = false;
          let updated = currentDms.filter((m) => {
-           if (m.media_url?.startsWith("blob:")) return false;
-           if (m.id.toString().startsWith("temp-")) return false;
+           if (!m.id.toString().startsWith("temp-") && !m.media_url?.startsWith("blob:")) {
+             return m.id !== incomingMsg.id;
+           }
+           if (replaced) return true;
            const sameSender = m.sender_id === incomingMsg.sender_id;
            const sameContent =
-             (m.content || "") === (incomingMsg.content || "");
+             (m.content || "").trim() === (incomingMsg.content || "").trim();
            const mTime = Date.parse(m.timestamp);
-           const incTime2 = Date.parse(incomingMsg.timestamp);
            const nearInTime =
-             Number.isFinite(incTime2) && Number.isFinite(mTime)
-               ? Math.abs(mTime - incTime2) < 60_000
-               : false;
-           return !(sameSender && sameContent && nearInTime);
+             Number.isFinite(mTime) && Number.isFinite(incTime)
+               ? Math.abs(mTime - incTime) < 15_000
+               : true;
+           if (sameSender && sameContent && nearInTime) {
+             replaced = true;
+             return false;
+           }
+           return true;
          });
 
          setDmSummaries((prev) => {
@@ -1301,24 +1305,23 @@ function MessagesPageContentInner() {
            return next;
          });
 
-         // If exact id exists, avoid duplicate; otherwise append to the end
-          if (!updated.some((m) => m.id === incomingMsg.id)) {
-            updated = [...updated, incomingMsg];
-          }
+         if (!updated.some((m) => m.id === incomingMsg.id)) {
+           updated = [...updated, incomingMsg];
+         }
 
-          const nextMessages = sortDmMessages(updated);
-          const delta = nextMessages.length - currentDms.length;
+         const nextMessages = sortDmMessages(updated);
 
-          if (delta !== 0) {
-            setDmOffsets((prev) => {
-              const next = new Map(prev);
-              next.set(partnerId, Math.max(0, (next.get(partnerId) ?? 0) + delta));
-              return next;
-            });
-          }
+         const netNew = nextMessages.length - currentDms.length;
+         if (netNew > 0) {
+           setDmOffsets((prev) => {
+             const next = new Map(prev);
+             next.set(partnerId, (next.get(partnerId) ?? 0) + netNew);
+             return next;
+           });
+         }
 
-          newMap.set(partnerId, nextMessages);
-          return newMap;
+         newMap.set(partnerId, nextMessages);
+         return newMap;
         });
      } catch (e) {
        console.error("Failed to handle incoming DM:", e, raw);
@@ -1667,7 +1670,7 @@ const loadOlderMessages = async (container?: HTMLDivElement | null) => {
       const next = new Map(prev);
       const current = next.get(activeDmId) || [];
 
-      next.set(activeDmId, [...parsed, ...current]);
+      next.set(activeDmId, mergeDmMessages(parsed, current));
 
       return next;
     });

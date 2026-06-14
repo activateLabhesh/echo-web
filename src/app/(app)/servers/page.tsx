@@ -1199,11 +1199,11 @@ const externalState = useMemo(
                             <span className="truncate font-medium">
                               {channel.name}
                             </span>
-                            {roster.length > 0 && (
+                            {/* {roster.length > 0 && (
                               <span className="rounded-full bg-[#1e1f22] px-1.5 py-0.5 text-[10px] text-gray-400">
                                 {roster.length}
                               </span>
-                            )}
+                            )} */}
                             {isInThisChannel && (
                               <span
                                 className={`h-2 w-2 flex-shrink-0 rounded-full ${
@@ -1355,7 +1355,7 @@ const externalState = useMemo(
                     <div className="relative flex h-full w-full">
                       {(isConnecting ||
                         (!isConnected && !connectionError)) && (
-                        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
+                        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/100 backdrop-blur-sm">
                           <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-700 border-t-[#5865f2]" />
                           <h3 className="text-lg font-semibold text-white">
                             Connecting to voice...

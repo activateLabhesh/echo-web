@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { chatUi } from "./ui/chatUi";
 
 interface Role {
   id: string;
@@ -184,7 +185,7 @@ export default function MessageContentWithMentions({
             href={mention.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 underline hover:underline-offset-2 transition-colors break-all"
+            className="break-all text-[color:var(--chat-accent-strong)] underline decoration-[color:var(--chat-accent)]/40 underline-offset-2 transition-colors hover:text-white"
             onClick={(e) => e.stopPropagation()}
           >
             {mention.displayText}
@@ -314,20 +315,20 @@ export default function MessageContentWithMentions({
       return (
         <div
           key={`code-${segmentIndex}`}
-          className="my-2 overflow-hidden rounded-lg border border-slate-600 bg-[#1e1f22] text-left"
+          className="my-2 overflow-hidden rounded-xl border border-[color:var(--chat-border)] bg-[color:var(--chat-panel)] text-left"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between border-b border-slate-700 px-3 py-2 text-[11px] text-slate-400">
+          <div className="flex items-center justify-between border-b border-[color:var(--chat-border)] px-3 py-2 text-[11px] text-[color:var(--chat-text-muted)]">
             <span>Code</span>
             <button
               type="button"
               onClick={() => copyCodeBlock(segment.value, segmentIndex)}
-              className="rounded-md border border-slate-600 mx-2 px-2 py-1 text-slate-200 transition hover:bg-slate-700"
+              className="mx-2 rounded-md border border-[color:var(--chat-border)] px-2 py-1 text-[color:var(--chat-text)] transition hover:bg-white/5"
             >
               {isCopied ? "Copied" : "Copy"}
             </button>
           </div>
-          <pre className="overflow-x-auto p-3 mx-2 text-sm leading-6 text-slate-100">
+          <pre className="mx-2 overflow-x-auto p-3 text-sm leading-6 text-[color:var(--chat-text)]">
             <code className="font-mono whitespace-pre-wrap break-words">
               {segment.value}
             </code>
@@ -338,7 +339,7 @@ export default function MessageContentWithMentions({
   };
 
   return (
-    <div className="text-gray-300 leading-relaxed whitespace-pre-wrap break-words">
+    <div className="whitespace-pre-wrap break-words leading-relaxed text-[color:var(--chat-text-secondary)]">
       {renderContent()}
     </div>
   );

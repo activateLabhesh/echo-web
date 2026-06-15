@@ -40,6 +40,7 @@ import { MessageSearchResult } from "@/api/types/message.types";
 
 import { apiClient as mentionsApiClient } from "@/utils/apiClient";
 import { apiClient as profileApiClient } from "@/api/axios";
+import { chatUi } from "./ui/chatUi";
 
 // Dynamic imports for heavy components that are conditionally rendered
 const VideoPanel = dynamic(() => import("./VideoPanel"), {
@@ -1865,22 +1866,22 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
     }
   };
   return (
-    <div className="flex flex-col flex-1 h-full w-full overflow-hidden">
+    <div className="chat-shell flex h-full w-full flex-1 flex-col overflow-hidden">
       {(serverId || threadId) && (
         
 
 
-<div className="h-12 flex items-center justify-between px-4 border-b border-[#1f2124] bg-[#313338] ">
+<div className="chat-header flex h-14 items-center justify-between px-4">
   {/* Left Section */}
   <div className="flex items-center min-w-0">
-    <Hash className="w-6 h-6 text-[#80848e] mr-2 flex-shrink-0" />
+    <Hash className="mr-2 h-5 w-5 flex-shrink-0 text-[color:var(--chat-text-muted)]" />
 
     <div className="min-w-0">
-      <h2 className="truncate text-white font-semibold text-[15px]">
+      <h2 className="truncate text-[15px] font-semibold text-[color:var(--chat-text)]">
         {channelName}
       </h2>
 
-      <p className="truncate text-[12px] text-[#949ba4]">
+      <p className="truncate text-[12px] text-[color:var(--chat-text-muted)]">
         {threadId
           ? "Private conversation"
           : "Channel discussion"}
@@ -1892,13 +1893,13 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
   <div className="flex items-center gap-1">
     <button
       onClick={() => setShowSearch(true)}
-      className="p-2 rounded-md text-[#b5bac1] hover:text-white hover:bg-[#3f4248] transition"
+      className={chatUi.buttonGhost + " p-2"}
     >
       <Search className="w-5 h-5" />
     </button>
 
     <button
-      className="p-2 rounded-md text-[#b5bac1] hover:text-white hover:bg-[#3f4248] transition"
+      className={chatUi.buttonGhost + " p-2"}
     >
       <MoreVertical className="w-5 h-5" />
     </button>
@@ -1942,7 +1943,7 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
       )}
       
       {(localStream || (remoteStreams && remoteStreams.length > 0)) && (
-        <div className="p-4 pb-0 h-96 flex-shrink-0">
+        <div className="h-96 flex-shrink-0 p-4 pb-0">
           <div className="relative w-full h-full">
             <VideoPanel
               localStream={localStream || undefined}
@@ -1951,8 +1952,8 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
             <div className="absolute bottom-3 right-3 flex gap-2 z-10">
               <button
                 onClick={() => setMicOn((v) => !v)}
-                className={`px-3 py-1 rounded-md text-sm ${
-                  micOn ? "bg-green-600/80" : "bg-red-600/80"
+                className={`rounded-full px-3 py-1 text-sm ${
+                  micOn ? "bg-[color:var(--chat-success)]/80" : "bg-[color:var(--chat-danger)]/80"
                 }`}
                 title={micOn ? "Mute mic" : "Unmute mic"}
               >
@@ -1960,8 +1961,8 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
               </button>
               <button
                 onClick={() => setCamOn((v) => !v)}
-                className={`px-3 py-1 rounded-md text-sm ${
-                  camOn ? "bg-green-600/80" : "bg-red-600/80"
+                className={`rounded-full px-3 py-1 text-sm ${
+                  camOn ? "bg-[color:var(--chat-success)]/80" : "bg-[color:var(--chat-danger)]/80"
                 }`}
                 title={camOn ? "Turn camera off" : "Turn camera on"}
               >
@@ -1974,16 +1975,16 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900"
+        className="chat-scroll flex-1 overflow-y-auto"
       >
         {loadingMessages ? (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
-              <div className="mx-auto mb-4 w-8 h-8 border-4 border-gray-700 border-t-blue-500 rounded-full animate-spin" />
+              <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-[color:var(--chat-border)] border-t-[color:var(--chat-accent)]" />
             </div>
           </div>
         ) : isInitialLoadDone && !loadingMessages && messages.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-gray-500 text-sm">
+          <div className="flex h-full items-center justify-center text-sm text-[color:var(--chat-text-muted)]">
             No messages yet. Say hi 👋
           </div>
         ) : (
@@ -1991,8 +1992,8 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
             {loadingMore && (
               <div className="flex justify-center py-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 border-2 border-gray-600 border-t-blue-500 rounded-full animate-spin" />
-                  <span className="text-gray-400 text-sm">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-[color:var(--chat-border)] border-t-[color:var(--chat-accent)]" />
+                  <span className="text-sm text-[color:var(--chat-text-muted)]">
                     Loading older messages...
                   </span>
                 </div>
@@ -2001,7 +2002,7 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
 
             {!hasMore && messages.length > 0 && (
               <div className="flex justify-center py-4">
-                <span className="text-gray-500 text-xs">
+                <span className="text-xs text-[color:var(--chat-text-muted)]">
                   Beginning of conversation
                 </span>
               </div>
@@ -2027,20 +2028,20 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
                 <React.Fragment key={msg.id}>
                   {showDayDivider && (
                     <div className="flex items-center gap-4 my-4 px-4">
-                      <div className="flex-1 h-px bg-[#3f4248]" />
-                      <span className="rounded-full border border-[#3f4248] bg-[#2b2d31] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#949ba4] whitespace-nowrap">
+                      <div className="flex-1 h-px bg-[color:var(--chat-border)]" />
+                      <span className="whitespace-nowrap rounded-full border border-[color:var(--chat-border)] bg-[color:var(--chat-panel-3)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[color:var(--chat-text-muted)]">
                         {currentDayLabel}
                       </span>
-                      <div className="flex-1 h-px bg-[#3f4248]" />
+                      <div className="flex-1 h-px bg-[color:var(--chat-border)]" />
                     </div>
                   )}
                   {isUnreadDividerHere && (
                     <div className="flex items-center my-4">
-                      <div className="flex-1 h-px bg-red-500" />
-                      <span className="mx-3 text-xs font-semibold uppercase tracking-wide text-red-400">
+                      <div className="flex-1 h-px bg-[color:var(--chat-danger)]" />
+                      <span className="mx-3 text-xs font-semibold uppercase tracking-wide text-[color:var(--chat-danger)]">
                         New Messages
                       </span>
-                      <div className="flex-1 h-px bg-red-500" />
+                      <div className="flex-1 h-px bg-[color:var(--chat-danger)]" />
                     </div>
                   )}
                   <div
@@ -2126,69 +2127,51 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
         )}
         
         {replyingTo && (
-          <div className="mx-6 mb-2 px-4 py-2 bg-slate-800 rounded-lg flex items-center justify-between border-l-4 border-blue-500">
-            <div className="flex items-center gap-2 min-w-0 text-sm text-slate-300">
-  
-<div className="flex items-center gap-2 min-w-0 text-sm text-slate-300">
-  <span className="shrink-0">
-    Replying to{" "}
-    <span className="font-semibold">
-      {replyingTo.username || "User"}
-    </span>
-    :
-  </span>
-  
-
-  {replyingTo.content?.startsWith("[GIF]") ? (
-    <img
-      src={replyingTo.content.replace("[GIF]", "")}
-      alt="GIF preview"
-      className="h-10 w-10 rounded object-cover border border-slate-600 flex-shrink-0"
-    />
-  ) : isCodeBlock(replyingTo.content) ? (
-    <div className="max-w-xs truncate rounded bg-slate-900 border border-slate-700 px-2 font-mono text-xs text-green-400">
-    {(
-  replyingTo.content.match(
-    /```(?:\w+)?\n?([\s\S]*?)```/
-  )?.[1] || ""
-)
-  .trim()
-  .split("\n")[0]}
-    </div>
-  ) : (
-    <>
-      {replyingTo.mediaUrl &&
-        (isReplyImage(
-          replyingTo.mediaUrl,
-          replyingTo.mediaType
-        ) ? (
-          <img
-            src={replyingTo.mediaUrl}
-            alt="Reply attachment"
-            className="h-9 w-9 flex-shrink-0 rounded object-cover border border-slate-600"
-          />
-        ) : (
-          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded border border-slate-600 bg-slate-800 text-slate-300">
-            <Paperclip className="h-4 w-4" />
-          </span>
-        ))}
-      <span className="italic truncate">
-        {replyingTo.content || (replyingTo.mediaUrl ? "Attachment" : "")}
-      </span>
-    </>
-  )}
-</div>
-</div>
+          <div className="mx-6 mb-2 flex items-center justify-between rounded-2xl border border-[color:var(--chat-border)] bg-[color:var(--chat-panel-2)] px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2 text-sm text-[color:var(--chat-text-secondary)]">
+              <span className="shrink-0">
+                Replying to <span className="font-semibold text-[color:var(--chat-text)]">{replyingTo.username || "User"}</span>:
+              </span>
+              {replyingTo.content?.startsWith("[GIF]") ? (
+                <img
+                  src={replyingTo.content.replace("[GIF]", "")}
+                  alt="GIF preview"
+                  className="h-10 w-10 flex-shrink-0 rounded-lg border border-[color:var(--chat-border)] object-cover"
+                />
+              ) : isCodeBlock(replyingTo.content) ? (
+                <div className="max-w-xs truncate rounded-lg border border-[color:var(--chat-border)] bg-[color:var(--chat-panel-3)] px-2 font-mono text-xs text-[color:var(--chat-success)]">
+                  {(replyingTo.content.match(/```(?:\w+)?\n?([\s\S]*?)```/)?.[1] || "")
+                    .trim()
+                    .split("\n")[0]}
+                </div>
+              ) : (
+                <>
+                  {replyingTo.mediaUrl &&
+                    (isReplyImage(replyingTo.mediaUrl, replyingTo.mediaType) ? (
+                      <img
+                        src={replyingTo.mediaUrl}
+                        alt="Reply attachment"
+                        className="h-9 w-9 flex-shrink-0 rounded-lg border border-[color:var(--chat-border)] object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-[color:var(--chat-border)] bg-[color:var(--chat-panel-3)] text-[color:var(--chat-text-secondary)]">
+                        <Paperclip className="h-4 w-4" />
+                      </span>
+                    ))}
+                  <span className="truncate italic">
+                    {replyingTo.content || (replyingTo.mediaUrl ? "Attachment" : "")}
+                  </span>
+                </>
+              )}
+            </div>
             <button
               onClick={() => {
                 setReplyingTo(null);
                 requestAnimationFrame(() => {
-                  messagesEndRef.current?.scrollIntoView({
-                    behavior: "smooth",
-                  });
+                  messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
                 });
               }}
-              className="ml-3 text-slate-400 hover:text-white"
+              className="ml-3 text-[color:var(--chat-text-muted)] hover:text-white"
             >
               ✕
             </button>
@@ -2198,7 +2181,7 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
           <div className="mb-2">
             <button
               onClick={jumpToNextMention}
-              className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center gap-2 transition-colors"
+              className="chat-button-primary w-full justify-center rounded-2xl py-2"
             >
               <span className="text-lg">@</span>
               <span className="font-medium">
@@ -2209,21 +2192,19 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
             </button>
           </div>
         )}
-        
-
         {channelPermissions && !channelPermissions.canSend ? (
-          <div className=" mb-3 p-4 bg-slate-800/70 border-2 border-slate-700 rounded-lg text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
+          <div className="mb-3 rounded-2xl border border-[color:var(--chat-border)] bg-[color:var(--chat-panel-2)] p-4 text-center">
+            <div className="mb-2 flex items-center justify-center gap-2">
               <span className="text-2xl">
                 {channelPermissions.channelType === "read_only" ? "📢" : "🔒"}
               </span>
-              <span className="text-slate-300 font-semibold">
+              <span className="font-semibold text-[color:var(--chat-text)]">
                 {channelPermissions.channelType === "read_only"
                   ? "Read-Only Channel"
                   : "Restricted Channel"}
               </span>
             </div>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-[color:var(--chat-text-muted)]">
               {channelPermissions.channelType === "read_only"
                 ? "Only admins and moderators can send messages in this channel."
                 : "You need specific roles to send messages here."}
@@ -2248,28 +2229,28 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
       </div>
 
       {roleModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-[#232428] rounded-2xl shadow-2xl w-96 p-6 text-white relative">
+        <div className="chat-modal-backdrop flex items-center justify-center">
+          <div className="chat-modal relative w-96 p-6 text-white">
             <button
-              className="absolute top-3 right-3 text-gray-400 hover:text-white"
+              className="absolute right-3 top-3 text-[color:var(--chat-text-muted)] hover:text-white"
               onClick={() => setRoleModal({ ...roleModal, open: false })}
             >
               ✖
             </button>
-            <h2 className="text-xl font-semibold mb-2">
-              Role: <span className="text-indigo-400">@{roleModal.role}</span>
+            <h2 className="mb-2 text-xl font-semibold">
+              Role: <span className="text-[color:var(--chat-accent)]">@{roleModal.role}</span>
             </h2>
-            <div className="mb-2 text-sm text-gray-400">
+            <div className="mb-2 text-sm text-[color:var(--chat-text-muted)]">
               {roleModal.users.length} member(s) with this role:
             </div>
             <div className="max-h-60 overflow-y-auto space-y-2">
               {roleModal.users.length === 0 ? (
-                <div className="text-gray-500 text-center">No users found.</div>
+                <div className="text-center text-[color:var(--chat-text-muted)]">No users found.</div>
               ) : (
                 roleModal.users.map((user) => (
                   <div
                     key={user.id}
-                    className="flex items-center gap-3 p-2 rounded hover:bg-gray-800 transition"
+                    className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-white/5"
                   >
                     <img
                       src={user.avatarUrl || "/User_profil.png"}

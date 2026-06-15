@@ -7,6 +7,7 @@ import type { EmojiClickData } from "emoji-picker-react";
 import { Theme } from "emoji-picker-react";
 import { apiClient } from "@/utils/apiClient";
 import { useToast } from "@/contexts/ToastContext";
+import { chatUi } from "./ui/chatUi";
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
@@ -460,17 +461,17 @@ const loadTrendingGifs = async () => {
 };
 
   return (
-    <div className="relative pt-6">
+    <div className="relative px-4 pb-4 pt-3">
       {/* Emoji Picker */}
       {showEmojiPicker && (
-        <div ref={emojiPickerRef} className="absolute bottom-20 left-4 z-50">
-          <EmojiPicker theme={Theme.DARK} onEmojiClick={handleEmojiClick} />
-        </div>
+      <div ref={emojiPickerRef} className="absolute bottom-20 left-4 z-50 overflow-hidden rounded-2xl border border-[color:var(--chat-border)] shadow-[0_24px_70px_rgba(0,0,0,0.5)]">
+        <EmojiPicker theme={Theme.DARK} onEmojiClick={handleEmojiClick} />
+      </div>
       )}
       {showGifPicker && (
         <div
           ref={gifPickerRef}
-          className="absolute bottom-24 left-4 w-96 h-96 bg-zinc-900 rounded-xl overflow-hidden z-50"
+          className="absolute bottom-24 left-4 z-50 h-96 w-96 overflow-hidden rounded-2xl border border-[color:var(--chat-border)] bg-[color:var(--chat-panel)] shadow-[0_24px_70px_rgba(0,0,0,0.5)]"
         >
           <input
             value={gifSearch}
@@ -479,15 +480,15 @@ const loadTrendingGifs = async () => {
               searchGifs(e.target.value);
             }}
             placeholder="Search GIFs..."
-            className="w-full p-3 bg-zinc-800 text-white"
+            className="chat-search-input w-full border-b border-[color:var(--chat-border)] px-4 py-3"
           />
 
-          <div className="grid grid-cols-2 gap-2 p-2 overflow-y-auto h-[330px]">
+          <div className="grid h-[330px] grid-cols-2 gap-2 overflow-y-auto p-3">
             {gifs.map((gif) => (
               <img
                 key={gif.id}
                 src={gif.images.fixed_width.url}
-                className="cursor-pointer rounded"
+                className="cursor-pointer rounded-xl border border-transparent object-cover transition hover:border-[color:var(--chat-accent)]/40 hover:opacity-95"
                 onClick={() => {
                   sendGif(gif.images.original.url);
                   setShowGifPicker(false);
@@ -501,56 +502,56 @@ const loadTrendingGifs = async () => {
       {showMentionDropdown && (
         <div
           ref={mentionDropdownRef}
-          className="absolute bottom-20 left-4 w-72 max-h-60 overflow-y-auto overflow-x-hidden rounded-lg bg-gray-800 border border-gray-600 z-50"
+          className="absolute bottom-20 left-4 z-50 max-h-60 w-72 overflow-y-auto overflow-x-hidden rounded-2xl border border-[color:var(--chat-border)] bg-[color:var(--chat-panel)] shadow-[0_24px_70px_rgba(0,0,0,0.48)]"
         >
           {searchingMentions ? (
-            <div className="p-4 text-center text-gray-400 text-sm">
+            <div className="p-4 text-center text-sm text-[color:var(--chat-text-muted)]">
               Searching…
             </div>
           ) : (
             <>
               {filteredRoles.length > 0 && (
-                <div className="px-3 py-1 text-xs text-purple-400">Roles</div>
+                <div className="px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-[color:var(--chat-accent-strong)]">Roles</div>
               )}
               {filteredRoles.map((role, idx) => (
                 <div
                   key={`role-${role.id}`}
-                  className={`px-3 py-3 cursor-pointer flex items-center space-x-3 transition-colors ${
+                  className={`flex cursor-pointer items-center gap-3 px-3 py-3 transition-colors ${
                     idx === selectedMentionIndex
-                      ? "bg-blue-600"
-                      : "hover:bg-gray-700"
+                      ? "bg-white/8"
+                      : "hover:bg-white/5"
                   }`}
                   onClick={() => insertMention("role", role.name)}
                 >
-                  <div className="w-8 h-8 flex-shrink-0 bg-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[color:var(--chat-panel-3)] text-sm font-medium text-[color:var(--chat-accent-strong)]">
                     #
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-purple-300 text-sm font-medium truncate">
+                    <div className="truncate text-sm font-medium text-[color:var(--chat-text)]">
                       {role.name}
                     </div>
-                    <div className="text-gray-400 text-xs truncate">
+                    <div className="truncate text-xs text-[color:var(--chat-text-muted)]">
                       @{role.name}
                     </div>
                   </div>
-                  <div className="text-purple-400 text-xs flex-shrink-0">
+                  <div className="flex-shrink-0 text-xs text-[color:var(--chat-accent-strong)]">
                     role
                   </div>
                 </div>
               ))}
 
               {mentionableUsers.length > 0 && (
-                <div className="px-3 py-1 text-xs text-blue-400">Users</div>
+                <div className="px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-[color:var(--chat-accent-strong)]">Users</div>
               )}
               {mentionableUsers.map((user, idx) => {
                 const adjustedIdx = filteredRoles.length + idx;
                 return (
                   <div
                     key={`user-${user.id}`}
-                    className={`px-3 py-3 cursor-pointer flex items-center space-x-3 transition-colors ${
+                    className={`flex cursor-pointer items-center gap-3 px-3 py-3 transition-colors ${
                       adjustedIdx === selectedMentionIndex
-                        ? "bg-blue-600"
-                        : "hover:bg-gray-700"
+                        ? "bg-white/8"
+                        : "hover:bg-white/5"
                     }`}
                     onClick={() => insertMention("user", user.username)}
                   >
@@ -559,41 +560,41 @@ const loadTrendingGifs = async () => {
                       avatarUrl={user.avatar_url}
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="text-white text-sm font-medium truncate">
+                      <div className="truncate text-sm font-medium text-[color:var(--chat-text)]">
                         {user.fullname || user.username}
                       </div>
-                      <div className="text-gray-400 text-xs truncate">
+                      <div className="truncate text-xs text-[color:var(--chat-text-muted)]">
                         @{user.username}
                       </div>
                     </div>
-                    <div className="text-blue-400 text-xs flex-shrink-0">
+                    <div className="flex-shrink-0 text-xs text-[color:var(--chat-accent-strong)]">
                       user
                     </div>
                   </div>
                 );
               })}
-              <div className="px-3 py-1 text-xs text-red-400">Special</div>
+              <div className="px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-[color:var(--chat-danger)]">Special</div>
               <div
-                className={`px-3 py-3 cursor-pointer flex items-center space-x-3 transition-colors ${
+                className={`flex cursor-pointer items-center gap-3 px-3 py-3 transition-colors ${
                   selectedMentionIndex ===
                   filteredRoles.length + mentionableUsers.length
-                    ? "bg-blue-600"
-                    : "hover:bg-gray-700"
+                    ? "bg-white/8"
+                    : "hover:bg-white/5"
                 }`}
                 onClick={() => insertMention("everyone", "everyone")}
               >
-                <div className="w-8 h-8 flex-shrink-0 bg-red-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[color:var(--chat-danger)]/20 text-sm font-medium text-[color:var(--chat-danger)]">
                   @
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-white text-sm font-medium truncate">
+                  <div className="truncate text-sm font-medium text-[color:var(--chat-text)]">
                     everyone
                   </div>
-                  <div className="text-gray-400 text-xs truncate">
+                  <div className="truncate text-xs text-[color:var(--chat-text-muted)]">
                     @everyone
                   </div>
                 </div>
-                <div className="text-red-400 text-xs flex-shrink-0">
+                <div className="flex-shrink-0 text-xs text-[color:var(--chat-danger)]">
                   everyone
                 </div>
               </div>
@@ -607,9 +608,9 @@ const loadTrendingGifs = async () => {
           {files.map((file, index) => (
             <div
               key={`${file.name}-${file.lastModified}-${index}`}
-              className="flex items-center bg-gray-800 p-2 rounded-lg"
+              className="flex items-center gap-2 rounded-xl border border-[color:var(--chat-border)] bg-[color:var(--chat-panel-2)] px-3 py-2"
             >
-              <span className="text-sm text-gray-300 truncate flex-1">
+              <span className="flex-1 truncate text-sm text-[color:var(--chat-text)]">
                 {file.name}
               </span>
               <button
@@ -618,7 +619,7 @@ const loadTrendingGifs = async () => {
                     prev.filter((_, fileIndex) => fileIndex !== index)
                   )
                 }
-                className="text-red-400 ml-2"
+                className="ml-2 rounded-full p-1 text-[color:var(--chat-text-muted)] transition hover:bg-white/5 hover:text-white"
               >
                 <X size={16} />
               </button>
@@ -628,7 +629,7 @@ const loadTrendingGifs = async () => {
       )}
 
       {/* Input Bar */}
-      <div className="mb-2 flex items-center gap-2 bg-gray-800 rounded-lg p-3">
+      <div className={chatUi.inputShell + " mb-2"}>
         <textarea
           ref={textInputRef}
           rows={1}
@@ -636,7 +637,7 @@ const loadTrendingGifs = async () => {
           onChange={handleTextChange}
           onKeyDown={handleKeyDown}
           placeholder="Type a message…"
-          className="max-h-32 min-h-6 flex-1 resize-none overflow-y-auto bg-transparent py-0 leading-6 text-white outline-none placeholder:text-gray-400"
+          className={chatUi.input}
         />
 
         <input
@@ -648,11 +649,11 @@ const loadTrendingGifs = async () => {
           onChange={handleFileChange}
         />
 
-        <button onClick={() => fileInputRef.current?.click()}>
+        <button onClick={() => fileInputRef.current?.click()} className={chatUi.buttonGhost + " p-2"}>
           <Paperclip size={20} />
         </button>
 
-        <button onClick={() => setShowEmojiPicker((v) => !v)}>
+        <button onClick={() => setShowEmojiPicker((v) => !v)} className={chatUi.buttonGhost + " p-2"}>
           <Smile size={20} />
         </button>
         <button
@@ -664,7 +665,7 @@ const loadTrendingGifs = async () => {
             }
           }}
           disabled={isSending}
-          className="p-2 rounded-full hover:bg-white/10 active:scale-95 transition"
+          className={chatUi.buttonGhost + " p-2"}
         >
           <ImageIcon className="w-5 h-5" />
         </button>
@@ -672,7 +673,7 @@ const loadTrendingGifs = async () => {
         <button
           onClick={handleSend}
           disabled={isSending || (!text.trim() && files.length === 0)}
-          className="bg-blue-600 p-2 rounded-lg disabled:opacity-50"
+          className={chatUi.buttonPrimary + " rounded-xl px-4 py-2"}
         >
           <Send size={18} />
         </button>

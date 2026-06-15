@@ -39,6 +39,7 @@ import { useToast } from "@/contexts/ToastContext";
 import dynamic from "next/dynamic";
 import { Theme } from "emoji-picker-react";
 import UserProfileModal from "./UserProfileModal";
+import { chatUi } from "./ui/chatUi";
 // import { useMessageReactions } from "@/hooks/useMessageReactions";
 // import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import MessageSearchPanel from "./MessageSearchPanel";
@@ -286,50 +287,50 @@ const ChatList: React.FC<ChatListProps> = ({
   }, [conversations, query]);
 
   return (
-    <aside className="hidden h-full w-80 flex-col border-r border-slate-800 bg-black p-4 backdrop-blur-lg lg:flex">
+    <aside className="hidden h-full w-80 flex-col border-r border-[color:var(--chat-border)] bg-[color:var(--chat-panel)]/95 p-4 backdrop-blur-xl lg:flex">
       <div className="mb-5">
-        <h2 className="text-lg font-semibold text-slate-100">
+        <h2 className="text-lg font-semibold text-[color:var(--chat-text)]">
           Direct Messages
         </h2>
-        <p className="mt-1 text-xs text-slate-400">
+        <p className="mt-1 text-xs text-[color:var(--chat-text-muted)]">
           Catch up with teammates and friends in real time.
         </p>
       </div>
 
-      <label className="group mb-4 flex items-center gap-2 rounded-full border border-slate-800/70 bg-slate-900/70 px-3 py-2 text-sm text-slate-300 focus-within:border-indigo-500/60 focus-within:text-indigo-300">
+      <label className="group mb-4 flex items-center gap-2 rounded-full border border-[color:var(--chat-border)] bg-[color:var(--chat-panel-3)] px-3 py-2 text-sm text-[color:var(--chat-text-secondary)] focus-within:border-[color:var(--chat-accent)]/60 focus-within:text-white">
         <Search className="h-4 w-4" />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search conversations"
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500"
+          className="flex-1 bg-transparent text-sm outline-none placeholder:text-[color:var(--chat-text-muted)]"
         />
       </label>
 
       <div className="chat-scroll flex-1 space-y-2 overflow-y-auto pr-1">
         {isLoading ? (
           <ul className="space-y-2">
-            {Array.from({ length: 6 }).map((_, idx) => (
-              <li
-                key={idx}
-                className="animate-pulse rounded-xl border border-slate-800/60 bg-slate-900/50 p-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-slate-800/60" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-3 w-1/2 rounded-full bg-slate-800/70" />
-                    <div className="h-3 w-3/4 rounded-full bg-slate-800/50" />
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <li
+                  key={idx}
+                  className="animate-pulse rounded-2xl border border-[color:var(--chat-border)] bg-[color:var(--chat-panel-2)] p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-white/5" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 w-1/2 rounded-full bg-white/6" />
+                      <div className="h-3 w-3/4 rounded-full bg-white/4" />
+                    </div>
                   </div>
-                </div>
-              </li>
+                </li>
             ))}
           </ul>
         ) : error ? (
-          <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-200">
+          <div className="rounded-2xl border border-[color:var(--chat-danger)]/30 bg-[color:var(--chat-danger)]/10 p-4 text-sm text-rose-100">
             {error}
           </div>
         ) : filteredConversations.length === 0 ? (
-          <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 p-4 text-center text-sm text-slate-400">
+          <div className={chatUi.empty}>
             No conversations found. Try another name.
           </div>
         ) : (
@@ -340,13 +341,13 @@ const ChatList: React.FC<ChatListProps> = ({
                 <li
                   key={user.id}
                   onClick={() => onSelectDm(user.id)}
-                  className={`group flex cursor-pointer items-center gap-3 rounded-2xl border border-transparent p-3 transition-colors hover:border-indigo-500/40 hover:bg-slate-800/40 ${
+                  className={`group flex cursor-pointer items-center gap-3 rounded-2xl border border-transparent p-3 transition-colors hover:border-[color:var(--chat-border-strong)] hover:bg-white/5 ${
                     isActive
-                      ? "border-indigo-500/50 bg-indigo-500/10 shadow-[0_0_0_1px_rgba(99,102,241,0.2)]"
+                      ? "border-[color:var(--chat-accent)]/50 bg-[color:var(--chat-accent)]/10 shadow-[0_0_0_1px_rgba(124,140,255,0.2)]"
                       : ""
                   }`}
                 >
-                  <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full border border-slate-700/60 bg-slate-800/60">
+                  <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full border border-[color:var(--chat-border)] bg-[color:var(--chat-panel-3)]/80">
                     {user.avatar_url ? (
                       <img
                         src={user.avatar_url}
@@ -361,7 +362,7 @@ const ChatList: React.FC<ChatListProps> = ({
                       />
                     ) : null}
                     <div
-                      className={`flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-slate-300 ${
+                      className={`flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-[color:var(--chat-text-secondary)] ${
                         user.avatar_url ? "hidden" : ""
                       }`}
                     >
@@ -372,23 +373,23 @@ const ChatList: React.FC<ChatListProps> = ({
                     <div className="flex items-center justify-between gap-2">
                       <p
                         className={`truncate text-sm font-medium ${
-                          isActive ? "text-slate-100" : "text-slate-200"
+                          isActive ? "text-white" : "text-[color:var(--chat-text)]"
                         }`}
                       >
                         {user.fullname}
                       </p>
                       {unreadCount > 0 && !isActive && (
-                        <span className="flex-shrink-0 bg-green-500 text-white text-xs rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1.5 font-bold">
+                        <span className="flex h-[20px] min-w-[20px] flex-shrink-0 items-center justify-center rounded-full bg-[color:var(--chat-success)] px-1.5 text-xs font-bold text-white">
                           {unreadCount > 99 ? "99+" : unreadCount}
                         </span>
                       )}
                     </div>
-                    <p className="truncate text-xs text-slate-400 group-hover:text-slate-300">
+                    <p className="truncate text-xs text-[color:var(--chat-text-muted)] group-hover:text-[color:var(--chat-text-secondary)]">
                       {lastMessage || "No messages yet."}
                     </p>
                   </div>
                   {isActive && (
-                    <div className="h-2 w-2 rounded-full bg-indigo-400" />
+                    <div className="h-2 w-2 rounded-full bg-[color:var(--chat-accent)]" />
                   )}
                 </li>
               );
@@ -2189,7 +2190,7 @@ useEffect(() => {
 }, [activeDmId, lastMessageId]);
 
   return (
-    <div className="flex h-screen min-h-0 w-full bg-slate-950 text-slate-100">
+    <div className="flex h-screen min-h-0 w-full chat-shell">
       {toast && (
         <div className="fixed top-6 right-6 z-[9999]">
           <Toast
@@ -2209,13 +2210,13 @@ useEffect(() => {
         error={error}
       />
       <div className="flex flex-1 flex-col">
-        <div className="border-b border-slate-800/70 bg-black px-4 py-3 lg:hidden">
+        <div className="border-b border-[color:var(--chat-border)] bg-[color:var(--chat-panel)]/95 px-4 py-3 lg:hidden">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-base font-semibold text-slate-100">
+              <h2 className="text-base font-semibold text-[color:var(--chat-text)]">
                 Direct Messages
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-[color:var(--chat-text-muted)]">
                 Tap a friend to open the chat.
               </p>
             </div>
@@ -2229,11 +2230,11 @@ useEffect(() => {
                   onClick={() => handleSelectDm(user.id)}
                   className={`flex min-w-[64px] flex-col items-center gap-2 rounded-2xl border px-3 py-2 text-xs transition-colors ${
                     isActive
-                      ? "border-indigo-400/70 bg-indigo-500/10 text-indigo-100"
-                      : "border-slate-800/70 bg-slate-900/60 text-slate-300"
+                      ? "border-[color:var(--chat-accent)]/70 bg-[color:var(--chat-accent)]/10 text-white"
+                      : "border-[color:var(--chat-border)] bg-[color:var(--chat-panel-3)]/70 text-[color:var(--chat-text-secondary)]"
                   }`}
                 >
-                  <div className="h-10 w-10 overflow-hidden rounded-full border border-slate-800/70 bg-slate-800/60">
+                  <div className="h-10 w-10 overflow-hidden rounded-full border border-[color:var(--chat-border)] bg-[color:var(--chat-panel-3)]/80">
                     {user.avatar_url ? (
                       <img
                         src={user.avatar_url}
@@ -2241,7 +2242,7 @@ useEffect(() => {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-slate-200">
+                      <div className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-[color:var(--chat-text)]">
                         {getInitials(user.fullname)}
                       </div>
                     )}

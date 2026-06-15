@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Search, X, Loader2 } from "lucide-react";
 import { MessageSearchResult } from "@/api/types/message.types";
+import { chatUi } from "./ui/chatUi";
 
 interface MessageSearchPanelProps {
   isOpen: boolean;
@@ -75,37 +76,37 @@ const MessageSearchPanel: React.FC<MessageSearchPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 px-4 pt-16">
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-700 bg-[#1e1f22] shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-700 px-4 py-3">
-          <h3 className="text-sm font-semibold text-slate-100">{title}</h3>
+    <div className="chat-modal-backdrop flex items-start justify-center px-4 pt-16">
+      <div className={`chat-modal w-full max-w-lg`}>
+        <div className="flex items-center justify-between border-b border-[color:var(--chat-border)] px-4 py-3">
+          <h3 className="text-sm font-semibold text-[color:var(--chat-text)]">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-1 text-slate-400 transition hover:bg-slate-700 hover:text-white"
+            className="rounded-full p-1 text-[color:var(--chat-text-muted)] transition hover:bg-white/5 hover:text-white"
             aria-label="Close search"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="flex items-center gap-2 border-b border-slate-700/80 px-4 py-3">
-          <Search className="h-4 w-4 text-slate-400" />
+        <div className="flex items-center gap-2 border-b border-[color:var(--chat-border)]/80 px-4 py-3">
+          <Search className="h-4 w-4 text-[color:var(--chat-text-muted)]" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={placeholder}
-            className="flex-1 bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500"
+            className={chatUi.searchInput}
           />
           {isSearching && (
-            <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
+            <Loader2 className="h-4 w-4 animate-spin text-[color:var(--chat-accent-strong)]" />
           )}
         </div>
 
         <div className="max-h-80 overflow-y-auto">
           {error && !isSearching && (
-            <p className="px-4 py-6 text-center text-sm text-slate-400">
+            <p className="px-4 py-6 text-center text-sm text-[color:var(--chat-text-muted)]">
               {error}
             </p>
           )}
@@ -131,22 +132,22 @@ const MessageSearchPanel: React.FC<MessageSearchPanelProps> = ({
                   onSelectResult(result);
                   onClose();
                 }}
-                className="flex w-full flex-col gap-1 border-b border-slate-800/80 px-4 py-3 text-left transition hover:bg-slate-800/60"
+                className="flex w-full flex-col gap-1 border-b border-[color:var(--chat-border)] px-4 py-3 text-left transition hover:bg-white/5"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-indigo-300">
+                  <span className="text-xs font-medium text-[color:var(--chat-accent-strong)]">
                     {displayName}
                   </span>
                   {timeLabel && (
-                    <span className="text-[10px] text-slate-500">{timeLabel}</span>
+                    <span className="text-[10px] text-[color:var(--chat-text-muted)]">{timeLabel}</span>
                   )}
                 </div>
                 {showChannelName && result.channel_name && (
-                  <span className="text-[10px] uppercase tracking-wide text-slate-500">
+                  <span className="text-[10px] uppercase tracking-wide text-[color:var(--chat-text-muted)]">
                     #{result.channel_name}
                   </span>
                 )}
-                <p className="line-clamp-2 text-sm text-slate-200">{preview}</p>
+                <p className="line-clamp-2 text-sm text-[color:var(--chat-text-secondary)]">{preview}</p>
               </button>
             );
           })}

@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import type { EmojiClickData } from "emoji-picker-react";
 import { Theme } from "emoji-picker-react";
 import { Paperclip, Smile, Pin } from "lucide-react";
+import { chatUi } from "./ui/chatUi";
 
 /* -------------------- TYPES -------------------- */
 
@@ -66,7 +67,7 @@ const MessageAvatar: React.FC<{
   return (
     <div
       onClick={onClick}
-      className={`w-8 h-8 flex-shrink-0 rounded-full overflow-hidden bg-slate-700 border border-slate-600 flex items-center justify-center ${
+      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-[color:var(--chat-border)] bg-[color:var(--chat-panel-3)] ${
         onClick ? "cursor-pointer hover:opacity-90 transition" : ""
       } ${className}`}
     >
@@ -203,8 +204,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   };
 
   const bubbleStyles = isSender
-    ? "bg-[#3a3c43] text-[#dbdee1]"
-    : "bg-[#2b2d31] text-[#dbdee1]";
+    ? chatUi.messageBubbleSender
+    : chatUi.messageBubbleReceiver;
 
   const copyCodeBlock = async (code: string, blockIndex: number) => {
     try {
@@ -266,20 +267,20 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       return (
         <div
           key={`code-${segmentIndex}`}
-          className="my-2 overflow-hidden rounded-lg border border-slate-600 bg-[#1e1f22] text-left"
+          className="my-2 overflow-hidden rounded-xl border border-[color:var(--chat-border)] bg-[color:var(--chat-panel)] text-left"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between border-b border-slate-700 px-3 py-2 text-[11px] text-slate-400">
+          <div className="flex items-center justify-between border-b border-[color:var(--chat-border)] px-3 py-2 text-[11px] text-[color:var(--chat-text-muted)]">
             <span>Code</span>
             <button
               type="button"
               onClick={() => copyCodeBlock(segment.value, segmentIndex)}
-              className="rounded-md border border-slate-600 mx-2 px-2 py-1 text-slate-200 transition hover:bg-slate-700"
+              className="mx-2 rounded-md border border-[color:var(--chat-border)] px-2 py-1 text-[color:var(--chat-text)] transition hover:bg-white/5"
             >
               {isCopied ? "Copied" : "Copy"}
             </button>
           </div>
-          <pre className="p-2 overflow-x-auto text-sm leading-6 text-slate-100">
+          <pre className="overflow-x-auto p-3 text-sm leading-6 text-[color:var(--chat-text)]">
             <code className="font-mono whitespace-pre-wrap break-words">
               {segment.value}
             </code>
@@ -292,13 +293,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   return (
     <div
       data-message-id={message.id}
-      className={`group flex mb-3 mx-0 ${isSender ? "justify-end" : "justify-start"} ${
+      className={`group mb-3 flex ${isSender ? "justify-end" : "justify-start"} ${
         isPending ? "opacity-70" : ""
       }`}
     >
       {/* Left Avatar (receiver) */}
       {!isSender && (
-        <div className="mx-1 mr-2">
+        <div className="mr-2">
           <MessageAvatar
             name={name}
             avatarUrl={avatarUrl}
@@ -309,14 +310,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
       {/* Message Body */}
       <div
-        className={`flex flex-col gap-1 max-w-[75%] ${
+        className={`flex max-w-[75%] flex-col gap-1 ${
           isSender ? "items-end text-left" : "items-start"
         }`}
       >
         {/* Username */}
         {name && !isSender && (
           <span
-            className="text-xs font-medium text-[#949ba4] px-1 cursor-pointer hover:text-[#dbdee1]"
+            className="cursor-pointer px-1 text-xs font-medium text-[color:var(--chat-text-muted)] hover:text-white"
             onClick={onProfileClick}
           >
             {name}
@@ -328,9 +329,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           <button
             type="button"
             onClick={() => onReplyPreviewClick?.(message.replyTo!.id)}
-            className={`max-w-full px-3 py-2 text-left text-xs text-[#dbdee1] bg-[#1e1f22] rounded-md border-l-4 border-[#5865f2] transition ${
+            className={`max-w-full border-l-4 border-[color:var(--chat-accent)] px-3 py-2 text-left text-xs text-[color:var(--chat-text)] transition ${
               onReplyPreviewClick
-                ? "cursor-pointer hover:bg-[#26282d] hover:border-[#7b83ff]"
+                ? "cursor-pointer hover:bg-white/5 hover:border-[color:var(--chat-accent-strong)]"
                 : "cursor-default"
             }`}
           >
@@ -340,19 +341,19 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             <span className="mt-1 flex min-w-0 items-center gap-2">
               {message.replyTo.content?.startsWith("[GIF]") ? (
                 <>
-                  <img
-                    src={message.replyTo.content.replace("[GIF]", "")}
-                    alt="GIF reply"
-                    className="h-10 w-10 rounded object-cover border border-slate-600 flex-shrink-0"
-                  />
-                  <span className="truncate text-slate-400">GIF</span>
-                </>
-              ) : message.replyTo.content?.trim().startsWith("```") ? (
-                <div className="max-w-xs overflow-hidden rounded bg-slate-900 border mx-2  border-slate-700 px-4 py-2">
-                  <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap">
-                   {message.replyTo.content
-              .replace(/^```[\w]*\n?/, "")
-              .replace(/```/g, "")
+                    <img
+                      src={message.replyTo.content.replace("[GIF]", "")}
+                      alt="GIF reply"
+                      className="h-10 w-10 flex-shrink-0 rounded-lg border border-[color:var(--chat-border)] object-cover"
+                    />
+                   <span className="truncate text-[color:var(--chat-text-secondary)]">GIF</span>
+                  </>
+                ) : message.replyTo.content?.trim().startsWith("```") ? (
+                  <div className="mx-2 max-w-xs overflow-hidden rounded-lg border border-[color:var(--chat-border)] bg-[color:var(--chat-panel)] px-4 py-2">
+                    <pre className="whitespace-pre-wrap font-mono text-xs text-[color:var(--chat-text-secondary)]">
+                     {message.replyTo.content
+               .replace(/^```[\w]*\n?/, "")
+               .replace(/```/g, "")
               .trim()
               .split("\n")
               .slice(0, 3)
@@ -369,10 +370,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                       <img
                         src={message.replyTo.mediaUrl}
                         alt="Reply attachment"
-                        className="h-9 w-9 flex-shrink-0 rounded object-cover border border-slate-600"
+                        className="h-9 w-9 flex-shrink-0 rounded-lg border border-[color:var(--chat-border)] object-cover"
                       />
                     ) : (
-                      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded border border-slate-600 bg-slate-800 text-slate-300">
+                      <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-[color:var(--chat-border)] bg-[color:var(--chat-panel-3)] text-[color:var(--chat-text-secondary)]">
                         <Paperclip className="h-4 w-4" />
                       </span>
                     ))}
@@ -398,20 +399,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Message Bubble */}
         <div
-  className={`
-    w-fit max-w-96
-    ${isGifMessage ? "p-1" : "px-4 py-2.5"}
-    ${bubbleStyles}
-    rounded-lg
-    ${
-      isMentioned
-        ? "bg-[rgba(250,204,21,0.15)] ring-1 ring-[#facc15]"
-        : ""
-    }
-    ${isFailed ? "ring-1 ring-red-500 bg-red-900/20" : ""}
-  `}
+          className={`${chatUi.messageBubble} ${bubbleStyles} ${
+            isGifMessage ? "p-1" : ""
+          } ${
+            isMentioned ? "ring-1 ring-[color:var(--chat-warning)]/70" : ""
+          } ${isFailed ? "ring-1 ring-[color:var(--chat-danger)]/70" : ""}`}
 >
-          <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-left">
+          <div className="break-words whitespace-pre-wrap text-left text-sm leading-relaxed">
             {messageRenderer
               ? messageRenderer(message.content)
               : renderPlainContent(message.content)}
@@ -438,7 +432,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             {onReply && !isFailed && (
               <button
                 onClick={onReply}
-                className="text-xs text-[#949ba4] hover:text-[#dbdee1] flex items-center gap-1"
+                className="flex items-center gap-1 text-xs text-[color:var(--chat-text-muted)] hover:text-white"
                 aria-label="Reply"
                 title="Reply"
               >
@@ -465,8 +459,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                     onClick={() => handleQuickReaction(reaction.emoji)}
                     className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition ${
                       reaction.reactedByMe
-                        ? "border-indigo-500/60 bg-slate-800 text-slate-100 hover:bg-slate-700/90"
-                        : "border-slate-700/80 bg-slate-900/90 text-slate-200 hover:border-slate-600 hover:bg-slate-800"
+                        ? "border-[color:var(--chat-accent)]/60 bg-[color:var(--chat-panel-3)] text-white hover:bg-white/5"
+                        : "border-[color:var(--chat-border)] bg-[color:var(--chat-panel)] text-[color:var(--chat-text-secondary)] hover:border-[color:var(--chat-border-strong)] hover:bg-white/5"
                     }`}
                     aria-label={
                       reaction.reactedByMe
@@ -502,7 +496,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             {isFailed && onRetry && (
               <button
                 onClick={onRetry}
-                className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
+                className="flex items-center gap-1 text-xs text-[color:var(--chat-danger)] hover:text-red-300"
               >
                 <span>Failed</span>
                 <span className="underline">Retry</span>
@@ -514,10 +508,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         {/* Timestamp and status */}
         <div className="flex items-center gap-2 px-1">
           {timestamp && (
-            <span className="text-[10px] text-[#949ba4]">{timestamp}</span>
+            <span className="text-[10px] text-[color:var(--chat-text-muted)]">{timestamp}</span>
           )}
           {isPending && (
-            <span className="text-[10px] text-[#949ba4] flex items-center gap-1">
+            <span className="flex items-center gap-1 text-[10px] text-[color:var(--chat-text-muted)]">
               <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
                 <circle
                   className="opacity-25"
@@ -566,7 +560,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
       {/* Right Avatar (sender) */}
       {isSender && (
-        <div className="ml-3">
+        <div className="ml-2">
           <MessageAvatar name={name || "You"} avatarUrl={avatarUrl} />
         </div>
       )}

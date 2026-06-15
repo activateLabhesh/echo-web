@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Smile, Send, Paperclip, X, ImageIcon } from "lucide-react";
 import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
 import { useToast } from "@/contexts/ToastContext";
+import { chatUi } from "./ui/chatUi";
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
@@ -239,17 +240,17 @@ const loadTrendingGifs = async () => {
 
   /* -------------------- RENDER -------------------- */
   return (
-    <div className="relative p-4">
+    <div className="relative px-4 pb-4 pt-3">
       {/* Emoji Picker */}
       {showEmojiPicker && (
-        <div className="emoji-picker-react absolute bottom-24 left-4 z-50 shadow-xl">
+        <div className="emoji-picker-react absolute bottom-24 left-4 z-50 overflow-hidden rounded-2xl border border-[color:var(--chat-border)] shadow-[0_24px_70px_rgba(0,0,0,0.5)]">
           <EmojiPicker theme={Theme.DARK} onEmojiClick={handleEmojiClick} />
         </div>
       )}
       {showGifPicker && (
         <div
           ref={gifPickerRef}
-          className="absolute bottom-24 left-4 w-96 h-96 bg-zinc-900 rounded-xl overflow-hidden z-50"
+          className="absolute bottom-24 left-4 z-50 h-96 w-96 overflow-hidden rounded-2xl border border-[color:var(--chat-border)] bg-[color:var(--chat-panel)] shadow-[0_24px_70px_rgba(0,0,0,0.5)]"
         >
           <input
             value={gifSearch}
@@ -258,15 +259,15 @@ const loadTrendingGifs = async () => {
               searchGifs(e.target.value);
             }}
             placeholder="Search GIFs..."
-            className="w-full p-3 bg-zinc-800 text-white"
+            className="chat-search-input w-full border-b border-[color:var(--chat-border)] px-4 py-3"
           />
 
-          <div className="grid grid-cols-2 gap-2 p-2 overflow-y-auto h-[330px]">
+          <div className="grid h-[330px] grid-cols-2 gap-2 overflow-y-auto p-3">
             {gifs.map((gif) => (
               <img
                 key={gif.id}
                 src={gif.images.fixed_width.url}
-                className="cursor-pointer rounded"
+                className="cursor-pointer rounded-xl border border-transparent object-cover transition hover:border-[color:var(--chat-accent)]/40 hover:opacity-95"
                 onClick={() => {
                   sendGif(gif.images.original.url);
                   setShowGifPicker(false);
@@ -282,10 +283,10 @@ const loadTrendingGifs = async () => {
           {files.map((file, index) => (
             <div
               key={`${file.name}-${file.lastModified}-${index}`}
-              className="flex items-center bg-white/10 backdrop-blur-md p-2 rounded-lg"
+              className="flex items-center gap-2 rounded-xl border border-[color:var(--chat-border)] bg-[color:var(--chat-panel-2)] px-3 py-2"
             >
-              <Paperclip className="h-4 w-4 mr-2 text-gray-400" />
-              <span className="text-sm text-white truncate flex-1">
+              <Paperclip className="mr-1 h-4 w-4 text-[color:var(--chat-text-muted)]" />
+              <span className="flex-1 truncate text-sm text-[color:var(--chat-text)]">
                 {file.name}
               </span>
               <button
@@ -294,7 +295,7 @@ const loadTrendingGifs = async () => {
                     prev.filter((_, fileIndex) => fileIndex !== index)
                   )
                 }
-                className="ml-2 text-gray-400 hover:text-white transition"
+                className="rounded-full p-1 text-[color:var(--chat-text-muted)] transition hover:bg-white/5 hover:text-white"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -303,10 +304,7 @@ const loadTrendingGifs = async () => {
         </div>
       )}
       {/* Input Bar */}
-      <div
-        className="bg-white/10 backdrop-blur-lg border border-white/20 
-                   rounded-2xl flex items-center px-3 py-2 gap-2 text-white"
-      >
+      <div className={chatUi.inputShell}>
         {/* Hidden File Input */}
         <input
           ref={fileInputRef}
@@ -321,7 +319,7 @@ const loadTrendingGifs = async () => {
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isSending}
-          className="p-2 rounded-full hover:bg-white/10 active:scale-95 transition"
+          className={chatUi.buttonGhost + " p-2"}
         >
           <Paperclip className="w-5 h-5" />
         </button>
@@ -330,7 +328,7 @@ const loadTrendingGifs = async () => {
         <button
           onClick={() => setShowEmojiPicker((v) => !v)}
           disabled={isSending}
-          className="p-2 rounded-full hover:bg-white/10 active:scale-95 transition"
+          className={chatUi.buttonGhost + " p-2"}
         >
           <Smile className="w-5 h-5" />
         </button>
@@ -343,7 +341,7 @@ const loadTrendingGifs = async () => {
             }
           }}
           disabled={isSending}
-          className="p-2 rounded-full hover:bg-white/10 active:scale-95 transition"
+          className={chatUi.buttonGhost + " p-2"}
         >
           <ImageIcon className="w-5 h-5" />
         </button>
@@ -356,20 +354,14 @@ const loadTrendingGifs = async () => {
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder="Type a message"
-          className="flex-1 bg-transparent resize-none 
-                     text-white caret-white 
-                     placeholder-white/60 
-                     focus:outline-none 
-                     max-h-32 min-h-6 overflow-y-auto py-0 leading-6"
+          className={chatUi.input}
         />
 
         {/* Send */}
         <button
           onClick={handleSend}
           disabled={isSending || (!text.trim() && files.length === 0)}
-          className="bg-blue-600 hover:bg-blue-700 
-                     active:scale-95 transition 
-                     p-2 rounded-full disabled:opacity-40"
+          className={chatUi.buttonPrimary + " rounded-full px-4 py-2"}
         >
           <Send className="w-4 h-4 text-white" />
         </button>

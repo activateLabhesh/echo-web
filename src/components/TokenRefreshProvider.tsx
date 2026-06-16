@@ -16,6 +16,7 @@ export function TokenRefreshProvider({
     "/register",
     "/reset-password",
     "/forgot-password",
+    "/invite",
   ];
   const isPublicRoute = publicRoutes.some((route) =>
     pathname.startsWith(route)

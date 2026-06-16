@@ -67,7 +67,9 @@ api.interceptors.response.use(
       localStorage.removeItem("tokenExpiry");
       localStorage.removeItem("user");
       sessionStorage.setItem("skipGlobalLoader", "1");
-      window.location.href = "/";
+      if (!window.location.pathname.startsWith("/invite")) {
+        window.location.href = "/";
+      }
       return Promise.reject(error);
     }
 
@@ -144,7 +146,9 @@ api.interceptors.response.use(
       localStorage.removeItem("tokenExpiry");
       localStorage.removeItem("user");
       sessionStorage.setItem("skipGlobalLoader", "1");
-      window.location.href = "/";
+      if (!window.location.pathname.startsWith("/invite")) {
+        window.location.href = "/";
+      }
 
       return Promise.reject(refreshError);
     } finally {

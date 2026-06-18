@@ -409,7 +409,7 @@ const externalState = useMemo(
         }
         setToast(null);
       } catch (err) {
-        console.error("Error fetching servers", err);
+
         setError("Failed to load servers.");
         setToast({ message: "Failed to load servers", type: "error" });
       } finally {
@@ -492,7 +492,7 @@ const externalState = useMemo(
       try {
         await loadChannelsForServer(selectedServerId);
       } catch (err) {
-        console.error("Error fetching channels", err);
+
         setError("Failed to load channels");
         setChannels([]);
         setToast({ message: "Failed to load channels", type: "error" });
@@ -513,7 +513,7 @@ const externalState = useMemo(
         setSelfAssignableRoles(assignableRoles);
         setMyRoles(userRoles);
       } catch (err) {
-        console.error("Error loading roles:", err);
+
       } finally {
         setRolesLoading(false);
       }
@@ -582,7 +582,7 @@ const externalState = useMemo(
         const data = await fetchServers();
         setServers(data);
       } catch (err) {
-        console.error("Error fetching servers", err);
+
         setError("Failed to load servers.");
       } finally {
         setLoading(false);
@@ -616,7 +616,7 @@ const externalState = useMemo(
         selectedServerName || "Server"
       );
     } catch (err: any) {
-      console.error("Error joining voice channel:", err);
+
       setViewMode("chat");
       setToast({
         message:
@@ -639,7 +639,7 @@ const externalState = useMemo(
         setMyRoles(updatedRoles);
       }
     } catch (err: any) {
-      console.error("Error toggling role:", err);
+
       setToast({
         message: err?.response?.data?.error || "Failed to toggle role",
         type: "error",
@@ -728,7 +728,6 @@ const externalState = useMemo(
     }
   };
 
-  
 
   return (
     <>
@@ -1360,7 +1359,7 @@ const externalState = useMemo(
     
     {/* Left */}
     <div className="flex items-center gap-2 min-w-0">
-      
+
 
       <PhoneCall
         size={14}

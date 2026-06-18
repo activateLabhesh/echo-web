@@ -281,7 +281,7 @@ export default forwardRef(function ChatWindow(
   }, [channelId]);
 
   const handleReply = (message: Message) => {
-    console.log("Reply clicked for:", message);
+
     setReplyingTo(message);
   };
 
@@ -359,7 +359,7 @@ export default forwardRef(function ChatWindow(
       setLastReadTimestamp(stored || null);
       dividerTimestampRef.current = stored || null;
     } catch (err) {
-      console.error("Failed to load channel last-read timestamp", err);
+
       setLastReadTimestamp(null);
       dividerTimestampRef.current = null; 
     }
@@ -420,7 +420,7 @@ export default forwardRef(function ChatWindow(
           validUsernamesRef.current = set;
         }
       } catch (err) {
-        console.error("Failed to seed mention usernames", err);
+
       }
     };
 
@@ -444,7 +444,6 @@ export default forwardRef(function ChatWindow(
 
     validRoleNamesRef.current = set;
 
-    console.log("MENTIONABLE ROLES:", Array.from(set));
   }, [serverRoles]);
 
   // Track whether there are *unread* mentions in history
@@ -459,7 +458,7 @@ export default forwardRef(function ChatWindow(
         setChannelPermissions(permissions);
         setPermissionError(null);
       } catch (err: any) {
-        console.error("Error fetching channel permissions:", err);
+
         // If error, assume normal permissions
         setChannelPermissions({
           channelType: "normal",
@@ -513,7 +512,7 @@ export default forwardRef(function ChatWindow(
           )
         );
       } catch (error) {
-        console.error("Failed to load current user's avatar:", error);
+
       }
     };
 
@@ -673,7 +672,7 @@ const openProfile = useCallback(
           })) || [],
       });
     } catch (err) {
-      console.error("openProfile error:", err);
+
       setSelectedUser((prev) =>
         prev ? { ...prev, about: "No bio available." } : null
       );
@@ -724,7 +723,7 @@ const handleUsernameClick = useCallback(
           }
         }
       } catch (err) {
-        console.error("Failed to resolve UUID from members list:", err);
+
       }
     }
 
@@ -761,7 +760,7 @@ const handleUsernameClick = useCallback(
           users: data.users || [],
         });
       } catch (err) {
-        console.error("Error fetching users for role:", err);
+
         setRoleModal({
           open: true,
           role: roleName,
@@ -780,7 +779,7 @@ const handleUsernameClick = useCallback(
           setCurrentUsername(user.username);
         }
       } catch (err) {
-        console.error("Failed to load current user", err);
+
       }
     };
 
@@ -807,7 +806,7 @@ const handleUsernameClick = useCallback(
 
         setCurrentUserRoleIds(data.roles?.map((r: any) => r.id) || []);
       } catch (err) {
-        console.error("Failed to load my server roles", err);
+
       }
     };
 
@@ -968,7 +967,7 @@ const handleUsernameClick = useCallback(
 
         setHasMore(res.hasMore ?? false);
       } catch (err) {
-        console.error("Failed to fetch messages", err);
+
       } finally {
         if (abortSignal?.aborted || channelIdRef.current !== currentChannelId) {
           return;
@@ -1077,7 +1076,7 @@ const handleUsernameClick = useCallback(
           }
         }
       } catch (error) {
-        console.error("Error during initial scroll:", error);
+
         messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
         setTimeout(() => {
           isAutoScrollingRef.current = false;
@@ -1137,7 +1136,7 @@ const handleUsernameClick = useCallback(
         const key = `channel_last_read_${channelId}_${currentUserId}`;
         localStorage.setItem(key, ts);
       } catch (err) {
-        console.error("Failed to persist last read timestamp", err);
+
       }
 
       void markUnreadMentionsAsRead();
@@ -1165,7 +1164,7 @@ const handleUsernameClick = useCallback(
               const key = `channel_last_read_${channelId}_${currentUserId}`;
               localStorage.setItem(key, ts);
             } catch (err) {
-              console.error("Failed to persist last read timestamp", err);
+
             }
 
             void markUnreadMentionsAsRead();
@@ -1209,7 +1208,7 @@ const handleUsernameClick = useCallback(
            onLoadOlderMessages?.();
          }
   };
-    
+
 
   const jumpToNextMention = useCallback(() => {
     if (unreadMentionsForChannel.length === 0) return;
@@ -1312,11 +1311,10 @@ const handleUsernameClick = useCallback(
     if (!socket || !channelId) return;
 
     socket.emit("join_room", channelId);
-    console.log(`Joined room: ${channelId}`);
 
     return () => {
       socket.emit("leave_room", channelId);
-      console.log(`Left room: ${channelId}`);
+
     };
   }, [socket, channelId]);
 
@@ -1325,16 +1323,16 @@ const handleUsernameClick = useCallback(
     socket.on("connect", () => {
       if (channelId) {
         socket.emit("join_room", channelId);
-        console.log(`Reconnected and joined room: ${channelId}`);
+
       }
     });
 
     socket.on("connect_error", (error: Error) => {
-      console.error(" Socket connection error:", error);
+
     });
 
     socket.on("disconnect", (reason) => {
-      console.log("Socket disconnected:", reason);
+
     });
 
     const pingInterval = setInterval(() => {
@@ -1358,7 +1356,7 @@ const handleUsernameClick = useCallback(
       const messageId = saved?.id || saved?.messageId;
 
       if (!messageId) {
-        console.warn("Received message without ID, ignoring:", saved);
+
         return;
       }
 
@@ -1370,7 +1368,7 @@ const handleUsernameClick = useCallback(
       }
 
       if (receivedMessageIdsRef.current.has(messageId)) {
-        console.log(`Duplicate message detected (ID: ${messageId}), ignoring`);
+
         return;
       }
 
@@ -1434,11 +1432,10 @@ const handleUsernameClick = useCallback(
       if (senderId && resolvedUsername && resolvedUsername !== "Unknown") {
         usernamesRef.current[senderId] = resolvedUsername;
       }
-
       setMessages((prev) => {
         const existsById = prev.some((msg) => msg.id === messageId);
         if (existsById) {
-          console.log(`Message ${messageId} already in state, skipping`);
+
           return prev;
         }
 
@@ -1492,7 +1489,7 @@ const handleUsernameClick = useCallback(
       const realId = saved?.id;
 
       if (!tempId || !realId) {
-        console.warn("message_confirmed missing tempId or id:", saved);
+
         return;
       }
 
@@ -1504,7 +1501,7 @@ const handleUsernameClick = useCallback(
         const optimisticIndex = prev.findIndex((msg) => msg.tempId === tempId);
 
         if (optimisticIndex === -1) {
-          console.log(`No optimistic message found for tempId ${tempId}`);
+
           return prev;
         }
 
@@ -1535,8 +1532,6 @@ const handleUsernameClick = useCallback(
       const tempId = error?.tempId;
       const errorMsg = error?.error || error;
 
-      console.error("Message error:", errorMsg);
-
       if (tempId) {
         // Mark the optimistic message as failed
         setMessages((prev) =>
@@ -1546,14 +1541,13 @@ const handleUsernameClick = useCallback(
         );
       }
     };
-
     socket.on("new_message", handleIncomingMessage);
     socket.on("reconnect", async () => {
       await loadMessages();
     });
 
     return () => {
-      socket.off("new_message");
+      socket.off("new_message",handleIncomingMessage);
       socket.off("message_confirmed");
       socket.off("message_error");
       socket.off("reconnect");
@@ -1705,29 +1699,38 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
       requestAnimationFrame(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       });
-      console.log("[Upload Message] Response:", response);
 
-      setMessages((prev) => {
-        const idx = prev.findIndex((msg) => msg.id === tempId);
-        if (idx !== -1) {
-          const next = [...prev];
-          next[idx] = {
-            ...next[idx],
-            id: String(response.id || tempId),
-            mediaUrl: response.media_url || response.mediaUrl || next[idx].mediaUrl,
-            status: "sent",
-            replyTo: next[idx].replyTo
-          };
-          return next;
-        }
-        return prev;
-      });
+    setMessages((prev) => {
+      const realId = String(response.id || tempId);
+
+      // Socket already inserted the real message.
+      if (prev.some(m => String(m.id) === realId)) {
+          return prev.filter(m => m.id !== tempId);
+      }
+
+      const idx = prev.findIndex(m => m.id === tempId);
+
+      if (idx === -1) return prev;
+
+      const next = [...prev];
+
+      next[idx] = {
+          ...next[idx],
+          id: realId,
+          content: response.content ?? next[idx].content,
+          mediaUrl: response.media_url || response.mediaUrl,
+          status: "sent",
+          replyTo: next[idx].replyTo,
+      };
+
+      return next;
+});
 
       if (response.id) {
         receivedMessageIdsRef.current.add(String(response.id));
       }
     } catch (err: any) {
-      console.error("💔 Failed to upload message:", err);
+
       const errorMessage =
         err?.response?.data?.error || err.message || "Unknown error";
 
@@ -1742,6 +1745,7 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
         });
       }
 
+      
       setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
     }
   };
@@ -1871,7 +1875,6 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
   return (
     <div className="flex flex-col flex-1 h-full w-full overflow-hidden">
       {(serverId || threadId) && (
-        
 
 
 <div className="h-12 flex items-center justify-between px-4 border-b border-[#1f2124] bg-[#313338] ">
@@ -2141,7 +2144,7 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
     </span>
     :
   </span>
-  
+
 
   {replyingTo.content?.startsWith("[GIF]") ? (
     <img
@@ -2213,7 +2216,7 @@ const isReplyImage = (mediaUrl?: string | null, mediaType?: string) => {
             </button>
           </div>
         )}
-        
+
 
         {channelPermissions && !channelPermissions.canSend ? (
           <div className=" mb-3 p-4 bg-slate-800/70 border-2 border-slate-700 rounded-lg text-center">
